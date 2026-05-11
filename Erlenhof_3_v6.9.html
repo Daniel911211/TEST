@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Erlenhof 3</title>
+<style>*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{font-size:16px}
+body{font-family:'Inter','Segoe UI',Arial,sans-serif;background:#0f0f0f;color:#c8c8c8;min-height:100vh}
+.page-header{background:#111;border-bottom:3px solid #8b0000;padding:22px 24px}
+.page-header h1{font-size:2rem;font-weight:900;color:#fff;letter-spacing:-.01em}
+.page-header .meta{font-size:0.78rem;color:#666;margin-top:10px;display:flex;gap:20px;flex-wrap:wrap}
+.page-body{max-width:840px;margin:0 auto;padding:24px 20px 60px;display:flex;flex-direction:column;gap:18px}
+.card{background:#1a1a1a;border:1px solid #2e2e2e;border-radius:8px;overflow:hidden}
+.card-head{background:#111;border-bottom:2px solid #8b0000;padding:11px 18px;font-size:0.72rem;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:#aaa}
+.card-body{padding:18px}
+.aufgabe{font-size:1.05rem;line-height:1.75;color:#e8e8e8;white-space:pre-wrap;word-break:break-word}
+.lb-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px}
+.lb-link{display:block;border-radius:6px;overflow:hidden;border:1px solid #2e2e2e;transition:opacity .15s}
+.lb-link:hover{opacity:.85}
+.lb-img{width:100%;display:block;object-fit:cover}
+.status-neutral{color:#888;font-size:0.95rem;padding:4px 0}
+.hint-box{display:none;background:rgba(245,166,35,.10);border:1px solid rgba(245,166,35,.45);color:#f5a623;border-radius:6px;padding:12px 14px;font-size:0.9rem;line-height:1.55;margin-top:12px;word-break:break-word}
+.hint-box.show{display:block}
+.btn-check{display:inline-flex;align-items:center;gap:8px;padding:12px 22px;background:#8b0000;color:#fff;border:none;border-radius:6px;font-family:inherit;font-size:1rem;font-weight:700;cursor:pointer;margin-top:14px;transition:background .15s}
+.btn-check:hover{background:#a00000}
+.btn-check:active{background:#700000}
+@media(max-width:600px){.page-header h1{font-size:1.5rem}.lb-grid{grid-template-columns:1fr}}</style>
+</head>
+<body>
+
+<div class="page-header">
+  <h1>Erlenhof 3</h1>
+  <div class="meta">
+    <span>Übung: Funkübung</span>
+    <span>Version: v6.9</span>
+  </div>
+</div>
+
+<!-- Stations-Startseite -->
+<div id="start-screen">
+  <div class="page-body">
+    <div class="card">
+      <div class="card-head">Stations-Startseite</div>
+      <div class="card-body">
+        <p id="st-status" class="status-neutral">Standort noch nicht geprüft.</p>
+        <button class="btn-check" onclick="checkLocation()">📍 Standort prüfen</button>
+        <div id="st-hint" class="hint-box"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Freigeschalteter Inhalt -->
+<div id="content" style="display:none">
+  <div class="page-body">
+    <div class="card">
+      <div class="card-head">Aufgabe</div>
+      <div class="card-body"><div class="aufgabe">Lagemeldung abgeben</div></div>
+    </div>
+    <div id="lb-area" style="display:none"></div>
+  </div>
+</div>
+
+<script>var LAGEBILDER = [{"url":"https://daniel911211.github.io/Bilder/scheuneerlenhof.png","assign":""}];
+
+function _hav(lat1,lon1,lat2,lon2){
+  var R=6371000,dL=(lat2-lat1)*Math.PI/180,dO=(lon2-lon1)*Math.PI/180;
+  var a=Math.sin(dL/2)*Math.sin(dL/2)+Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dO/2)*Math.sin(dO/2);
+  return R*2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));
+}
+
+function _esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+
+function renderLagebilder(){
+  var lb=document.getElementById('lb-area');
+  if(!lb) return;
+  if(LAGEBILDER.length===0){lb.style.display='none';return;}
+
+  var imgs;
+  if(LAGEBILDER.length===1){
+    imgs=LAGEBILDER;
+  } else {
+    var qs=new URLSearchParams(location.search);
+    var fhzRaw=(qs.get('fhz')||'').trim();
+    var fhzNum=parseInt(fhzRaw);
+    var hasFhz=!isNaN(fhzNum)&&fhzNum>=1&&fhzNum<=6;
+    var general=LAGEBILDER.filter(function(l){return !l.assign||l.assign==='';});
+    if(hasFhz){
+      var target=String(fhzNum-1);
+      var matched=LAGEBILDER.filter(function(l){return !l.assign||l.assign===''||l.assign===target;});
+      imgs=matched;
+    } else {
+      if(general.length>0){imgs=general;}
+      else{
+        lb.innerHTML='<div class="hint-box show">Kein Fahrzeug / keine Gruppe ausgewählt.</div>';
+        lb.style.display='block';
+        return;
+      }
+    }
+  }
+
+  if(!imgs||imgs.length===0){lb.style.display='none';return;}
+  var h='<div class="card"><div class="card-head">Lagebilder</div><div class="card-body"><div class="lb-grid">';
+  imgs.forEach(function(l){
+    h+='<a href="'+_esc(l.url)+'" target="_blank" rel="noopener" class="lb-link"><img src="'+_esc(l.url)+'" alt="Lagebild" class="lb-img" loading="lazy"></a>';
+  });
+  h+='</div></div></div>';
+  lb.innerHTML=h;
+  lb.style.display='block';
+}
+
+function showContent(){
+  document.getElementById('start-screen').style.display='none';
+  document.getElementById('content').style.display='block';
+  renderLagebilder();
+}
+
+function checkLocation(){
+  var statusEl=document.getElementById('st-status');
+  var hintEl=document.getElementById('st-hint');
+  statusEl.textContent='Standort wird geprüft …';
+  hintEl.className='hint-box';
+
+  if(!navigator.geolocation){
+    statusEl.textContent='Standort noch nicht geprüft.';
+    hintEl.textContent='Geolocation wird von diesem Browser nicht unterstützt.';
+    hintEl.className='hint-box show';
+    return;
+  }
+
+  navigator.geolocation.getCurrentPosition(
+    function(pos){
+      var dist=Math.round(_hav(pos.coords.latitude,pos.coords.longitude,47.739832,13.443721));
+      if(dist<=60){showContent();}
+      else{
+        statusEl.textContent='Standort noch nicht geprüft.';
+        hintEl.textContent='Du bist ca. '+dist+' m vom Ziel entfernt. Zielradius: 60 m';
+        hintEl.className='hint-box show';
+      }
+    },
+    function(){
+      statusEl.textContent='Standort noch nicht geprüft.';
+      hintEl.textContent='Standort konnte nicht ermittelt werden oder Zugriff wurde verweigert.';
+      hintEl.className='hint-box show';
+    },
+    {enableHighAccuracy:true,timeout:15000,maximumAge:0}
+  );
+}</script>
+</body>
+</html>
