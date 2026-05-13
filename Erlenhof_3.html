@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>EA-Funkübung – Feuerwehr Neuhof | Planungstool v7.6</title>
+<title>EA-Funkübung – Feuerwehr Neuhof | Planungstool v7.7</title>
 <style>*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 html{font-size:16px}
 body{font-family:'Inter','Segoe UI',Arial,sans-serif;background:#0f0f0f;color:#c8c8c8;min-height:100vh}
@@ -33,7 +33,7 @@ body{font-family:'Inter','Segoe UI',Arial,sans-serif;background:#0f0f0f;color:#c
   <h1>Erlenhof 3</h1>
   <div class="meta">
     <span>Übung: Feuerwehr Neuhof</span>
-    <span>Version: v7.6</span>
+    <span>Version: v7.7</span>
   </div>
 </div>
 
@@ -62,7 +62,7 @@ body{font-family:'Inter','Segoe UI',Arial,sans-serif;background:#0f0f0f;color:#c
   </div>
 </div>
 
-<script>var LAGEBILDER = [{"url":"https://daniel911211.github.io/Bilder/scheuneerlenhof.png","assign":""},{"url":"https://daniel911211.github.io/Bilder/BMA-Anzeige-Meldergruppe_10.jpg","assign":"1"},{"url":"https://daniel911211.github.io/Bilder/Kellerbrand.png","assign":"2"}];
+<script>var LAGEBILDER = [{"url":"https://daniel911211.github.io/Bilder/scheuneerlenhof.png","assign":"1"},{"url":"https://daniel911211.github.io/Bilder/BMA-Anzeige-Meldergruppe_10.jpg","assign":"2"},{"url":"https://daniel911211.github.io/Bilder/Kellerbrand.png","assign":"3"}];
 
 function _hav(lat1,lon1,lat2,lon2){
   var R=6371000,dL=(lat2-lat1)*Math.PI/180,dO=(lon2-lon1)*Math.PI/180;
@@ -79,7 +79,7 @@ function renderLagebilder(){
 
   var imgs;
   if(LAGEBILDER.length===1){
-    /* Nur ein Lagebild → immer anzeigen */
+    /* Nur ein Lagebild → immer anzeigen, kein ?fhz nötig */
     imgs=LAGEBILDER;
   } else {
     var qs=new URLSearchParams(location.search);
@@ -88,8 +88,8 @@ function renderLagebilder(){
     var hasFhz=!isNaN(fhzNum)&&fhzNum>=1&&fhzNum<=6;
 
     if(hasFhz){
-      /* Nur exakt passende Lagebilder anzeigen – keine allgemeinen dazu */
-      var target=String(fhzNum-1);
+      /* Direkt 1-basiert matchen: ?fhz=1 → assign "1" */
+      var target=String(fhzNum);
       var matched=LAGEBILDER.filter(function(l){return l.assign===target;});
       if(matched.length>0){
         imgs=matched;
@@ -99,14 +99,10 @@ function renderLagebilder(){
         return;
       }
     } else {
-      /* Kein ?fhz= → nur allgemeine Lagebilder (assign leer) */
-      var general=LAGEBILDER.filter(function(l){return !l.assign||l.assign==='';});
-      if(general.length>0){imgs=general;}
-      else{
-        lb.innerHTML='<div class="hint-box show">Kein Fahrzeug / keine Gruppe ausgewählt.</div>';
-        lb.style.display='block';
-        return;
-      }
+      /* Mehrere Lagebilder, kein ?fhz= → Hinweis */
+      lb.innerHTML='<div class="hint-box show">Kein Fahrzeug / keine Gruppe ausgewählt.</div>';
+      lb.style.display='block';
+      return;
     }
   }
 
