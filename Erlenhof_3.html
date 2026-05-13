@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>EA-Funkübung – Feuerwehr Neuhof | Planungstool v7.5</title>
+<title>EA-Funkübung – Feuerwehr Neuhof | Planungstool v7.6</title>
 <style>*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 html{font-size:16px}
 body{font-family:'Inter','Segoe UI',Arial,sans-serif;background:#0f0f0f;color:#c8c8c8;min-height:100vh}
@@ -33,7 +33,7 @@ body{font-family:'Inter','Segoe UI',Arial,sans-serif;background:#0f0f0f;color:#c
   <h1>Erlenhof 3</h1>
   <div class="meta">
     <span>Übung: Feuerwehr Neuhof</span>
-    <span>Version: v7.5</span>
+    <span>Version: v7.6</span>
   </div>
 </div>
 
@@ -79,18 +79,28 @@ function renderLagebilder(){
 
   var imgs;
   if(LAGEBILDER.length===1){
+    /* Nur ein Lagebild → immer anzeigen */
     imgs=LAGEBILDER;
   } else {
     var qs=new URLSearchParams(location.search);
     var fhzRaw=(qs.get('fhz')||'').trim();
     var fhzNum=parseInt(fhzRaw);
     var hasFhz=!isNaN(fhzNum)&&fhzNum>=1&&fhzNum<=6;
-    var general=LAGEBILDER.filter(function(l){return !l.assign||l.assign==='';});
+
     if(hasFhz){
+      /* Nur exakt passende Lagebilder anzeigen – keine allgemeinen dazu */
       var target=String(fhzNum-1);
-      var matched=LAGEBILDER.filter(function(l){return !l.assign||l.assign===''||l.assign===target;});
-      imgs=matched;
+      var matched=LAGEBILDER.filter(function(l){return l.assign===target;});
+      if(matched.length>0){
+        imgs=matched;
+      } else {
+        lb.innerHTML='<div class="hint-box show">Kein Lagebild für diese Einheit hinterlegt.</div>';
+        lb.style.display='block';
+        return;
+      }
     } else {
+      /* Kein ?fhz= → nur allgemeine Lagebilder (assign leer) */
+      var general=LAGEBILDER.filter(function(l){return !l.assign||l.assign==='';});
       if(general.length>0){imgs=general;}
       else{
         lb.innerHTML='<div class="hint-box show">Kein Fahrzeug / keine Gruppe ausgewählt.</div>';
