@@ -128,6 +128,9 @@ select {
 .inchead { display: flex; justify-content: space-between; }
 .timer { color: var(--dim); }
 .timer.low { color: var(--red); font-weight: 800; }
+.marshal { font-size: 11px; display: flex; flex-direction: column; gap: 2px; }
+.marshal .dim { font-size: 9px; letter-spacing: 1px; display: inline-block; width: 62px; }
+.pos-rand { color: var(--green); } .pos-teil { color: #ffd21f; } .pos-linie { color: var(--red); }
 .quick { display: flex; gap: 4px; flex-wrap: wrap; }
 .logbox { flex: 1.4; display: flex; flex-direction: column; overflow: hidden; }
 .radiobox { flex: 0.8; display: flex; flex-direction: column; overflow: hidden; }

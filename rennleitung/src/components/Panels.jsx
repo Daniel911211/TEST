@@ -103,6 +103,14 @@ export function IncidentPanel({ incidents, t, onOpen, race }) {
               <div className="dim">
                 {cars.map((c) => c.code).join(' / ')} · {i.place} · Runde {i.lap}
               </div>
+              {i.kind === 'hazard' && i.haz && (
+                <div className="marshal">
+                  <div><span className="dim">GRUND</span> {i.haz.cause}{i.haz.debris ? ' · Trümmer auf der Strecke' : ''}</div>
+                  <div><span className="dim">LAGE</span> <b className={`pos-${i.haz.pos}`}>{{ rand: 'am Streckenrand', teil: 'teilweise auf der Fahrbahn', linie: 'auf der Ideallinie' }[i.haz.pos]}</b></div>
+                  <div><span className="dim">BERGUNG</span> {i.haz.self ? `fährt selbst weiter, noch ca. ${Math.ceil(i.haz.left)} s` : `ca. ${Math.round(i.haz.total / 5) * 5} s unter Safety Car`}</div>
+                  <div className="mbar"><i style={{ width: `${Math.round((1 - i.haz.left / i.haz.total) * 100)}%`, background: '#4cd0ff' }} /></div>
+                </div>
+              )}
               {i.kind === 'decision' ? (
                 <button className="btn sm amber" onClick={() => onOpen(i.id)}>FALL PRÜFEN</button>
               ) : (

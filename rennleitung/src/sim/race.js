@@ -842,7 +842,7 @@ export class Race {
     if (!pit.rolled) return false
     const react = Math.round(clamp((30 - (pit.u - o.pit.u)) * 2.2, 8, 60))
     o.speed *= 1 - react / 120
-    this.spawn('unsafeRelease', { a: c, b: o, react })
+    this.spawn('unsafeRelease', { a: c, b: o, react, gap: pit.u - o.pit.u })
     return true
   }
 
@@ -966,14 +966,17 @@ export class Race {
   }
 
   hazards(dt) {
-    let danger = 0
+    let danger = 0, uncovered = 0
     for (const c of this.cars) {
       if (c.status !== 'stopped') continue
       const sec = sectorOf(mod(c.dist, this.L), this.L)
-      const covered = this.state !== 'GREEN' || this.sectors[sec] !== 'green'
-      if (!covered) danger++
+      // Wie gut ist die Stelle abgesichert? 0 = gar nicht, 1 = Gelb, 2 = VSC, 3 = Safety Car oder Rot
+      const lvl = Math.max(this.state === 'GREEN' ? 0 : this.state === 'VSC' ? 2 : 3, this.sectors[sec] !== 'green' ? 1 : 0)
+      const need = { rand: 1, teil: 2, linie: 3 }[c.haz.pos]
+      if (lvl === 0) { danger++; uncovered++ }
+      else if (lvl < need) danger += 0.3 * (need - lvl)
       if (c.recov != null) {
-        const rate = this.state === 'RED' ? 1.5 : this.state === 'SC' ? 1 : this.state === 'VSC' ? 0.7 : this.sectors[sec] !== 'green' ? 0.35 : 0.1
+        const rate = this.state === 'RED' ? 1.5 : this.state === 'SC' ? 1 : this.state === 'VSC' ? 0.7 : this.sectors[sec] !== 'green' ? (c.haz.pos === 'rand' ? 0.6 : 0.3) : 0.1
         c.recov -= dt * rate
         if (c.recov <= 0) {
           c.status = 'out'
@@ -984,12 +987,16 @@ export class Race {
     }
     const flood = this.wet > 0.78 && (this.state === 'GREEN' || this.state === 'VSC')
     this.safety = clamp(this.safety + (danger ? -0.7 * danger * dt : flood ? -0.45 * dt : 0.04 * dt), 0, 100)
-    this.dangerT = danger ? this.dangerT + dt : 0
+    this.dangerT = uncovered ? this.dangerT + dt : 0
     if (this.dangerT > 7) { this.dangerT = -18; this.sayRandom('danger', 1) }
     const stoppedSecs = new Set(this.cars.filter((c) => c.status === 'stopped').map((c) => sectorOf(mod(c.dist, this.L), this.L)))
     const idle = (this.state === 'SC' || this.state === 'VSC') && !stoppedSecs.size && this.wet < 0.6
-    if (idle) this.flow = clamp(this.flow - 0.25 * dt, 0, 100)
-    this.scIdleT = idle && !this.scEnding && !this.vscEndAt ? this.scIdleT + dt : 0
+    // Schonfrist: das Safety Car braucht nach der Bergung noch gut eine Runde, erst danach kostet es Ablauf
+    this.idleT = idle ? (this.idleT || 0) + dt : 0
+    const grace = this.state === 'SC' ? this.track.lapRef * 1.7 : 15
+    if (idle && this.idleT > grace) this.flow = clamp(this.flow - 0.25 * dt, 0, 100)
+    if (this.state === 'GREEN' && !stoppedSecs.size && this.sectors.every((f) => f === 'green')) this.flow = clamp(this.flow + 0.03 * dt, 0, 100)
+    this.scIdleT = idle && this.idleT > grace * 0.6 && !this.scEnding && !this.vscEndAt ? this.scIdleT + dt : 0
     if (this.scIdleT > 30) { this.scIdleT = 0; this.sayRandom('scTooLong', 1) }
     for (let k = 0; k < 3; k++) if (this.sectors[k] !== 'green' && !stoppedSecs.has(k) && this.state === 'GREEN') this.flow = clamp(this.flow - 0.05 * dt, 0, 100)
     for (const inc of this.incidents) {
@@ -1052,8 +1059,13 @@ export class Race {
 
   stopCar(c, why) {
     c.status = 'stopped'
-    c.verge = (c.lat >= 0 ? 1 : -1) * 1.3
-    c.recov = rnd(35, 60)
+    // Meldung der Streckenposten: Lage des Autos, Trümmer, geschätzte Bergungszeit
+    const self = why === 'DREHER'
+    const pos = self ? pick(['rand', 'teil']) : why === 'UNFALL' ? pick(['rand', 'teil', 'teil', 'linie', 'linie']) : why === 'MOTOR ABGEWÜRGT' ? 'linie' : pick(['rand', 'rand', 'rand', 'teil', 'teil', 'linie'])
+    const debris = why === 'UNFALL' && Math.random() < 0.6
+    c.verge = (c.lat >= 0 ? 1 : -1) * { rand: 1.55, teil: 0.95, linie: 0.25 }[pos]
+    c.recov = rnd(35, 60) + (debris ? 12 : 0) + (pos === 'linie' ? 8 : 0)
+    c.haz = { cause: why, pos, debris, self, total: c.recov }
     c.passing = null
     c.latTarget = c.verge
     const w = this.where(c)
@@ -1094,6 +1106,7 @@ export class Race {
       c.rejoinAt = this.t + rnd(15, 25)
       this.stopCar(c, 'DREHER')
       c.recov = null
+      c.haz.total = c.rejoinAt - this.t
       this.say('spin', c, {}, { force: true })
       return
     }
@@ -1156,20 +1169,28 @@ export class Race {
       return
     }
     if (type === 'unsafeRelease') {
-      const { a, b, react } = opts // a: aus der Box entlassen, b: Betroffener
+      const { a, b, react, gap } = opts // a: aus der Box entlassen, b: Betroffener
       const inc = this.makeBase('decision', 'unsafeRelease', [a.id, b.id], { sector: 0, turn: 1 })
       inc.ideal = { culprit: null, sev: react > 30 ? 2 : react >= 10 ? 1 : 0 }
       inc.facts = [
         ['Freigegeben', `${a.num} ${a.name} - ${a.team}`],
         ['Betroffen', `${b.num} ${b.name} - ${b.team}`],
+        ['Abstand bei Freigabe', `${gap.toFixed(0)} m`],
         ['Reaktion von ' + b.code, `Bremsung -${react} km/h`],
         ['Ort', 'Boxengasse'],
       ]
       inc.statements = [
-        { code: b.code, text: pick(['Der kam direkt vor mir raus, ich musste voll auf die Bremse!', 'Das war knapp, aber ich konnte ausweichen.']) },
-        { code: a.code, text: 'Die Ampel war grün, ich habe nur freigegebene Fahrt genutzt.' },
+        {
+          code: b.code,
+          text: react > 30
+            ? pick(['Der kam direkt vor mir raus, ich musste voll auf die Bremse!', 'Ich stand fast! Das war richtig gefährlich.'])
+            : react >= 10
+              ? pick(['Ich musste lupfen, das war eng.', 'Kurz vom Gas, sonst hätte es gekracht. Aber es ging.'])
+              : pick(['Er kam vor mir raus, hat mich aber nicht gestört.', 'Ich habe ihn gesehen. Kein Problem von meiner Seite.']),
+        },
+        { code: a.code, text: react > 30 ? 'Ich fahre los, wenn das Licht grün wird. Das müsst ihr mit der Crew klären.' : 'Die Ampel war grün und da war Platz genug.' },
       ]
-      inc.replay = { kind: 'release', react }
+      inc.replay = { kind: 'release', react, gap }
       inc.consequence = `${b.code} bremst um ${react} km/h.`
       this.incidents.push(inc)
       this.msg(`${this.tag(a)} / ${this.tag(b)} - UNSICHERE FREIGABE - WIRD UNTERSUCHT`, 'warn')
@@ -1308,7 +1329,11 @@ export class Race {
       laps: this.laps,
       sectors: [...this.sectors],
       rows,
-      incidents: this.incidents.map((i) => ({ ...i })),
+      incidents: this.incidents.map((i) => {
+        if (i.kind !== 'hazard') return { ...i }
+        const c = this.cars[i.carIds[0]]
+        return { ...i, haz: { ...c.haz, left: Math.max(0, c.recov != null ? c.recov : (c.rejoinAt || this.t) - this.t) } }
+      }),
       messages: this.messages.slice(-60),
       radio: this.radioLog.slice(-40),
       safety: this.safety,

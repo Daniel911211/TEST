@@ -375,13 +375,28 @@ function draw(ctx, s, now) {
     // Unsichere Freigabe (Boxengasse, Fahrtrichtung nach rechts)
     const solo = kind === 'pitspeed'
     const react = solo ? 0 : inc.replay.react
-    const dip = react / 100
-    const xB = -24 + 60 * p - 14 * dip * Math.sin(Math.PI * Math.min(1, p * 1.3)) ** 2
-    const rel = ease((p - 0.18) / 0.45)
-    const xA = 6 + 12 * rel
-    const yA = lerp(5, -1.6, rel)
+    // Ablauf aus den Falldaten: Bei der Freigabe (t0) ist B noch 'gap' Meter hinter der Box von A.
+    // B fährt 80 km/h, bremst um 'react' km/h und beschleunigt wieder. A fährt zuerst in der Arbeitsspur
+    // neben B und ordnet sich erst ein, wenn es klar vorn ist. So überlappen sich die Autos nie.
+    let xA = 6, yA = 5, xB, vB = solo ? inc.replay.kmh / 3.6 : 22.2
+    const t = p * 6, t0 = solo ? 99 : 1.2
+    if (solo) xB = -30 + vB * t
+    else {
+      const gap = inc.replay.gap ?? 15
+      const v1 = (80 - react) / 3.6
+      xB = 6 - gap - 22.2 * t0
+      for (let q = 0; q < t; q += 0.02) {
+        const tau = q - t0
+        const target = tau > 0.15 && tau < 1.5 ? v1 : 22.2
+        vB += Math.max(-15 * 0.02, Math.min(6 * 0.02, target - vB))
+        xB += vB * 0.02
+      }
+      const tau = Math.max(0, t - t0)
+      xA = 6 + (tau < 2.47 ? 4.5 * tau * tau : 27.4 + 22.2 * (tau - 2.47))
+      yA = lerp(lerp(5, 0.7, ease(tau / 0.8)), -3, ease((xA - xB - 7) / 5))
+    }
     const k = (H / 16) * zoom
-    const camX = fixed ? 8 : xB * 0.5 + 6
+    const camX = fixed ? 8 : solo ? xB : (xA + xB) / 2
     const S = (x, y) => [W / 2 + (x - camX) * k, H / 2 + (y - 1) * k]
     ctx.fillStyle = '#26282e'; ctx.fillRect(0, 0, W, H)
     const [, f0] = S(0, -5), [, f1] = S(0, -1), [, g1] = S(0, 3)
@@ -390,12 +405,12 @@ function draw(ctx, s, now) {
     ctx.strokeStyle = '#f4f4f4'; ctx.setLineDash([14, 10]); ctx.lineWidth = 2
     ctx.beginPath(); ctx.moveTo(0, f1); ctx.lineTo(W, f1); ctx.stroke(); ctx.setLineDash([])
     const cols = ['#ffffff', '#6aa0ff', '#e8d2b0', '#9fd8ff', '#2fe08a', '#ffd21f']
-    for (let i = 0; i < 9; i++) {
-      const [gx, gy] = S(-14 + i * 7, 3.4)
+    for (let i = 0; i < 30; i++) {
+      const [gx, gy] = S(-70 + i * 7, 3.4)
       ctx.fillStyle = '#17191e'; ctx.fillRect(gx, gy, 6.2 * k, 5 * k)
       ctx.fillStyle = cols[i % cols.length]; ctx.fillRect(gx + 4, gy + 4, 6.2 * k - 8, 5)
     }
-    const green = solo || p > 0.15
+    const green = solo || t > t0 - 0.3
     const [lx, ly] = S(5.2, 2.6)
     ctx.fillStyle = green ? '#2fe08a' : '#ff4a4a'; ctx.fillRect(lx, ly, 3 * k, 6)
     ctx.fillStyle = green ? '#2fe08a' : '#ff4a4a'; ctx.textAlign = 'center'; ctx.fillText(green ? 'FREIGABE' : 'STOPP', lx + 1.5 * k, ly + 22); ctx.textAlign = 'left'
@@ -407,7 +422,7 @@ function draw(ctx, s, now) {
     if (solo) {
       label(ctx, `${carB.code}: ${inc.replay.kmh.toFixed(1)} km/h`, W - 10, 10, inc.replay.kmh > 80 ? '#ff6a6a' : '#2fe08a', 'right')
       label(ctx, 'LIMIT 80 km/h', W - 10, 32, '#ffd21f', 'right')
-    } else label(ctx, `${carB.code}: ${Math.round(200 - react * Math.sin(Math.PI * Math.min(1, p * 1.3)))} km/h`, W - 10, 10, '#e8edf7', 'right')
+    } else label(ctx, `${carB.code}: ${Math.round(vB * 3.6)} km/h · LIMIT 80`, W - 10, 10, '#e8edf7', 'right')
   }
   label(ctx, hud, 8, 8, '#ffd21f')
 }
