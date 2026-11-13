@@ -323,14 +323,17 @@ export class Race {
     this.vscEndAt = null
     this.scEnding = false
     if (!this.cars.some((c) => c.status === 'stopped') && this.wet < 0.6) this.flow = clamp(this.flow - 4, 0, 100)
-    this.sc = { dist: (lead ? lead.dist : 0) + 70, speed: 0, lat: 0 }
+    // Das Safety Car wartet an der Boxenausfahrt hinter Start/Ziel und fährt raus, wenn der Führende kommt
+    const ld = lead ? lead.dist : 0
+    this.sc = { dist: (Math.floor((ld + 40) / this.L) + 1) * this.L + 60, speed: 0, lat: 1.9, lights: true, waiting: true, leaving: false }
     this.msg('SAFETY CAR DEPLOYED', 'warn')
     this.reactRadio('sc')
   }
   scInThisLap() {
     if (this.state !== 'SC' || this.scEnding) return
     this.scEnding = true
-    this.msg('SAFETY CAR IN THIS LAP', 'warn')
+    if (this.sc) this.sc.lights = false
+    this.msg('SAFETY CAR IN THIS LAP - LIGHTS OUT', 'warn')
     if (this.cars.some((c) => c.status === 'stopped')) {
       this.safety = clamp(this.safety - 12, 0, 100)
       this.msg('WARNING - STOPPED CAR STILL ON TRACK', 'bad')
@@ -523,10 +526,18 @@ export class Race {
       this.msg('LIGHTS OUT - RACE RESUMED', 'flag')
     }
     if (this.sc) {
-      const idx = Math.floor(mod(this.sc.dist, this.L) / this.track.ds) % this.track.n
-      const target = this.track.v[idx] * 0.42
-      this.sc.speed += clamp(target - this.sc.speed, -30 * dt, 12 * dt)
-      this.sc.dist += this.sc.speed * dt
+      const sc = this.sc
+      const lead = order.find((c) => c.status === 'run')
+      if (sc.waiting && (!lead || sc.dist - lead.dist < 320)) sc.waiting = false
+      // Vor dem Reinkommen biegt es kurz vor Start/Ziel in die Box ab
+      if (this.scEnding && !sc.leaving && !sc.waiting && mod(sc.dist, this.L) > this.L - 230) sc.leaving = true
+      const idx = Math.floor(mod(sc.dist, this.L) / this.track.ds) % this.track.n
+      const target = sc.waiting ? 0 : this.track.v[idx] * (sc.leaving ? 0.5 : 0.42)
+      sc.speed += clamp(target - sc.speed, -30 * dt, 12 * dt)
+      const prev = sc.dist
+      sc.dist += sc.speed * dt
+      sc.lat += clamp((sc.waiting || sc.leaving ? 1.9 : 0) - sc.lat, -0.9 * dt, 0.9 * dt)
+      if (sc.leaving && Math.floor(sc.dist / this.L) > Math.floor(prev / this.L)) this.sc = null
     }
 
     const running = order.filter((c) => c.status === 'run')
@@ -576,9 +587,10 @@ export class Race {
     else if (st === 'VSC') v *= 0.6
     else if (st === 'SC') {
       const ahead = idxInOrder > 0 ? running[idxInOrder - 1] : this.sc
-      const gap = ahead.dist - c.dist
+      const gap = ahead ? ahead.dist - c.dist : 0
       catchGap = gap
-      v *= gap > 40 && gap < this.L * 0.6 ? 0.62 : 0.42
+      // Aufschließen: der Führende zum Safety Car, alle anderen zum Vordermann
+      v *= gap > 40 && (idxInOrder === 0 || gap < this.L * 0.6) ? 0.62 : 0.42
     } else {
       const f = this.sectors[sec]
       if (f === 'yellow') v *= 0.8

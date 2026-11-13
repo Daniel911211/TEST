@@ -34,6 +34,43 @@ export function drawCar(ctx, x, y, ang, color, k) {
   ctx.restore()
 }
 
+// Safety Car: silberner Straßensportwagen von oben, Nase zeigt nach oben (-y)
+export function drawSafetyCar(ctx, x, y, ang, k, lights, now) {
+  ctx.save()
+  ctx.translate(x, y)
+  ctx.rotate(ang)
+  ctx.scale(k, k)
+  ctx.fillStyle = '#14161b'
+  for (const [wx, wy] of [[-1.1, -1.75], [0.85, -1.75], [-1.1, 0.95], [0.85, 0.95]]) ctx.fillRect(wx, wy, 0.25, 0.85)
+  // Karosserie
+  ctx.fillStyle = '#c9ced6'
+  ctx.beginPath()
+  ctx.moveTo(-0.7, -2.4); ctx.quadraticCurveTo(0, -2.65, 0.7, -2.4)
+  ctx.quadraticCurveTo(1.0, -2.2, 1.0, -1.4); ctx.lineTo(1.0, 1.9)
+  ctx.quadraticCurveTo(1.0, 2.35, 0.6, 2.4); ctx.lineTo(-0.6, 2.4)
+  ctx.quadraticCurveTo(-1.0, 2.35, -1.0, 1.9); ctx.lineTo(-1.0, -1.4)
+  ctx.quadraticCurveTo(-1.0, -2.2, -0.7, -2.4)
+  ctx.fill()
+  // Scheiben und Dach
+  ctx.fillStyle = '#1d2630'
+  ctx.beginPath(); ctx.moveTo(-0.78, -0.75); ctx.lineTo(0.78, -0.75); ctx.lineTo(0.66, -0.1); ctx.lineTo(-0.66, -0.1); ctx.closePath(); ctx.fill()
+  ctx.beginPath(); ctx.moveTo(-0.66, 1.0); ctx.lineTo(0.66, 1.0); ctx.lineTo(0.76, 1.5); ctx.lineTo(-0.76, 1.5); ctx.closePath(); ctx.fill()
+  ctx.fillStyle = '#9aa1ab'
+  ctx.fillRect(-0.66, -0.1, 1.32, 1.1)
+  // Scheinwerfer und Rücklichter
+  ctx.fillStyle = '#fff7c2'; ctx.fillRect(-0.85, -2.38, 0.35, 0.16); ctx.fillRect(0.5, -2.38, 0.35, 0.16)
+  ctx.fillStyle = '#d93a3a'; ctx.fillRect(-0.85, 2.22, 0.4, 0.14); ctx.fillRect(0.45, 2.22, 0.4, 0.14)
+  // Lichtbalken auf dem Dach: blinkt abwechselnd orange, vor dem Reinkommen aus
+  const ph = Math.floor(now / 220) % 2
+  ctx.fillStyle = lights && ph === 0 ? '#ffb020' : '#4a3a1a'; ctx.fillRect(-0.6, 0.3, 0.55, 0.3)
+  ctx.fillStyle = lights && ph === 1 ? '#ffb020' : '#4a3a1a'; ctx.fillRect(0.05, 0.3, 0.55, 0.3)
+  if (lights) {
+    ctx.fillStyle = 'rgba(255,176,32,0.22)'
+    ctx.beginPath(); ctx.arc(ph ? 0.33 : -0.33, 0.45, 1.5, 0, Math.PI * 2); ctx.fill()
+  }
+  ctx.restore()
+}
+
 function kerbV(ctx, S, x0, x1, cy, k) {
   const y0 = cy - H / 2 / k - 2, y1 = cy + H / 2 / k + 2
   for (let y = Math.floor(y0 / 1.2) * 1.2, i = 0; y < y1; y += 1.2, i++) {

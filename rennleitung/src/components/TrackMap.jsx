@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react'
 import { sectorOf } from '../sim/race.js'
+import { drawSafetyCar } from './Replay.jsx'
 
 const FLAG_COLOR = { yellow: '#ffd21f', double: '#ff7a1a' }
 
@@ -218,12 +219,14 @@ export default function TrackMap({ race, selected, onSelect, freeCam }) {
       }
       if (race.sc) {
         const p = carPos(T, L, race.sc.dist, 0)
-        const x = p.x * sc + ox, y = p.y * sc + oy
-        ctx.fillStyle = '#ff9a1f'
-        ctx.fillRect(x - 11, y - 7, 22, 14)
-        ctx.fillStyle = '#10141c'
+        const nx = -Math.sin(p.h), ny = Math.cos(p.h)
+        const x = p.x * sc + ox + nx * race.sc.lat * 5, y = p.y * sc + oy + ny * race.sc.lat * 5
+        drawSafetyCar(ctx, x, y, p.h + Math.PI / 2, 3.4, race.sc.lights, now)
+        ctx.fillStyle = '#ffb020'
         ctx.font = '700 10px ui-monospace, monospace'
-        ctx.fillText('SC', x, y + 3.5)
+        ctx.textAlign = 'left'
+        ctx.fillText(race.sc.waiting ? 'SC wartet' : race.sc.leaving ? 'SC in die Box' : 'SC', x + 12, y - 9)
+        ctx.textAlign = 'center'
       }
       // Regen
       if (race.rain > 0.02) {

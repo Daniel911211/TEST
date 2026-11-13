@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { drawCar } from './Replay.jsx'
+import { drawCar, drawSafetyCar } from './Replay.jsx'
 
 const SCALE = 3.6 // Pixel pro Meter
 
@@ -129,7 +129,11 @@ export default function CamView({ race, mode, selected, freeCam }) {
         }
       }
       for (const c of race.cars) if (c.status === 'run' || c.status === 'stopped') drawOne(c.dist, c.lat, c.color, c.status === 'stopped')
-      if (race.sc) drawOne(race.sc.dist, 0, '#ff9a1f', false)
+      if (race.sc) {
+        const p = posAt(T, L, race.sc.dist)
+        const nx = -Math.sin(p.h), ny = Math.cos(p.h)
+        drawSafetyCar(ctx, p.x + nx * race.sc.lat * 3.6, p.y + ny * race.sc.lat * 3.6, p.h + Math.PI / 2, 1.3, race.sc.lights, now)
+      }
       ctx.restore()
 
       if (race.rain > 0.02) {
