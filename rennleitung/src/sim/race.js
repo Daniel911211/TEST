@@ -661,9 +661,11 @@ export class Race {
     // Vordermann / Überholen
     let blocker = null, bgap = 1e9
     const consider = (o, isSC) => {
-      const g = mod(o.dist - c.dist, L)
+      let g = mod(o.dist - c.dist, L)
       if (st === 'FORMATION' && o.onGrid) return
-      if (g > 0 && g < 45 && (st === 'FORMATION' || Math.abs(o.lat - c.lat) < 0.6) && g < bgap) {
+      // Liegen zwei Autos exakt gleichauf, gilt das mit der kleineren Nummer als vorn, damit sie sich trennen
+      if (g < 1e-6 && !isSC && o.id < c.id) g = 0.01
+      if (g > 0 && g < 45 && (st === 'FORMATION' || Math.abs(o.lat - c.lat) < 0.75) && g < bgap) {
         bgap = g
         blocker = o
         blocker.isSC = isSC
@@ -700,8 +702,26 @@ export class Race {
     const a = v > c.speed ? 14 : st === 'RED' ? 42 : 38
     c.speed += clamp(v - c.speed, -a * dt, a * dt)
     const prev = c.dist
-    c.dist += c.speed * dt
-    c.lat += clamp(c.latTarget - c.lat, -1.2 * dt, 1.2 * dt)
+    // Kein Durchfahren: höchstens bis auf eine Wagenlänge an den Vordermann in derselben Spur heran
+    let adv = c.speed * dt
+    if (blocker && st !== 'FORMATION') {
+      // bgap ist der aktuelle Abstand: Autos weiter vorn wurden in diesem Schritt schon bewegt
+      const room = Math.max(0, bgap - 6.2)
+      if (adv > room) { adv = room; c.speed = Math.min(c.speed, blocker.speed) }
+    }
+    c.dist += adv
+    // Nicht seitlich in ein Auto hineinziehen, das gerade daneben fährt
+    const newLat = c.lat + clamp(c.latTarget - c.lat, -1.2 * dt, 1.2 * dt)
+    let latFree = true
+    if (newLat !== c.lat && !pre) {
+      for (const o of running) {
+        if (o === c || o.pit) continue
+        let d = mod(o.dist - c.dist, L)
+        if (d > L / 2) d -= L
+        if (Math.abs(d) < 6.6 && Math.abs(newLat - o.lat) < 0.75 && Math.abs(newLat - o.lat) < Math.abs(c.lat - o.lat)) { latFree = false; break }
+      }
+    }
+    if (latFree) c.lat = newLat
     if (c.dist > 0) c.wear += (c.dist - prev) / (TYRES[c.tyre].life * Math.max(this.raceDist, 8 * L)) * (isWetTyre(c.tyre) && this.wet < 0.12 ? 2.5 : 1)
     // Boxeneinfahrt
     const P = T.pit
@@ -827,7 +847,7 @@ export class Race {
     if (pit.u >= P.len) {
       if (pit.job.pen === 'dt') this.msg(`${this.tag(c)} - DURCHFAHRTSSTRAFE ABGESESSEN`, 'info')
       c.pit = null
-      c.lat = 0
+      c.lat = P.side * 0.9
       c.latTarget = 0
     }
     if (Math.floor(c.dist / L) > Math.floor(prev / L) && c.dist > 0) this.onLine(c, idxInOrder)
