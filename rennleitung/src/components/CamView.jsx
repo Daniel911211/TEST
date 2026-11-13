@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { drawCar } from './Replay.jsx'
 
-const SCALE = 3.1 // Pixel pro Meter
+const SCALE = 3.6 // Pixel pro Meter
 
 function posAt(T, L, dist) {
   const s = ((dist % L) + L) % L
@@ -9,7 +9,10 @@ function posAt(T, L, dist) {
   const i = Math.floor(f) % T.n
   const j = (i + 1) % T.n
   const u = f - Math.floor(f)
-  return { x: T.xs[i] + (T.xs[j] - T.xs[i]) * u, y: T.ys[i] + (T.ys[j] - T.ys[i]) * u, h: T.h[i], i }
+  let dh = T.h[j] - T.h[i]
+  if (dh > Math.PI) dh -= 2 * Math.PI
+  if (dh < -Math.PI) dh += 2 * Math.PI
+  return { x: T.xs[i] + (T.xs[j] - T.xs[i]) * u, y: T.ys[i] + (T.ys[j] - T.ys[i]) * u, h: T.h[i] + dh * u, i }
 }
 
 function buildPaths(T) {

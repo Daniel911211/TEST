@@ -106,11 +106,11 @@ export class Race {
 
   // ---------- Hilfsfunktionen ----------
   msg(text, level = 'info') {
-    this.messages.push({ t: this.t, text, level, id: this.messages.length })
+    this.messages.push({ t: this.t, text, level, id: (this.msgSeq = (this.msgSeq || 0) + 1) })
     if (this.messages.length > 200) this.messages.shift()
   }
   radio(car, text, box = false) {
-    this.radioLog.push({ t: this.t, name: car.name, code: car.code, color: car.color, text, box, id: this.radioLog.length + '-' + this.t })
+    this.radioLog.push({ t: this.t, name: car.name, code: car.code, color: car.color, text, box, id: (this.radioSeq = (this.radioSeq || 0) + 1) })
     if (this.radioLog.length > 80) this.radioLog.shift()
   }
   // Spruch aus der Sammlung, ohne direkte Wiederholung; optional mit Antwort vom Kommandostand

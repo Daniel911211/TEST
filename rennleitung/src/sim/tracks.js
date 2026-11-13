@@ -59,19 +59,34 @@ const angDiff = (a, b) => {
 export function buildTrack(key) {
   if (cache[key]) return cache[key]
   const def = TRACKS[key]
-  const pts = TRACK_DATA[key]
+  // Sehr dicht liegende Rohpunkte entfernen, sie erzeugen sonst Schleifen in der Kurve
+  const pts = []
+  for (const q of TRACK_DATA[key]) {
+    const l = pts[pts.length - 1]
+    if (!l || Math.hypot(q[0] - l[0], q[1] - l[1]) > 7) pts.push(q)
+  }
+  if (Math.hypot(pts[0][0] - pts[pts.length - 1][0], pts[0][1] - pts[pts.length - 1][1]) <= 7) pts.pop()
   const m = pts.length
 
-  // 1) Catmull-Rom (geschlossen), dicht abgetastet
+  // 1) Zentripetale Catmull-Rom-Kurve (geschlossen): keine Überschwinger bei ungleichen Punktabständen
   const dense = []
   const S = 24
+  const knot = (a, b) => Math.sqrt(Math.hypot(b[0] - a[0], b[1] - a[1])) || 1e-3
   for (let i = 0; i < m; i++) {
     const p0 = pts[(i - 1 + m) % m], p1 = pts[i], p2 = pts[(i + 1) % m], p3 = pts[(i + 2) % m]
+    const t0 = 0, t1 = t0 + knot(p0, p1), t2 = t1 + knot(p1, p2), t3 = t2 + knot(p2, p3)
     for (let k = 0; k < S; k++) {
-      const t = k / S, t2 = t * t, t3 = t2 * t
-      const f = (a, b, c, d) =>
-        0.5 * (2 * b + (-a + c) * t + (2 * a - 5 * b + 4 * c - d) * t2 + (-a + 3 * b - 3 * c + d) * t3)
-      dense.push([f(p0[0], p1[0], p2[0], p3[0]), f(p0[1], p1[1], p2[1], p3[1])])
+      const t = t1 + ((t2 - t1) * k) / S
+      const pt = [0, 0]
+      for (let d = 0; d < 2; d++) {
+        const A1 = ((t1 - t) / (t1 - t0)) * p0[d] + ((t - t0) / (t1 - t0)) * p1[d]
+        const A2 = ((t2 - t) / (t2 - t1)) * p1[d] + ((t - t1) / (t2 - t1)) * p2[d]
+        const A3 = ((t3 - t) / (t3 - t2)) * p2[d] + ((t - t2) / (t3 - t2)) * p3[d]
+        const B1 = ((t2 - t) / (t2 - t0)) * A1 + ((t - t0) / (t2 - t0)) * A2
+        const B2 = ((t3 - t) / (t3 - t1)) * A2 + ((t - t1) / (t3 - t1)) * A3
+        pt[d] = ((t2 - t) / (t2 - t1)) * B1 + ((t - t1) / (t2 - t1)) * B2
+      }
+      dense.push(pt)
     }
   }
   const cum = [0]
@@ -96,6 +111,17 @@ export function buildTrack(key) {
     const a = dense[j], b = dense[(j + 1) % dense.length]
     xs[i] = (a[0] + (b[0] - a[0]) * u) * k
     ys[i] = (a[1] + (b[1] - a[1]) * u) * k
+  }
+
+  // Leicht glätten, damit Richtung und Tempo ruhig verlaufen
+  for (let pass = 0; pass < 2; pass++) {
+    const nx = new Float32Array(N), ny = new Float32Array(N)
+    for (let i = 0; i < N; i++) {
+      const a = (i - 1 + N) % N, b = (i + 1) % N
+      nx[i] = (xs[a] + 2 * xs[i] + xs[b]) / 4
+      ny[i] = (ys[a] + 2 * ys[i] + ys[b]) / 4
+    }
+    xs.set(nx); ys.set(ny)
   }
 
   // 3) Richtung & Krümmung

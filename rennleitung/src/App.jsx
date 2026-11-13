@@ -5,6 +5,7 @@ import TrackMap from './components/TrackMap.jsx'
 import CamView from './components/CamView.jsx'
 import { TimingTower, ControlPanel, IncidentPanel, MessageLog } from './components/Panels.jsx'
 import { CaseDialog, ReportDialog } from './components/Dialogs.jsx'
+import { sound } from './sound.js'
 
 const STATE_LABEL = {
   GRID: ['STARTAUFSTELLUNG', 'grid'],
@@ -36,6 +37,31 @@ export default function App() {
   const [caseId, setCaseId] = useState(null)
   const [report, setReport] = useState(false)
   const [toast, setToast] = useState(null)
+  const [vol, setVol] = useState(sound.volume)
+  const [muted, setMuted] = useState(sound.muted)
+  const heard = useRef({ msg: 0, radio: 0, inc: 0 })
+
+  // Töne für neue Funksprüche, Meldungen und Vorfälle (höchstens einer je Art pro Aktualisierung)
+  useEffect(() => {
+    const h = heard.current
+    const lastMsg = snap.messages[snap.messages.length - 1]
+    const lastRadio = snap.radio[snap.radio.length - 1]
+    const maxInc = snap.incidents.reduce((m, i) => Math.max(m, i.id), 0)
+    if (lastMsg && lastMsg.id !== h.msg) {
+      const fresh = snap.messages.filter((m) => m.id > h.msg)
+      const rank = { bad: 4, flag: 3, warn: 2, ok: 1, info: 0 }
+      if (h.msg && fresh.length) sound.message(fresh.sort((a, b) => rank[b.level] - rank[a.level])[0].level)
+      h.msg = lastMsg.id
+    }
+    if (lastRadio && lastRadio.id !== h.radio) {
+      if (h.radio) lastRadio.box ? sound.box() : sound.radio()
+      h.radio = lastRadio.id
+    }
+    if (maxInc > h.inc) {
+      sound.incident(snap.incidents.some((i) => i.id > h.inc && i.kind === 'hazard'))
+      h.inc = maxInc
+    }
+  }, [snap])
 
   const raceRef = useRef(race)
   raceRef.current = race
@@ -103,6 +129,7 @@ export default function App() {
     setReport(false)
     setToast(null)
     lastFb.current = null
+    heard.current = { msg: 0, radio: 0, inc: 0 }
   }
 
   const [stLabel, stClass] = STATE_LABEL[snap.state]
@@ -148,6 +175,8 @@ export default function App() {
             {[3, 5, 10, 15, 20].map((n) => <option key={n} value={n}>{n} Runden</option>)}
           </select>
           <button className="btn sm" onClick={() => setReport(true)}>BERICHT</button>
+          <button className={`btn sm ${muted ? '' : 'on'}`} title="Ton an/aus" onClick={() => { sound.setMuted(!muted); setMuted(!muted) }}>{muted ? 'TON AUS' : 'TON AN'}</button>
+          <input id="volume" className="vol" type="range" min="0" max="1" step="0.05" value={muted ? 0 : vol} aria-label="Lautstärke" onChange={(e) => { const v = +e.target.value; sound.setVolume(v); setVol(v); setMuted(false) }} />
         </div>
       </header>
 

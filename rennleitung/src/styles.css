@@ -46,6 +46,7 @@ button { font: inherit; cursor: pointer; }
 .stat b { font-size: 15px; }
 .stat .dim { font-size: 9px; letter-spacing: 1px; }
 .speeds, .setup { display: flex; gap: 4px; align-items: center; }
+.vol { width: 80px; }
 .meters { display: flex; gap: 12px; margin-left: auto; }
 .meter { width: 96px; font-size: 9px; letter-spacing: 1px; color: var(--dim); }
 .meter b { color: var(--text); float: right; }
@@ -130,7 +131,7 @@ select {
 .msg.radio { border-color: transparent; color: #c9d3e6; }
 .msg.radio.box { padding-left: 18px; color: var(--dim); }
 .msg.radio.box b { opacity: 0.7; font-weight: 400; }
-.cams { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; height: 190px; flex: none; }
+.cams { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; flex: 1; min-height: 260px; }
 .cam { position: relative; padding: 0; overflow: hidden; display: flex; }
 .cam canvas { width: 100%; height: 100%; display: block; }
 .camlabel { position: absolute; top: 5px; left: 7px; font-size: 9px; letter-spacing: 1px; background: rgba(8, 10, 14, 0.8); padding: 2px 6px; border-radius: 2px; }
@@ -183,7 +184,8 @@ select {
   .mapbox { min-height: 340px; }
   .controls { grid-template-columns: 1fr; }
   .cams { grid-template-columns: 1fr; height: auto; }
-  .cam { height: 180px; }
+  .cams { flex: none; min-height: 0; }
+  .cam { height: 260px; }
   .dbody, .repcols { grid-template-columns: 1fr; }
   .meters { margin-left: 0; }
 }
