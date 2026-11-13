@@ -75,6 +75,9 @@ export const sound = {
     else if (level === 'ok') { tone(784, 0, 0.08, 0.12); tone(1047, 0.09, 0.14, 0.12) }
     else tone(880, 0, 0.05, 0.08)
   },
+  // Startampel: Ton pro Licht, langer Ton beim Erlöschen
+  light() { if (!ready()) return; tone(520, 0, 0.14, 0.22, 'square') },
+  go() { if (!ready()) return; tone(1040, 0, 0.5, 0.24, 'square') },
   // Neuer Vorfall
   incident(hazard) {
     if (!ready()) return

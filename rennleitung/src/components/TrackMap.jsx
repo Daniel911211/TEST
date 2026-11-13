@@ -17,7 +17,9 @@ function carPos(T, L, dist, lat) {
   }
 }
 
-export default function TrackMap({ race, selected, onSelect }) {
+export default function TrackMap({ race, selected, onSelect, freeCam }) {
+  const view = useRef({ sc: 1, ox: 0, oy: 0 })
+  const drag = useRef({ on: false, moved: false })
   const ref = useRef(null)
   const raceRef = useRef(race)
   raceRef.current = race
@@ -167,6 +169,22 @@ export default function TrackMap({ race, selected, onSelect }) {
       // Autos
       const cars = race.cars.filter((c) => c.status === 'run' || c.status === 'stopped')
       const topIds = new Set(race.order.slice(0, 3).map((c) => c.id))
+      view.current = { sc, ox, oy }
+      // Sichtfeld der Streckenkamera als Rechteck
+      const fc = freeCam.current
+      const rw = Math.max(16, fc.vw * sc), rh = Math.max(12, fc.vh * sc)
+      const rx = fc.x * sc + ox - rw / 2, ry = fc.y * sc + oy - rh / 2
+      ctx.fillStyle = fc.manual ? 'rgba(76,208,255,0.14)' : 'rgba(76,208,255,0.06)'
+      ctx.fillRect(rx, ry, rw, rh)
+      ctx.strokeStyle = '#4cd0ff'
+      ctx.lineWidth = fc.manual ? 2 : 1.2
+      if (!fc.manual) ctx.setLineDash([4, 3])
+      ctx.strokeRect(rx, ry, rw, rh)
+      ctx.setLineDash([])
+      ctx.fillStyle = '#4cd0ff'
+      ctx.textAlign = 'left'
+      ctx.fillText('KAM 03', rx, ry - 4)
+      ctx.textAlign = 'center'
       hits.current = []
       const sel = selRef.current
       const sorted = [...cars].sort((a, b) => (a.id === sel) - (b.id === sel))
@@ -229,7 +247,37 @@ export default function TrackMap({ race, selected, onSelect }) {
     }
   }, [])
 
+  const toWorld = (e) => {
+    const r = ref.current.getBoundingClientRect()
+    const { sc, ox, oy } = view.current
+    return { px: e.clientX - r.left, py: e.clientY - r.top, x: (e.clientX - r.left - ox) / sc, y: (e.clientY - r.top - oy) / sc }
+  }
+  const inRect = (p) => {
+    const fc = freeCam.current, { sc } = view.current
+    return Math.abs(p.x - fc.x) * sc < Math.max(16, fc.vw * sc) / 2 + 6 && Math.abs(p.y - fc.y) * sc < Math.max(12, fc.vh * sc) / 2 + 6
+  }
+  // Rechteck ziehen verschiebt die Streckenkamera, Doppelklick setzt sie an eine Stelle
+  const down = (e) => {
+    const p = toWorld(e)
+    if (!inRect(p)) return
+    const fc = freeCam.current
+    drag.current = { on: true, moved: false, dx: fc.x - p.x, dy: fc.y - p.y }
+    e.currentTarget.setPointerCapture(e.pointerId)
+  }
+  const move = (e) => {
+    const p = toWorld(e)
+    const d = drag.current
+    if (!d.on) { e.currentTarget.style.cursor = inRect(p) ? 'grab' : 'crosshair'; return }
+    d.moved = true
+    Object.assign(freeCam.current, { manual: true, x: p.x + d.dx, y: p.y + d.dy })
+  }
+  const up = () => { drag.current.on = false }
+  const dbl = (e) => {
+    const p = toWorld(e)
+    Object.assign(freeCam.current, { manual: true, x: p.x, y: p.y })
+  }
   const click = (e) => {
+    if (drag.current.moved) { drag.current.moved = false; return }
     const r = ref.current.getBoundingClientRect()
     const x = e.clientX - r.left, y = e.clientY - r.top
     let best = null, bd = 16
@@ -240,5 +288,5 @@ export default function TrackMap({ race, selected, onSelect }) {
     onSelect(best)
   }
 
-  return <canvas ref={ref} className="trackcanvas" onClick={click} />
+  return <canvas ref={ref} className="trackcanvas" onClick={click} onPointerDown={down} onPointerMove={move} onPointerUp={up} onPointerCancel={up} onDoubleClick={dbl} style={{ touchAction: 'none' }} />
 }

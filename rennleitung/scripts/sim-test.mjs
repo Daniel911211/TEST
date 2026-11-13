@@ -2,7 +2,18 @@ import { Race } from '../src/sim/race.js'
 
 for (const key of ['spa', 'monza', 'monaco']) {
   const r = new Race(key, 3)
-  r.start()
+  r.startFormation()
+  for (let i = 0; i < 20 * 600 && r.state === 'FORMATION'; i++) r.step(0.05)
+  if (r.state !== 'GRIDREADY') throw new Error('Feld kommt nicht in die Aufstellung: ' + r.state)
+  const form = r.t
+  for (const c of r.cars) if (Math.abs(c.dist - c.slot - c.gridOver) > 0.01) throw new Error('falscher Startplatz ' + c.code)
+  if (r.cars.some((c) => c.stalled)) r.abortStart()
+  for (let i = 0; i < 20 * 600 && r.state === 'FORMATION'; i++) r.step(0.05)
+  r.cars.forEach((c) => (c.stalled = false))
+  r.startLights()
+  for (let i = 0; i < 20 * 20 && r.state === 'LIGHTS'; i++) r.step(0.05)
+  if (r.state !== 'GREEN') throw new Error('kein Start: ' + r.state)
+  console.log(key, 'Einführungsrunde', form.toFixed(0), 's, Fälle am Start:', r.incidents.map((i) => i.type).join(',') || '-')
   let lapTimes = []
   let last = 0
   // einfacher Bot: löst offene Fälle zufällig, setzt Gelb bei stehenden Autos

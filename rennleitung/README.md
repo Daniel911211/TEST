@@ -17,9 +17,12 @@ npm run sim-test # Simulation ohne Oberfläche testen
 - 22 Autos (Feld 2026) mit Zeitnahme, Überholen, Rennende mit Zielflagge
 - Zwei Kameraansichten: eine folgt einem Auto, eine zeigt den Ort des letzten Vorfalls
 - Wetter: Regenschauer mit weniger Grip, mehr Drehern und Aquaplaning-Gefahr
+- Startprozedur: Einführungsrunde, Startampel, Startabbruch bei abgewürgtem Auto
+- Töne für Funk, Meldungen, Vorfälle und Startampel
+- Streckenkamera frei verschiebbar: Rechteck auf der Karte ziehen oder doppelklicken
 - Sektorflaggen (Grün/Gelb/Doppelgelb, Tasten 1 2 3), VSC, Safety Car, Rote Flagge, Neustart
 - Zufallsfälle mit Fall-Dialog, Replay, Regelauszug und Fahreraussagen:
-  Track Limits, Kollision (Schuldfrage), Unsichere Freigabe, Überholen unter Gelb
+  Track Limits, Kollision (Schuldfrage), Unsichere Freigabe, Überholen unter Gelb, Frühstart, Falsche Startposition
 - Direkte Strafen pro Fahrer (Verwarnung, 5/10 s, Durchfahrt, Stop & Go, Schwarze Flagge)
 - Bewertung nach Sicherheit, Fairness und Ablauf, Rennbericht mit Note A–F
 - Funkverkehr mit vielen Sprüchen (`src/sim/radio.js`) und Race-Control-Messages

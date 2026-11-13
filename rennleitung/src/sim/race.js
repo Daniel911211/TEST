@@ -20,6 +20,10 @@ export const OPTIONS = {
 export const OPTION_LIST = Object.values(OPTIONS)
 
 export const RULES = {
+  jumpStart:
+    'Frühstart: Bewegt sich ein Auto, bevor die Lichter ausgehen, und löst den Sensor aus, gibt es 5 Sekunden. Wer klar vor dem Signal losfährt, bekommt eine Durchfahrtsstrafe. Ein Zucken ohne Sensorauslösung bleibt straffrei.',
+  gridPosition:
+    'Startposition: Die Aufstandsfläche der Vorderreifen muss hinter der weißen Linie der Startbox stehen. Steht ein Reifen darüber, gibt es 5 Sekunden. Berührt der Reifen die Linie nur, bleibt es straffrei.',
   overtakeYellow:
     'Unter Gelb, VSC und Safety Car darf nicht überholt werden. Ausnahme: Das überholte Auto ist offensichtlich langsam oder defekt. Gelb/VSC: 5 Sek. Doppelgelb/Safety Car: 10 Sek.',
   collision:
@@ -31,6 +35,8 @@ export const RULES = {
 }
 
 export const TYPE_TITLE = {
+  jumpStart: 'Frühstart',
+  gridPosition: 'Falsche Startposition',
   overtakeYellow: 'Überholen unter Gelb',
   collision: 'Kollision',
   unsafeRelease: 'Unsichere Freigabe',
@@ -47,7 +53,11 @@ export class Race {
     this.L = this.track.length
     this.laps = laps
     this.t = 0
-    this.state = 'GRID' // GRID | GREEN | VSC | SC | RED | RESTART | FINISHED
+    this.state = 'GRID' // GRID | FORMATION | GRIDREADY | LIGHTS | GREEN | VSC | SC | RED | RESTART | FINISHED
+    this.raceStart = null
+    this.lightsAt = null
+    this.lightsOutAt = null
+    this.formations = 0
     this.sectors = ['green', 'green', 'green']
     this.messages = []
     this.radioLog = []
@@ -83,6 +93,10 @@ export class Race {
       ...d,
       id: i,
       dist: -(12 + i * 8),
+      slot: -(12 + i * 8),
+      slotLat: i % 2 ? 0.35 : -0.35,
+      onGrid: true,
+      stalled: false,
       speed: 0,
       lat: i % 2 ? 0.35 : -0.35,
       latTarget: i % 2 ? 0.35 : -0.35,
@@ -101,7 +115,7 @@ export class Race {
       bestLap: null,
       lapDirty: false,
     }))
-    this.msg('GRID READY - AWAITING START')
+    this.msg('CARS ON GRID - AWAITING FORMATION LAP')
   }
 
   // ---------- Hilfsfunktionen ----------
@@ -161,11 +175,113 @@ export class Race {
   }
 
   // ---------- Bedienung ----------
-  start() {
-    if (this.state !== 'GRID') return
+  // 1) Einführungsrunde: das Feld fährt langsam eine Runde und stellt sich wieder auf
+  startFormation() {
+    if (this.state !== 'GRID' && this.state !== 'GRIDREADY') return
+    this.formations++
+    this.state = 'FORMATION'
+    const fault = Math.random() < 0.3 ? pick(this.cars.filter((c) => c.status === 'run')) : null
+    for (const c of this.cars) {
+      if (c.status !== 'run') continue
+      c.dist = c.slot - this.L
+      c.onGrid = false
+      c.speed = 0
+      c.gridOver = c === fault ? +rnd(0.1, 1.3).toFixed(2) : 0
+    }
+    this.msg(this.formations > 1 ? 'EXTRA FORMATION LAP STARTED' : 'FORMATION LAP STARTED', 'flag')
+    this.radioQueue.push({ at: this.t + 12, key: 'formation' }, { at: this.t + 30, key: 'formation' })
+  }
+  // 2) Startampel: fünf rote Lichter, dann gehen sie nach zufälliger Wartezeit aus
+  startLights() {
+    if (this.state !== 'GRIDREADY') return
+    this.state = 'LIGHTS'
+    this.lightsAt = this.t
+    this.lightsOutAt = this.t + 5 + rnd(0.5, 2.3)
+    this.jump = Math.random() < 0.3 ? { car: pick(this.cars.filter((c) => c.status === 'run' && !c.stalled)), kind: pick(['twitch', 'roll', 'roll', 'clear']), done: false } : null
+    this.msg('START PROCEDURE - LIGHTS SEQUENCE', 'warn')
+  }
+  // Start abbrechen: zusätzliche Einführungsrunde, Renndistanz minus eine Runde
+  abortStart() {
+    if (this.state !== 'GRIDREADY') return
+    const stalled = this.cars.filter((c) => c.stalled)
+    if (!stalled.length) this.flow = clamp(this.flow - 8, 0, 100)
+    else this.logEvent('Start abgebrochen: Auto stand in der Aufstellung', 0)
+    this.msg('START ABORTED - EXTRA FORMATION LAP, RACE DISTANCE REDUCED BY ONE LAP', 'bad')
+    this.laps = Math.max(1, this.laps - 1)
+    let back = Math.min(...this.cars.filter((c) => c.status === 'run').map((c) => c.slot))
+    for (const c of stalled) {
+      c.stalled = false
+      back -= 8
+      c.slot = back
+      this.msg(`${this.tag(c)} - PUSHED TO PIT LANE, WILL START FROM THE BACK`, 'info')
+    }
+    this.sayRandom('abort', 2)
+    this.startFormation()
+  }
+  lightsOn() {
+    return this.state === 'LIGHTS' ? Math.min(5, Math.floor(this.t - this.lightsAt) + 1) : 0
+  }
+  go() {
     this.state = 'GREEN'
+    this.raceStart = this.t
+    if (this.rainPlan) this.rainPlan.start += this.t
+    this.nextAmbient = this.t + rnd(15, 30)
     this.msg('LIGHTS OUT AND AWAY WE GO', 'flag')
-    this.radioQueue.push({ at: 6, key: 'start' }, { at: 11, key: 'start' })
+    this.radioQueue.push({ at: this.t + 6, key: 'start' }, { at: this.t + 11, key: 'start' })
+    for (const c of this.cars) {
+      c.lapStart = this.t
+      c.onGrid = false
+      if (c.stalled) {
+        c.stalled = false
+        this.stopCar(c, 'STALLED ON GRID')
+        this.safety = clamp(this.safety - 15, 0, 100)
+        this.logEvent(`Start trotz stehendem Auto (${c.code})`, -15)
+        this.radioQueue.push({ at: this.t + 3, key: 'danger' })
+      }
+    }
+    this.spawnStartCases()
+  }
+  spawnStartCases() {
+    const loc = { sector: 0, turn: 0, label: 'Startaufstellung' }
+    const j = this.jump
+    if (j && j.car.status === 'run') {
+      const c = j.car
+      const early = j.kind === 'twitch' ? +rnd(0.3, 0.9).toFixed(2) : j.kind === 'roll' ? +rnd(0.08, 0.25).toFixed(2) : +rnd(0.3, 0.6).toFixed(2)
+      const inc = this.makeBase('decision', 'jumpStart', [c.id], loc)
+      inc.ideal = { culprit: null, sev: j.kind === 'twitch' ? 0 : j.kind === 'roll' ? 2 : 4 }
+      inc.facts = [
+        ['Fahrer', `${c.num} ${c.name} - ${c.team}`],
+        ['Startplatz', `P${this.cars.filter((o) => o.slot > c.slot).length + 1}`],
+        ['Erste Bewegung', `${early.toFixed(2)} s vor Erlöschen der Lichter`],
+        ['Sensor', j.kind === 'twitch' ? 'nicht ausgelöst, Auto stand wieder' : 'ausgelöst'],
+        ['Vorteil', j.kind === 'clear' ? 'deutlich, mehrere Meter' : j.kind === 'roll' ? 'gering' : 'keiner'],
+      ]
+      inc.statements = [{ code: c.code, text: pick(['Ich habe mich nicht bewegt! Die Kupplung hat nur kurz gegriffen.', 'Das war im Rahmen. Der Sensor spinnt.', 'Okay, vielleicht war ich einen Hauch zu früh.']) }]
+      inc.replay = { kind: 'jump', variant: j.kind }
+      inc.expert = j.kind === 'twitch' ? 'Experten: Zucken ohne Sensorauslösung, keine Strafe.' : j.kind === 'roll' ? 'Experten: Frühstart, Sensor ausgelöst. 5 Sekunden.' : 'Experten: Klarer Frühstart. Durchfahrtsstrafe.'
+      this.incidents.push(inc)
+      this.msg(`${this.tag(c)} - FALSE START - UNDER INVESTIGATION`, 'warn')
+      this.say('jump', c, {}, { force: true })
+    }
+    for (const c of this.cars) {
+      if (!c.gridOver || c.status !== 'run') continue
+      const over = +(c.gridOver - 0.45).toFixed(2) // Meter, die der Vorderreifen über der Linie steht
+      const inc = this.makeBase('decision', 'gridPosition', [c.id], loc)
+      inc.ideal = { culprit: null, sev: over > 0.03 ? 2 : 0 }
+      inc.options = ['nfa', 'warn', 't5', 't10']
+      inc.facts = [
+        ['Fahrer', `${c.num} ${c.name} - ${c.team}`],
+        ['Startplatz', `P${this.cars.filter((o) => o.slot > c.slot).length + 1}`],
+        ['Meldung', 'Startbox-Kamera: Auto steht weit vorn'],
+      ]
+      inc.tip = 'Tipp: Ans Ende scrubben, hineinzoomen und die Vorderreifen gegen die weiße Linie prüfen.'
+      inc.statements = [{ code: c.code, text: pick(['Ich sehe die Linie aus dem Cockpit nicht. Niemand sieht die.', 'Ich stand perfekt. Glaube ich.']) }]
+      inc.replay = { kind: 'grid', over }
+      inc.expert = over > 0.03 ? `Experten: Vorderreifen ${over.toFixed(2)} m über der Linie. 5 Sekunden.` : `Experten: Reifen noch ${Math.abs(over).toFixed(2)} m hinter der Linie, keine Strafe.`
+      this.incidents.push(inc)
+      this.msg(`${this.tag(c)} - INCORRECT STARTING POSITION - UNDER INVESTIGATION`, 'warn')
+      c.gridOver = 0
+    }
   }
 
   cycleSector(i) {
@@ -338,7 +454,7 @@ export class Race {
     }
     this.feedback.push(fb)
     this.logEvent(fb.text, delta)
-    const reason = { collision: 'CAUSING A COLLISION', unsafeRelease: 'UNSAFE RELEASE', overtakeYellow: 'OVERTAKING UNDER YELLOW' }[inc.type] || 'TRACK LIMITS'
+    const reason = { jumpStart: 'FALSE START', gridPosition: 'INCORRECT STARTING POSITION', collision: 'CAUSING A COLLISION', unsafeRelease: 'UNSAFE RELEASE', overtakeYellow: 'OVERTAKING UNDER YELLOW' }[inc.type] || 'TRACK LIMITS'
     if (target) {
       this.applyPenalty(target, opt, reason)
       if (opt !== 'nfa') this.reactRadio('penalty', target, opt)
@@ -376,6 +492,27 @@ export class Race {
     const order = this.standings().filter((c) => c.status === 'run' || c.status === 'stopped')
     this.order = order
 
+    if (this.state === 'FORMATION') {
+      const run = this.cars.filter((c) => c.status === 'run')
+      if (run.every((c) => c.onGrid)) {
+        this.state = 'GRIDREADY'
+        this.msg('ALL CARS ON GRID - READY FOR START', 'ok')
+        if (Math.random() < 0.18) {
+          const c = pick(run)
+          c.stalled = true
+          this.msg(`${this.tag(c)} - STALLED ON GRID, YELLOW FLAGS`, 'bad')
+          this.say('stall', c, {}, { force: true })
+        }
+      }
+    }
+    if (this.state === 'LIGHTS') {
+      const j = this.jump
+      if (j && !j.done && this.t >= this.lightsOutAt - (j.kind === 'twitch' ? 1.4 : j.kind === 'roll' ? 0.3 : 0.5)) {
+        j.done = true
+        j.car.dist += j.kind === 'twitch' ? 0.3 : j.kind === 'roll' ? 0.7 : 2.5
+      }
+      if (this.t >= this.lightsOutAt) this.go()
+    }
     if (this.state === 'VSC' && this.vscEndAt && this.t >= this.vscEndAt) {
       this.state = 'GREEN'
       this.vscEndAt = null
@@ -423,7 +560,19 @@ export class Race {
     const st = this.state
     let v = T.v[idx] * c.pace * c.form * (1 - 0.14 * this.wet)
     let catchGap = null
-    if (st === 'RED' || st === 'RESTART') v = 0
+    const pre = st === 'FORMATION' || st === 'GRIDREADY' || st === 'LIGHTS'
+    if (st === 'RED' || st === 'RESTART' || st === 'GRIDREADY' || st === 'LIGHTS') v = 0
+    else if (st === 'FORMATION') {
+      const target = c.slot + c.gridOver
+      const rem = target - c.dist
+      if (c.onGrid) v = 0
+      else {
+        v = Math.min(T.v[idx] * 0.6, Math.sqrt(2 * 5 * Math.max(0, rem)) + 0.6)
+        // Reifen aufwärmen: Schlangenlinien, kurz vor dem Startplatz einordnen
+        c.latTarget = rem > 90 ? 0.7 * Math.sin(this.t * 1.7 + c.id) : c.slotLat
+        if (rem < 0.3) { c.dist = target; c.speed = 0; c.onGrid = true; c.lat = c.slotLat; v = 0 }
+      }
+    }
     else if (st === 'VSC') v *= 0.6
     else if (st === 'SC') {
       const ahead = idxInOrder > 0 ? running[idxInOrder - 1] : this.sc
@@ -451,7 +600,8 @@ export class Race {
     let blocker = null, bgap = 1e9
     const consider = (o, isSC) => {
       const g = mod(o.dist - c.dist, L)
-      if (g > 0 && g < 45 && Math.abs(o.lat - c.lat) < 0.6 && g < bgap) {
+      if (st === 'FORMATION' && o.onGrid) return
+      if (g > 0 && g < 45 && (st === 'FORMATION' || Math.abs(o.lat - c.lat) < 0.6) && g < bgap) {
         bgap = g
         blocker = o
         blocker.isSC = isSC
@@ -461,7 +611,7 @@ export class Race {
     if (this.sc) consider(this.sc, true)
     const free = st === 'GREEN'
     if (blocker) {
-      const sp = st === 'SC' || st === 'VSC' ? 14 : 11
+      const sp = st === 'FORMATION' ? 9 : st === 'SC' || st === 'VSC' ? 14 : 11
       if (bgap < sp + 2) v = Math.min(v, blocker.speed * 0.99)
       else v = Math.min(v, blocker.speed + (bgap - sp) * 0.9)
       c.blockT += dt
@@ -483,7 +633,7 @@ export class Race {
         v *= 1.05
       }
     } else if (Math.abs(c.latTarget) > 0.4 && c.latTarget === c.passing) c.latTarget = 0
-    if (!c.passing && Math.abs(c.latTarget) > 0.4 && this.state !== 'RESTART' && this.state !== 'RED') c.latTarget = 0
+    if (!c.passing && !pre && Math.abs(c.latTarget) > 0.4 && this.state !== 'RESTART' && this.state !== 'RED') c.latTarget = 0
 
     const a = v > c.speed ? 14 : st === 'RED' ? 42 : 38
     c.speed += clamp(v - c.speed, -a * dt, a * dt)
@@ -850,7 +1000,7 @@ export class Race {
       if (c.status === 'fin') gap = 'ZIEL'
       else if (c.status === 'out') gap = 'OUT'
       else if (c.status === 'dsq') gap = 'DSQ'
-      else if (i > 0 && this.state !== 'GRID') {
+      else if (i > 0 && this.raceStart !== null) {
         const prev = st[i - 1]
         const dd = prev.dist - c.dist
         gap = dd >= this.L ? `+${Math.floor(dd / this.L)} L` : `+${(dd / avg).toFixed(1)}`
@@ -886,6 +1036,9 @@ export class Race {
     }
     return {
       t: this.t,
+      raceTime: this.raceStart === null ? 0 : this.t - this.raceStart,
+      lights: this.lightsOn(),
+      stalled: this.cars.filter((c) => c.stalled).map((c) => c.name),
       state: this.state,
       lap: leader ? this.lapNo(leader) : 1,
       laps: this.laps,

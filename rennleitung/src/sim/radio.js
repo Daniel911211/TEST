@@ -8,6 +8,27 @@ export const LINES = {
     'Wer bremst denn da so früh?! Wir sind hier nicht beim Kindergeburtstag!',
     'Ich wurde in Kurve eins fast zerquetscht. Schönen Dank auch.',
   ],
+  formation: [
+    'Die Reifen sind eiskalt. Ich bekomme keine Temperatur rein.',
+    'Der vor mir schleicht. Kann der mal Gas geben? Meine Bremsen kühlen aus.',
+    'Kupplung fühlt sich gut an. Hoffe ich.',
+    'Wie lange stehen wir gleich in der Aufstellung? Der Motor wird heiß.',
+  ],
+  stall: [
+    'Motor abgewürgt! Scheiße! Ich stehe!',
+    'Anti-Stall ist drin, ich komme nicht weg! Winkt die ab!',
+    'Der Gang geht nicht rein! Ich stehe hier wie ein Idiot!',
+  ],
+  abort: [
+    'Start abgebrochen? Wer war das denn?',
+    'Noch eine Runde. Großartig. Meine Reifen waren genau richtig.',
+    'Na toll. Alles noch mal von vorn.',
+  ],
+  jump: [
+    'Ich habe mich nicht bewegt! Keinen Millimeter!',
+    'Frühstart? Niemals. Schaut euch die Daten an.',
+    'Okay, das war knapp. Sehr knapp.',
+  ],
   collisionAttacker: [
     '{other} macht einfach die Tür zu. Was für ein Idiot!',
     'Rennunfall. Da war eine Lücke, also bin ich reingefahren.',

@@ -9,6 +9,9 @@ import { sound } from './sound.js'
 
 const STATE_LABEL = {
   GRID: ['STARTAUFSTELLUNG', 'grid'],
+  FORMATION: ['EINFÜHRUNGSRUNDE', 'vsc'],
+  GRIDREADY: ['STARTAUFSTELLUNG', 'grid'],
+  LIGHTS: ['STARTAMPEL', 'red'],
   GREEN: ['GRÜN', 'green'],
   VSC: ['VIRTUAL SAFETY CAR', 'vsc'],
   SC: ['SAFETY CAR', 'sc'],
@@ -37,6 +40,16 @@ export default function App() {
   const [caseId, setCaseId] = useState(null)
   const [report, setReport] = useState(false)
   const [toast, setToast] = useState(null)
+  // Freie Streckenkamera: Mittelpunkt in Metern, wird von Karte und Kamera gemeinsam genutzt
+  const freeCam = useRef({ manual: false, x: 0, y: 0, vw: 100, vh: 80 })
+  const startSeen = useRef({ lights: 0, state: 'GRID' })
+  useEffect(() => {
+    const s = startSeen.current
+    if (snap.lights > s.lights) sound.light()
+    if (s.state === 'LIGHTS' && snap.state === 'GREEN') sound.go()
+    s.lights = snap.lights
+    s.state = snap.state
+  }, [snap.lights, snap.state])
   const [vol, setVol] = useState(sound.volume)
   const [muted, setMuted] = useState(sound.muted)
   const heard = useRef({ msg: 0, radio: 0, inc: 0 })
@@ -75,7 +88,7 @@ export default function App() {
       last = now
       const f = flags.current
       if (!f.paused && !f.dialog) {
-        let rem = dt * f.speed
+        let rem = dt * (raceRef.current.state === 'LIGHTS' ? 1 : f.speed)
         while (rem > 0) {
           const h = Math.min(0.05, rem)
           raceRef.current.step(h)
@@ -134,6 +147,7 @@ export default function App() {
     setToast(null)
     lastFb.current = null
     heard.current = { msg: 0, radio: 0, inc: 0 }
+    freeCam.current.manual = false
   }
 
   const [stLabel, stClass] = STATE_LABEL[snap.state]
@@ -154,7 +168,7 @@ export default function App() {
           {snap.state === 'RESTART' && ` · ${snap.restartIn}`}
         </div>
         <div className="stat"><span className="dim">RUNDE</span><b>{snap.lap}/{snap.laps}</b></div>
-        <div className="stat"><span className="dim">RENNZEIT</span><b>{raceTimeStr(snap.t)}</b></div>
+        <div className="stat"><span className="dim">RENNZEIT</span><b>{raceTimeStr(snap.raceTime)}</b></div>
         <div className="stat"><span className="dim">UHRZEIT</span><b>{clockStr(snap.t)}</b></div>
         <div className={`weather ${snap.weather.phase}`}>
           <span className="dim" style={{ fontSize: 9, letterSpacing: 1 }}>WETTER</span>
@@ -190,11 +204,26 @@ export default function App() {
           <div className="stage">
           <div className="panel mapbox">
             <div className="ptitle">STRECKENÜBERSICHT · {snap.track.name.toUpperCase()}</div>
-            <TrackMap race={race} selected={selected} onSelect={setSelected} />
+            <TrackMap race={race} selected={selected} onSelect={setSelected} freeCam={freeCam} />
             {snap.state === 'GRID' && (
               <div className="startover">
-                <button className="btn big ok" onClick={() => race.start()}>RENNEN STARTEN</button>
+                <button className="btn big ok" onClick={() => race.startFormation()}>EINFÜHRUNGSRUNDE FREIGEBEN</button>
                 <div className="hint">{snap.laps} Runden · Du bist die Rennleitung: Flaggen, Neutralisierung, Strafen.</div>
+              </div>
+            )}
+            {snap.state === 'GRIDREADY' && (
+              <div className="startbox">
+                {snap.stalled.length > 0 && <div className="stallwarn">⚠ {snap.stalled.join(', ')} steht mit abgewürgtem Motor in der Aufstellung</div>}
+                <div className="startbtns">
+                  <button className="btn big ok" onClick={() => race.startLights()}>STARTAMPEL STARTEN</button>
+                  <button className="btn red" onClick={() => race.abortStart()}>START ABBRECHEN</button>
+                </div>
+                <div className="hint">Abbruch bedeutet: zusätzliche Einführungsrunde, eine Rennrunde weniger.</div>
+              </div>
+            )}
+            {snap.state === 'LIGHTS' && (
+              <div className="lights">
+                {[1, 2, 3, 4, 5].map((n) => <i key={n} className={snap.lights >= n ? 'on' : ''} />)}
               </div>
             )}
             {paused && <div className="pausetag">PAUSE</div>}
@@ -206,7 +235,7 @@ export default function App() {
           </div>
           <div className="cams">
             <CamView race={race} mode="follow" selected={selected} />
-            <CamView race={race} mode="cctv" selected={selected} />
+            <CamView race={race} mode="cctv" selected={selected} freeCam={freeCam} />
           </div>
           </div>
           <ControlPanel snap={snap} race={race} selectedRow={row} selectedCar={selCar} />

@@ -32,10 +32,11 @@ function buildPaths(T) {
 }
 
 // mode 'follow': folgt dem gewählten Auto bzw. dem Führenden. mode 'cctv': zeigt den Ort des letzten Vorfalls.
-export default function CamView({ race, mode, selected }) {
+export default function CamView({ race, mode, selected, freeCam }) {
+  const [manual, setManual] = useState(false)
   const ref = useRef(null)
   const live = useRef({})
-  live.current = { race, selected }
+  live.current = { race, selected, freeCam }
   const [label, setLabel] = useState('')
   const [note, setNote] = useState('')
 
@@ -43,7 +44,7 @@ export default function CamView({ race, mode, selected }) {
     const cv = ref.current
     const ctx = cv.getContext('2d')
     let raf, size = { w: 1, h: 1, dpr: 1 }, cache = { key: null }, lastLabel = '', lastNote = ''
-    let cam = null
+    let cam = null, lastManual = false
     const resize = () => {
       const r = cv.getBoundingClientRect()
       const dpr = window.devicePixelRatio || 1
@@ -56,7 +57,9 @@ export default function CamView({ race, mode, selected }) {
     resize()
 
     const draw = (now) => {
-      const { race, selected } = live.current
+      const { race, selected, freeCam } = live.current
+      const fc = freeCam ? freeCam.current : null
+      if (fc && fc.manual !== lastManual) { lastManual = fc.manual; setManual(fc.manual) }
       const T = race.track, L = race.L
       if (cache.key !== T.key) cache = { key: T.key, ...buildPaths(T) }
       const { w, h, dpr } = size
@@ -67,6 +70,10 @@ export default function CamView({ race, mode, selected }) {
         const car = (selected != null && ['run', 'stopped'].includes(race.cars[selected].status) && race.cars[selected]) || race.order.find((c) => c.status === 'run') || race.cars[0]
         target = posAt(T, L, car.dist)
         text = `WELTREGIE · FOLGT ${car.last.toUpperCase()}`
+      } else if (fc && fc.manual) {
+        target = { x: fc.x, y: fc.y }
+        const k = T.corners.reduce((b, c) => (Math.hypot(T.xs[c.idx] - fc.x, T.ys[c.idx] - fc.y) < Math.hypot(T.xs[b.idx] - fc.x, T.ys[b.idx] - fc.y) ? c : b))
+        text = `FREI · NAHE KURVE ${k.n} · ${k.name.toUpperCase()}`
       } else {
         const incs = race.incidents
         const inc = incs.find((i) => i.kind === 'hazard') || incs[incs.length - 1]
@@ -84,6 +91,12 @@ export default function CamView({ race, mode, selected }) {
       }
       if (!cam || mode === 'cctv') cam = cam && Math.hypot(cam.x - target.x, cam.y - target.y) < 400 ? { x: cam.x + (target.x - cam.x) * 0.08, y: cam.y + (target.y - cam.y) * 0.08 } : { x: target.x, y: target.y }
       else cam = { x: target.x, y: target.y }
+      if (fc) {
+        if (fc.manual) cam = { x: fc.x, y: fc.y }
+        else { fc.x = cam.x; fc.y = cam.y }
+        fc.vw = w / SCALE
+        fc.vh = h / SCALE
+      }
       if (text !== lastLabel) { lastLabel = text; setLabel(text) }
       if (hint !== lastNote) { lastNote = hint; setNote(hint) }
 
@@ -142,6 +155,7 @@ export default function CamView({ race, mode, selected }) {
       <canvas ref={ref} />
       <div className="camlabel">{mode === 'follow' ? <><i>● LIVE</i> · KAM 02 · </> : 'KAM 03 · '}{label}</div>
       {note && <div className="camnote">{note}</div>}
+      {manual && <button className="btn sm camauto" onClick={() => { freeCam.current.manual = false }}>AUTOMATIK</button>}
     </div>
   )
 }

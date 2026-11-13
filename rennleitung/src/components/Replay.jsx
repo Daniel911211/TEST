@@ -224,6 +224,50 @@ function draw(ctx, s) {
     ctx.fillStyle = '#ff9a1f'; ctx.fillRect(W - 170, 10, 160, 18)
     ctx.fillStyle = '#10141c'; ctx.textAlign = 'center'; ctx.fillText(status.toUpperCase(), W - 90, 23); ctx.textAlign = 'left'
     label(ctx, `${carA.code} ${va} km/h · ${carB.code} ${slow ? Math.round(ref * 0.4) : ref} km/h`, 10, H - 28, '#e8edf7')
+  } else if (kind === 'grid' || kind === 'jump') {
+    // Startbox: weiße Linie bei y = 0, Auto zeigt nach oben. Vorderreifen-Vorderkante liegt 2,2 m vor der Fahrzeugmitte.
+    let yCar, lightsOn = 0, out = false
+    if (kind === 'grid') {
+      const final = 2.2 - inc.replay.over
+      yCar = final + 26 * (1 - ease(Math.min(1, p / 0.7))) ** 2
+    } else {
+      const v = inc.replay.variant
+      const base = 2.2 + 0.45
+      const pOut = 0.6
+      out = p >= pOut
+      lightsOn = out ? 0 : Math.min(5, Math.floor(p / 0.09) + 1)
+      const launchAt = v === 'clear' ? 0.5 : pOut + 0.02
+      let creep = 0
+      if (v === 'twitch') creep = 0.3 * ease((p - 0.36) / 0.06)
+      if (v === 'roll') creep = 0.7 * ease((p - 0.52) / 0.08)
+      const q = Math.max(0, p - launchAt)
+      yCar = base - creep - 260 * q * q
+    }
+    const k = (H / 16) * zoom
+    const camY = fixed || kind === 'grid' ? -0.5 : Math.min(-0.5, yCar - 2)
+    const S = (x, y) => [W / 2 + x * k, H / 2 + (y - camY) * k]
+    ctx.fillStyle = '#4b4c52'; ctx.fillRect(0, 0, W, H)
+    const [e0] = S(-7, 0), [e1] = S(7, 0)
+    ctx.fillStyle = '#1f5a2a'; ctx.fillRect(0, 0, e0, H); ctx.fillRect(e1, 0, W - e1, H)
+    ctx.fillStyle = '#f4f4f4'; ctx.fillRect(e0 - 2, 0, 3, H); ctx.fillRect(e1 - 1, 0, 3, H)
+    // Startbox-Markierung
+    const [bx0, by0] = S(-1.6, 0), [bx1] = S(1.6, 0), [, by1] = S(0, 0.25), [, bside] = S(0, 2.6)
+    ctx.fillStyle = '#f4f4f4'
+    ctx.fillRect(bx0, by0, bx1 - bx0, by1 - by0)
+    ctx.fillRect(bx0, by0, Math.max(2, 0.15 * k), bside - by0)
+    ctx.fillRect(bx1 - Math.max(2, 0.15 * k), by0, Math.max(2, 0.15 * k), bside - by0)
+    ctx.fillStyle = '#ffd21f'; ctx.fillRect(W / 2 - 0.1 * k, by0 - 1.2 * k, 0.2 * k, 1.2 * k)
+    const [cx2, cy2] = S(0, yCar)
+    drawCar(ctx, cx2, cy2, 0, carA.color, k)
+    if (kind === 'jump') {
+      for (let i = 0; i < 5; i++) {
+        ctx.fillStyle = i < lightsOn ? '#ff2a2a' : '#2a0b0b'
+        ctx.beginPath(); ctx.arc(W / 2 - 60 + i * 30, 46, 10, 0, Math.PI * 2); ctx.fill()
+      }
+      label(ctx, out ? 'LICHTER AUS' : 'ROT', W - 10, 10, out ? '#2fe08a' : '#ff6a6a', 'right')
+    } else {
+      label(ctx, `${carA.code} · STARTBOX`, W - 10, 10, '#e8edf7', 'right')
+    }
   } else {
     // Unsichere Freigabe (Boxengasse, Fahrtrichtung nach rechts)
     const { react } = inc.replay
