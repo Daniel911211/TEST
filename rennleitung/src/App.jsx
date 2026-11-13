@@ -99,10 +99,14 @@ export default function App() {
     if (fb && fb.id !== lastFb.current) {
       lastFb.current = fb.id
       setToast(fb)
-      const id = setTimeout(() => setToast(null), 5000)
-      return () => clearTimeout(id)
     }
   }, [snap])
+  // Hinweis nach 5 Sekunden ausblenden (eigener Timer, der nicht bei jeder Aktualisierung neu startet)
+  useEffect(() => {
+    if (!toast) return
+    const id = setTimeout(() => setToast(null), 5000)
+    return () => clearTimeout(id)
+  }, [toast])
 
   // Rennbericht automatisch am Ende
   useEffect(() => {
