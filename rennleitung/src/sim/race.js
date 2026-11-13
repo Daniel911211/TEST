@@ -94,12 +94,12 @@ export class Race {
       id: i,
       dist: -(12 + i * 8),
       slot: -(12 + i * 8),
-      slotLat: i % 2 ? 0.35 : -0.35,
+      slotLat: i % 2 ? 0.9 : -0.9,
       onGrid: true,
       stalled: false,
       speed: 0,
-      lat: i % 2 ? 0.35 : -0.35,
-      latTarget: i % 2 ? 0.35 : -0.35,
+      lat: i % 2 ? 0.9 : -0.9,
+      latTarget: i % 2 ? 0.9 : -0.9,
       status: 'run', // run | stopped | out | dsq | fin
       pace: d.teamPace + rnd(-0.003, 0.003),
       form: 1,
@@ -359,7 +359,7 @@ export class Race {
     alive.forEach((c, i) => {
       c.dist = base - i * 8
       c.speed = 0
-      c.lat = i % 2 ? 0.35 : -0.35
+      c.lat = i % 2 ? 0.9 : -0.9
       c.latTarget = c.lat
       c.passing = null
     })

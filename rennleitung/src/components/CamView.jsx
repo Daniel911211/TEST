@@ -128,7 +128,7 @@ export default function CamView({ race, mode, selected, freeCam }) {
           ctx.beginPath(); ctx.arc(x, y - 5, 1.2, 0, Math.PI * 2); ctx.fill()
         }
       }
-      for (const c of race.cars) if (c.status === 'run' || c.status === 'stopped') drawOne(c.dist, c.lat, c.color, c.status === 'stopped')
+      for (const c of race.cars) if (c.status === 'run' || c.status === 'stopped') drawOne(c.dist, c.lat, c.livery, c.status === 'stopped')
       if (race.sc) {
         const p = posAt(T, L, race.sc.dist)
         const nx = -Math.sin(p.h), ny = Math.cos(p.h)

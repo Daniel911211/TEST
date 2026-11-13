@@ -5,32 +5,75 @@ const FRAMES = 240
 const ease = (t) => (t <= 0 ? 0 : t >= 1 ? 1 : t * t * (3 - 2 * t))
 const lerp = (a, b, t) => a + (b - a) * t
 
-// Auto in Metern, Nase zeigt nach oben (-y)
-export function drawCar(ctx, x, y, ang, color, k) {
+// Formel-1-Auto von oben, in Metern, Nase zeigt nach oben (-y).
+// paint: Farbe oder { body, accent }. Die Radpositionen sind Messgrundlage für Track Limits und Startbox.
+export function drawCar(ctx, x, y, ang, paint, k) {
+  const body = typeof paint === 'string' ? paint : paint.body
+  const accent = typeof paint === 'string' ? '#f2f2f2' : paint.accent
+  const carbon = '#16181d'
   ctx.save()
   ctx.translate(x, y)
   ctx.rotate(ang)
   ctx.scale(k, k)
-  ctx.fillStyle = '#14161b'
-  for (const [wx, wy, ww, wh] of [[-1.25, -2.2, 0.6, 1.1], [0.65, -2.2, 0.6, 1.1], [-1.35, 1.2, 0.7, 1.3], [0.65, 1.2, 0.7, 1.3]]) ctx.fillRect(wx, wy, ww, wh)
-  ctx.fillStyle = '#23262e'
-  ctx.fillRect(-1.1, -3.0, 2.2, 0.35)
-  ctx.fillRect(-0.95, 2.55, 1.9, 0.4)
-  ctx.fillStyle = color
+  const poly = (pts, fill) => {
+    ctx.fillStyle = fill
+    ctx.beginPath()
+    pts.forEach(([px, py], i) => (i ? ctx.lineTo(px, py) : ctx.moveTo(px, py)))
+    ctx.closePath()
+    ctx.fill()
+  }
+  // Querlenker
+  ctx.strokeStyle = carbon
+  ctx.lineWidth = 0.09
   ctx.beginPath()
-  ctx.moveTo(0, -3.0)
-  ctx.lineTo(0.35, -1.6)
-  ctx.lineTo(0.75, -0.6)
-  ctx.lineTo(0.6, 2.4)
-  ctx.lineTo(-0.6, 2.4)
-  ctx.lineTo(-0.75, -0.6)
-  ctx.lineTo(-0.35, -1.6)
-  ctx.closePath()
-  ctx.fill()
-  ctx.fillStyle = '#ffc94a'
-  ctx.beginPath()
-  ctx.arc(0, 0.2, 0.3, 0, Math.PI * 2)
-  ctx.fill()
+  for (const sx of [-1, 1]) {
+    ctx.moveTo(sx * 0.2, -2.0); ctx.lineTo(sx * 0.7, -1.95)
+    ctx.moveTo(sx * 0.22, -1.55); ctx.lineTo(sx * 0.7, -1.7)
+    ctx.moveTo(sx * 0.4, 1.5); ctx.lineTo(sx * 0.7, 1.6)
+    ctx.moveTo(sx * 0.35, 1.95); ctx.lineTo(sx * 0.7, 1.85)
+  }
+  ctx.stroke()
+  // Reifen
+  ctx.fillStyle = '#0c0d10'
+  for (const [wx, wy, ww, wh] of [[-1.2, -2.2, 0.6, 0.78], [0.6, -2.2, 0.6, 0.78], [-1.3, 1.3, 0.7, 0.85], [0.6, 1.3, 0.7, 0.85]]) {
+    ctx.beginPath()
+    ctx.roundRect(wx, wy, ww, wh, 0.14)
+    ctx.fill()
+  }
+  // Unterboden
+  poly([[-0.5, -1.0], [0.5, -1.0], [0.92, -0.5], [0.92, 1.1], [0.5, 2.25], [-0.5, 2.25], [-0.92, 1.1], [-0.92, -0.5]], carbon)
+  // Frontflügel mit Endplatten
+  poly([[-1.2, -2.72], [-1.2, -2.98], [-0.3, -3.08], [0, -3.12], [0.3, -3.08], [1.2, -2.98], [1.2, -2.72], [0.3, -2.8], [-0.3, -2.8]], carbon)
+  poly([[-1.2, -2.9], [-0.35, -3.0], [-0.35, -2.9], [-1.2, -2.8]], accent)
+  poly([[1.2, -2.9], [0.35, -3.0], [0.35, -2.9], [1.2, -2.8]], accent)
+  // Nase, Monocoque, Seitenkästen, Motorabdeckung
+  poly([
+    [0, -3.14], [0.13, -3.0], [0.19, -1.9], [0.3, -1.2], [0.42, -0.95], [0.8, -0.7], [0.84, 0.45], [0.6, 1.2], [0.32, 1.9], [0.22, 2.35],
+    [-0.22, 2.35], [-0.32, 1.9], [-0.6, 1.2], [-0.84, 0.45], [-0.8, -0.7], [-0.42, -0.95], [-0.3, -1.2], [-0.19, -1.9], [-0.13, -3.0],
+  ], body)
+  // Lufteinlässe der Seitenkästen
+  poly([[0.44, -0.9], [0.78, -0.68], [0.78, -0.55], [0.44, -0.72]], carbon)
+  poly([[-0.44, -0.9], [-0.78, -0.68], [-0.78, -0.55], [-0.44, -0.72]], carbon)
+  // Akzentstreifen auf Nase und Motorabdeckung
+  poly([[-0.06, -2.95], [0.06, -2.95], [0.09, -1.5], [-0.09, -1.5]], accent)
+  poly([[-0.07, 0.55], [0.07, 0.55], [0.05, 2.3], [-0.05, 2.3]], accent)
+  // Cockpit, Helm, Halo
+  ctx.fillStyle = carbon
+  ctx.beginPath(); ctx.ellipse(0, -0.5, 0.27, 0.6, 0, 0, Math.PI * 2); ctx.fill()
+  ctx.fillStyle = '#ffd94a'
+  ctx.beginPath(); ctx.arc(0, -0.38, 0.19, 0, Math.PI * 2); ctx.fill()
+  ctx.strokeStyle = '#2b2e36'
+  ctx.lineWidth = 0.08
+  ctx.beginPath(); ctx.ellipse(0, -0.5, 0.27, 0.5, 0, Math.PI * 0.95, Math.PI * 2.05); ctx.stroke()
+  ctx.beginPath(); ctx.moveTo(0, -1.0); ctx.lineTo(0, -0.6); ctx.stroke()
+  // Airbox
+  ctx.fillStyle = carbon
+  ctx.beginPath(); ctx.ellipse(0, 0.12, 0.13, 0.18, 0, 0, Math.PI * 2); ctx.fill()
+  // Heckflügel mit Endplatten
+  poly([[-0.8, 2.32], [0.8, 2.32], [0.8, 2.72], [-0.8, 2.72]], carbon)
+  poly([[-0.72, 2.4], [0.72, 2.4], [0.72, 2.52], [-0.72, 2.52]], accent)
+  poly([[-0.86, 2.2], [-0.76, 2.2], [-0.76, 2.78], [-0.86, 2.78]], body)
+  poly([[0.86, 2.2], [0.76, 2.2], [0.76, 2.78], [0.86, 2.78]], body)
   ctx.restore()
 }
 
@@ -179,7 +222,7 @@ function draw(ctx, s) {
     kerbV(ctx, S, 6.15, 7.6, camY, k)
     ctx.fillStyle = '#f4f4f4'; ctx.fillRect(b - 2, 0, 4, H)
     const [sx, sy] = S(cx0, cy0)
-    drawCar(ctx, sx, sy, 0, carA.color, k)
+    drawCar(ctx, sx, sy, 0, carA.livery, k)
     label(ctx, `${carA.code} · ${Math.round(150 + 120 * (1 - bump))} km/h`, W - 10, 10, '#e8edf7', 'right')
     hud += over > 0.05 ? '' : ''
   } else if (kind === 'collision') {
@@ -223,8 +266,8 @@ function draw(ctx, s) {
       }
     }
     const [bx, by] = S(xB, yB), [ax, ay] = S(xA, yA)
-    drawCar(ctx, bx, by, angB, carB.color, k)
-    drawCar(ctx, ax, ay, angA, carA.color, k)
+    drawCar(ctx, bx, by, angB, carB.livery, k)
+    drawCar(ctx, ax, ay, angA, carA.livery, k)
     if (overlay) {
       const mirrorY = yB - 1.0
       const frontY = yA - 3.0
@@ -256,8 +299,8 @@ function draw(ctx, s) {
     const [fx, fy] = S(-5.2, -5)
     ctx.save(); ctx.translate(fx, fy); ctx.rotate(0.5); ctx.fillStyle = '#ffd21f'; ctx.fillRect(-7 * zoom, -7 * zoom, 14 * zoom, 14 * zoom); ctx.restore()
     const [bx, by] = S(xB, yB), [ax, ay] = S(xA, yA)
-    drawCar(ctx, bx, by, 0, carB.color, k)
-    drawCar(ctx, ax, ay, 0, carA.color, k)
+    drawCar(ctx, bx, by, 0, carB.livery, k)
+    drawCar(ctx, ax, ay, 0, carA.livery, k)
     ctx.fillStyle = '#ff9a1f'; ctx.fillRect(W - 170, 10, 160, 18)
     ctx.fillStyle = '#10141c'; ctx.textAlign = 'center'; ctx.fillText(status.toUpperCase(), W - 90, 23); ctx.textAlign = 'left'
     label(ctx, `${carA.code} ${va} km/h · ${carB.code} ${slow ? Math.round(ref * 0.4) : ref} km/h`, 10, H - 28, '#e8edf7')
@@ -295,7 +338,7 @@ function draw(ctx, s) {
     ctx.fillRect(bx1 - Math.max(2, 0.15 * k), by0, Math.max(2, 0.15 * k), bside - by0)
     ctx.fillStyle = '#ffd21f'; ctx.fillRect(W / 2 - 0.1 * k, by0 - 1.2 * k, 0.2 * k, 1.2 * k)
     const [cx2, cy2] = S(0, yCar)
-    drawCar(ctx, cx2, cy2, 0, carA.color, k)
+    drawCar(ctx, cx2, cy2, 0, carA.livery, k)
     if (kind === 'jump') {
       for (let i = 0; i < 5; i++) {
         ctx.fillStyle = i < lightsOn ? '#ff2a2a' : '#2a0b0b'
@@ -333,8 +376,8 @@ function draw(ctx, s) {
     ctx.fillStyle = green ? '#2fe08a' : '#ff4a4a'; ctx.fillRect(lx, ly, 3 * k, 6)
     ctx.fillStyle = green ? '#2fe08a' : '#ff4a4a'; ctx.textAlign = 'center'; ctx.fillText(green ? 'FREIGABE' : 'STOPP', lx + 1.5 * k, ly + 22); ctx.textAlign = 'left'
     const [bx, by] = S(xB, -3), [ax, ay] = S(xA, yA)
-    drawCar(ctx, bx, by, Math.PI / 2, carB.color, k)
-    drawCar(ctx, ax, ay, Math.PI / 2, carA.color, k)
+    drawCar(ctx, bx, by, Math.PI / 2, carB.livery, k)
+    drawCar(ctx, ax, ay, Math.PI / 2, carA.livery, k)
     label(ctx, `${carB.code}: ${Math.round(200 - react * Math.sin(Math.PI * Math.min(1, p * 1.3)))} km/h`, W - 10, 10, '#e8edf7', 'right')
   }
   label(ctx, hud, 8, 8, '#ffd21f')
