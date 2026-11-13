@@ -152,9 +152,8 @@ export default function CamView({ race, mode, selected, freeCam }) {
       }
       for (const c of race.cars) if (c.status === 'run' || c.status === 'stopped') drawOne(c, c.livery, c.status === 'stopped')
       if (race.sc) {
-        const p = posAt(T, L, race.sc.dist)
-        const nx = -Math.sin(p.h), ny = Math.cos(p.h)
-        drawSafetyCar(ctx, p.x + nx * race.sc.lat * 3.6, p.y + ny * race.sc.lat * 3.6, p.h + Math.PI / 2, 1.3, race.sc.lights, now)
+        const p = race.scPose()
+        drawSafetyCar(ctx, p.x, p.y, p.h + Math.PI / 2, 1.3, race.sc.lights, now)
       }
       ctx.restore()
 

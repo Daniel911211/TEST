@@ -350,7 +350,8 @@ export class Race {
     if (!this.cars.some((c) => c.status === 'stopped') && this.wet < 0.6) this.flow = clamp(this.flow - 4, 0, 100)
     // Das Safety Car wartet an der Boxenausfahrt hinter Start/Ziel und fährt raus, wenn der Führende kommt
     const ld = lead ? lead.dist : 0
-    this.sc = { dist: (Math.floor((ld + 40) / this.L) + 1) * this.L + 60, speed: 0, lat: 1.9, lights: true, waiting: true, leaving: false }
+    const P = this.track.pit
+    this.sc = { dist: (Math.floor((ld + 40) / this.L) + 1) * this.L + (P.span - (this.L - P.inS)), speed: 0, lat: 0, lights: true, waiting: true, leaving: false, pitU: P.len - 80 }
     this.msg('SAFETY CAR DEPLOYED', 'warn')
     this.reactRadio('sc')
   }
@@ -559,14 +560,24 @@ export class Race {
       const lead = order.find((c) => c.status === 'run')
       if (sc.waiting && (!lead || sc.dist - lead.dist < 320)) sc.waiting = false
       // Vor dem Reinkommen biegt es kurz vor Start/Ziel in die Box ab
-      if (this.scEnding && !sc.leaving && !sc.waiting && mod(sc.dist, this.L) > this.L - 230) sc.leaving = true
+      const P = this.track.pit
       const idx = Math.floor(mod(sc.dist, this.L) / this.track.ds) % this.track.n
-      const target = sc.waiting ? 0 : this.track.v[idx] * (sc.leaving ? 0.5 : 0.42)
-      sc.speed += clamp(target - sc.speed, -30 * dt, 12 * dt)
-      const prev = sc.dist
-      sc.dist += sc.speed * dt
-      sc.lat += clamp((sc.waiting || sc.leaving ? 1.9 : 0) - sc.lat, -0.9 * dt, 0.9 * dt)
-      if (sc.leaving && Math.floor(sc.dist / this.L) > Math.floor(prev / this.L)) this.sc = null
+      if (sc.pitU != null && !sc.leaving) {
+        // wartet am Ende der Boxengasse und fährt über die Ausfahrt auf die Strecke
+        sc.speed += clamp((sc.waiting ? 0 : 30) - sc.speed, -30 * dt, 12 * dt)
+        sc.pitU += sc.speed * dt
+        if (sc.pitU >= P.len) sc.pitU = null
+      } else if (sc.pitU != null) {
+        // zurück in die Boxengasse
+        sc.speed += clamp(22 - sc.speed, -34 * dt, 12 * dt)
+        sc.pitU += sc.speed * dt
+        if (sc.pitU > P.uA + 80) this.sc = null
+      } else {
+        sc.speed += clamp(this.track.v[idx] * 0.42 - sc.speed, -30 * dt, 12 * dt)
+        const prev = sc.dist
+        sc.dist += sc.speed * dt
+        if (this.scEnding && mod(prev, this.L) < P.inS && mod(sc.dist, this.L) >= P.inS) { sc.leaving = true; sc.pitU = 0 }
+      }
     }
 
     const running = order.filter((c) => c.status === 'run')
@@ -640,7 +651,7 @@ export class Race {
       }
     }
     for (const o of running) if (o !== c && !o.pit) consider(o, false)
-    if (this.sc) consider(this.sc, true)
+    if (this.sc && this.sc.pitU == null) consider(this.sc, true)
     const free = st === 'GREEN'
     if (blocker) {
       const sp = st === 'FORMATION' ? 9 : st === 'SC' || st === 'VSC' ? 14 : 11
@@ -807,6 +818,11 @@ export class Race {
     return true
   }
 
+  scPose() {
+    const sc = this.sc
+    if (sc.pitU != null) return this.track.pit.at(sc.pitU)
+    return this.pose({ dist: sc.dist, lat: 0 }, 0)
+  }
   // Position eines Autos in Metern (Strecke oder Boxengasse); latM = Meter pro Einheit Querversatz
   pose(c, latM) {
     const T = this.track
@@ -836,7 +852,7 @@ export class Race {
       this.finish(c)
       return
     }
-    if (idxInOrder === 0 && this.state === 'SC' && this.scEnding) {
+    if (idxInOrder === 0 && this.state === 'SC' && this.scEnding && (!this.sc || this.sc.leaving)) {
       this.state = 'GREEN'
       this.sc = null
       this.scEnding = false

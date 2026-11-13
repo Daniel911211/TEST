@@ -230,9 +230,8 @@ export default function TrackMap({ race, selected, onSelect, freeCam }) {
         }
       }
       if (race.sc) {
-        const p = carPos(T, L, race.sc.dist, 0)
-        const nx = -Math.sin(p.h), ny = Math.cos(p.h)
-        const x = p.x * sc + ox + nx * race.sc.lat * 5, y = p.y * sc + oy + ny * race.sc.lat * 5
+        const p = race.scPose()
+        const x = p.x * sc + ox, y = p.y * sc + oy
         drawSafetyCar(ctx, x, y, p.h + Math.PI / 2, 3.4, race.sc.lights, now)
         ctx.fillStyle = '#ffb020'
         ctx.font = '700 10px ui-monospace, monospace'
