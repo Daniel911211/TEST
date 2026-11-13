@@ -115,7 +115,7 @@ export function drawSafetyCar(ctx, x, y, ang, k, lights, now) {
 }
 
 // Fahrerkürzel am Auto; das als schuldig gewählte Auto bekommt zusätzlich einen pulsierenden Ring
-function mark(ctx, x, y, k, code, active, now) {
+function mark(ctx, x, y, k, code, active, now, left = false) {
   const r = 3.6 * k
   if (active) {
     ctx.strokeStyle = `rgba(255,210,31,${0.55 + 0.45 * Math.sin(now / 160)})`
@@ -125,7 +125,7 @@ function mark(ctx, x, y, k, code, active, now) {
   ctx.font = '700 11px ui-monospace, monospace'
   const text = active ? `${code} · SCHULD` : code
   const w = ctx.measureText(text).width + 10
-  const lx = Math.min(W - w - 4, x + r * 0.75), ly = Math.max(4, y - r - 6)
+  const lx = left ? Math.max(4, x - r * 0.75 - w) : Math.min(W - w - 4, x + r * 0.75), ly = Math.max(4, y - r - 6)
   ctx.fillStyle = active ? '#ffd21f' : 'rgba(8,10,14,0.85)'
   ctx.fillRect(lx, ly, w, 17)
   ctx.fillStyle = active ? '#10141c' : '#e8edf7'
@@ -288,7 +288,7 @@ function draw(ctx, s, now) {
     drawCar(ctx, bx, by, angB, carB.livery, k)
     drawCar(ctx, ax, ay, angA, carA.livery, k)
     mark(ctx, bx, by, k, carB.code, highlight === 'b', now)
-    mark(ctx, ax, ay, k, carA.code, highlight === 'a', now)
+    mark(ctx, ax, ay, k, carA.code, highlight === 'a', now, true)
     if (overlay) {
       const mirrorY = yB - 1.0
       const frontY = yA - 3.0
