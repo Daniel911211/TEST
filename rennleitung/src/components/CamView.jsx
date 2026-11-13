@@ -37,6 +37,8 @@ function buildPaths(T) {
 // mode 'follow': folgt dem gewählten Auto bzw. dem Führenden. mode 'cctv': zeigt den Ort des letzten Vorfalls.
 export default function CamView({ race, mode, selected, freeCam }) {
   const [manual, setManual] = useState(false)
+  const zoom = useRef(1)
+  const [zoomLabel, setZoomLabel] = useState(1)
   const ref = useRef(null)
   const live = useRef({})
   live.current = { race, selected, freeCam }
@@ -55,6 +57,15 @@ export default function CamView({ race, mode, selected, freeCam }) {
       cv.width = Math.max(1, r.width * dpr)
       cv.height = Math.max(1, r.height * dpr)
     }
+    // Mausrad zoomt (0,4× bis 5×), Doppelklick setzt zurück
+    const wheel = (e) => {
+      e.preventDefault()
+      zoom.current = Math.max(0.4, Math.min(5, zoom.current * (e.deltaY < 0 ? 1.15 : 1 / 1.15)))
+      setZoomLabel(+zoom.current.toFixed(1))
+    }
+    const reset = () => { zoom.current = 1; setZoomLabel(1) }
+    cv.addEventListener('wheel', wheel, { passive: false })
+    cv.addEventListener('dblclick', reset)
     const ro = new ResizeObserver(resize)
     ro.observe(cv)
     resize()
@@ -66,6 +77,7 @@ export default function CamView({ race, mode, selected, freeCam }) {
       const T = race.track, L = race.L
       if (cache.key !== T.key) cache = { key: T.key, ...buildPaths(T) }
       const { w, h, dpr } = size
+      const S = SCALE * zoom.current
 
       // Kameraziel bestimmen
       let target, text, hint = ''
@@ -97,8 +109,8 @@ export default function CamView({ race, mode, selected, freeCam }) {
       if (fc) {
         if (fc.manual) cam = { x: fc.x, y: fc.y }
         else { fc.x = cam.x; fc.y = cam.y }
-        fc.vw = w / SCALE
-        fc.vh = h / SCALE
+        fc.vw = w / S
+        fc.vh = h / S
       }
       if (text !== lastLabel) { lastLabel = text; setLabel(text) }
       if (hint !== lastNote) { lastNote = hint; setNote(hint) }
@@ -108,7 +120,7 @@ export default function CamView({ race, mode, selected, freeCam }) {
       ctx.fillRect(0, 0, w, h)
       ctx.save()
       ctx.translate(w / 2, h / 2)
-      ctx.scale(SCALE, SCALE)
+      ctx.scale(S, S)
       ctx.translate(-cam.x, -cam.y)
       ctx.lineJoin = 'round'
       ctx.lineCap = 'butt'
@@ -133,6 +145,14 @@ export default function CamView({ race, mode, selected, freeCam }) {
         const q = P.at(u)
         ctx.save(); ctx.translate(q.x, q.y); ctx.rotate(q.h); ctx.fillStyle = '#ffd21f'; ctx.fillRect(-0.4, -4.2, 0.8, 8.4); ctx.restore()
       }
+      // Parkplatz des Safety Cars
+      {
+        const q = race.parkPose()
+        ctx.save(); ctx.translate(q.x, q.y); ctx.rotate(q.h)
+        ctx.fillStyle = '#44464d'; ctx.fillRect(-5, -2.6, 10, 5.2)
+        ctx.strokeStyle = '#ffb020'; ctx.lineWidth = 0.3; ctx.strokeRect(-5, -2.6, 10, 5.2)
+        ctx.restore()
+      }
       ctx.strokeStyle = '#f1f1f1'; ctx.lineWidth = 17; ctx.stroke(cache.kerb)
       ctx.setLineDash([3, 3]); ctx.strokeStyle = '#d93a3a'; ctx.stroke(cache.kerb); ctx.setLineDash([])
       ctx.strokeStyle = '#f4f4f4'; ctx.lineWidth = 13.4; ctx.stroke(cache.road)
@@ -142,7 +162,7 @@ export default function CamView({ race, mode, selected, freeCam }) {
 
       const drawOne = (c, color, stopped) => {
         const p = race.pose(c, 3.6)
-        if (Math.abs(p.x - cam.x) > w / SCALE || Math.abs(p.y - cam.y) > h / SCALE) return
+        if (Math.abs(p.x - cam.x) > w / S || Math.abs(p.y - cam.y) > h / S) return
         const x = p.x, y = p.y
         drawCar(ctx, x, y, p.h + Math.PI / 2 + (stopped ? 0.9 : 0), color, 1)
         if (stopped) {
@@ -151,9 +171,9 @@ export default function CamView({ race, mode, selected, freeCam }) {
         }
       }
       for (const c of race.cars) if (c.status === 'run' || c.status === 'stopped') drawOne(c, c.livery, c.status === 'stopped')
-      if (race.sc) {
+      {
         const p = race.scPose()
-        drawSafetyCar(ctx, p.x, p.y, p.h + Math.PI / 2, 1.3, race.sc.lights, now)
+        drawSafetyCar(ctx, p.x, p.y, p.h + Math.PI / 2, 1.3, !!race.sc && race.sc.lights, now)
       }
       ctx.restore()
 
@@ -172,13 +192,13 @@ export default function CamView({ race, mode, selected, freeCam }) {
       raf = requestAnimationFrame(draw)
     }
     raf = requestAnimationFrame(draw)
-    return () => { cancelAnimationFrame(raf); ro.disconnect() }
+    return () => { cancelAnimationFrame(raf); ro.disconnect(); cv.removeEventListener('wheel', wheel); cv.removeEventListener('dblclick', reset) }
   }, [mode])
 
   return (
     <div className="panel cam">
       <canvas ref={ref} />
-      <div className="camlabel">{mode === 'follow' ? <><i>● LIVE</i> · KAM 02 · </> : 'KAM 03 · '}{label}</div>
+      <div className="camlabel">{mode === 'follow' ? <><i>● LIVE</i> · KAM 02 · </> : 'KAM 03 · '}{label}{zoomLabel !== 1 ? ` · ZOOM ${zoomLabel}×` : ''}</div>
       {note && <div className="camnote">{note}</div>}
       {manual && <button className="btn sm camauto" onClick={() => { freeCam.current.manual = false }}>AUTOMATIK</button>}
     </div>

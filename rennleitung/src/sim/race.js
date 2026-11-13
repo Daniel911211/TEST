@@ -351,7 +351,7 @@ export class Race {
     // Das Safety Car wartet an der Boxenausfahrt hinter Start/Ziel und fährt raus, wenn der Führende kommt
     const ld = lead ? lead.dist : 0
     const P = this.track.pit
-    this.sc = { dist: (Math.floor((ld + 40) / this.L) + 1) * this.L + (P.span - (this.L - P.inS)), speed: 0, lat: 0, lights: true, waiting: true, leaving: false, pitU: P.len - 80 }
+    this.sc = { dist: (Math.floor((ld + 40) / this.L) + 1) * this.L + (P.span - (this.L - P.inS)), speed: 0, lat: 0, lights: true, waiting: true, leaving: false, pitU: this.parkU(), shift: 1 }
     this.msg('SAFETY CAR DEPLOYED', 'warn')
     this.reactRadio('sc')
   }
@@ -565,13 +565,19 @@ export class Race {
       if (sc.pitU != null && !sc.leaving) {
         // wartet am Ende der Boxengasse und fährt über die Ausfahrt auf die Strecke
         sc.speed += clamp((sc.waiting ? 0 : 30) - sc.speed, -30 * dt, 12 * dt)
+        if (!sc.waiting) sc.shift = Math.max(0, sc.shift - 1.5 * dt)
         sc.pitU += sc.speed * dt
         if (sc.pitU >= P.len) sc.pitU = null
       } else if (sc.pitU != null) {
         // zurück in die Boxengasse
-        sc.speed += clamp(22 - sc.speed, -34 * dt, 12 * dt)
-        sc.pitU += sc.speed * dt
-        if (sc.pitU > P.uA + 80) this.sc = null
+        // zurück durch die Boxengasse auf den Parkplatz
+        const rem = this.parkU() - sc.pitU
+        sc.speed += clamp(Math.min(22, Math.sqrt(2 * 8 * Math.max(0, rem)) + 0.5) - sc.speed, -34 * dt, 12 * dt)
+        sc.pitU = Math.min(this.parkU(), sc.pitU + sc.speed * dt)
+        if (rem < 0.5) {
+          sc.shift = Math.min(1, (sc.shift || 0) + 1.5 * dt)
+          if (sc.shift >= 1) this.sc = null
+        }
       } else {
         sc.speed += clamp(this.track.v[idx] * 0.42 - sc.speed, -30 * dt, 12 * dt)
         const prev = sc.dist
@@ -828,9 +834,26 @@ export class Race {
     return true
   }
 
+  // Parkplatz des Safety Cars: neben der Boxengasse, kurz hinter dem Ende des Tempolimits
+  parkU() {
+    return this.track.pit.uB + 8
+  }
+  parkPose(shift = 1) {
+    const P = this.track.pit
+    const q = P.at(this.parkU())
+    const o = 8.5 * shift * P.side
+    return { x: q.x - Math.sin(q.h) * o, y: q.y + Math.cos(q.h) * o, h: q.h }
+  }
+  // Das Safety Car ist immer sichtbar: geparkt, in der Boxengasse oder auf der Strecke
   scPose() {
     const sc = this.sc
-    if (sc.pitU != null) return this.track.pit.at(sc.pitU)
+    if (!sc) return this.parkPose()
+    if (sc.pitU != null) {
+      const P = this.track.pit
+      const q = P.at(sc.pitU)
+      const o = 8.5 * (sc.shift || 0) * P.side
+      return { x: q.x - Math.sin(q.h) * o, y: q.y + Math.cos(q.h) * o, h: q.h }
+    }
     return this.pose({ dist: sc.dist, lat: 0 }, 0)
   }
   // Position eines Autos in Metern (Strecke oder Boxengasse); latM = Meter pro Einheit Querversatz

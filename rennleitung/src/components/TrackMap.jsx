@@ -229,15 +229,17 @@ export default function TrackMap({ race, selected, onSelect, freeCam }) {
           ctx.textAlign = 'center'
         }
       }
-      if (race.sc) {
+      {
         const p = race.scPose()
         const x = p.x * sc + ox, y = p.y * sc + oy
-        drawSafetyCar(ctx, x, y, p.h + Math.PI / 2, 3.4, race.sc.lights, now)
-        ctx.fillStyle = '#ffb020'
-        ctx.font = '700 10px ui-monospace, monospace'
-        ctx.textAlign = 'left'
-        ctx.fillText(race.sc.waiting ? 'SC wartet' : race.sc.leaving ? 'SC in die Box' : 'SC', x + 12, y - 9)
-        ctx.textAlign = 'center'
+        drawSafetyCar(ctx, x, y, p.h + Math.PI / 2, race.sc ? 3.4 : 2.4, !!race.sc && race.sc.lights, now)
+        if (race.sc) {
+          ctx.fillStyle = '#ffb020'
+          ctx.font = '700 10px ui-monospace, monospace'
+          ctx.textAlign = 'left'
+          ctx.fillText(race.sc.waiting ? 'SC wartet' : race.sc.leaving ? 'SC in die Box' : 'SC', x + 12, y - 9)
+          ctx.textAlign = 'center'
+        }
       }
       // Regen
       if (race.rain > 0.02) {
