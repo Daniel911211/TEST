@@ -13,6 +13,7 @@ export function TimingTower({ rows, selected, onSelect, state }) {
             <span className="badges">
               {r.status === 'stopped' && <i className="b red">STOP</i>}
               {r.inPit && <i className="b blue">BOX</i>}
+              {r.damage && !r.inPit && <i className="b amber">SCHADEN</i>}
               {r.serving && <i className="b amber">STRAFE</i>}
               {r.penaltySec > 0 && <i className="b amber">+{r.penaltySec}s</i>}
               {r.warnings > 0 && <i className="b gray">{'▲'.repeat(Math.min(3, r.warnings))}</i>}

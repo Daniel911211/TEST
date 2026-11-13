@@ -29,6 +29,13 @@ export const LINES = {
     'Frühstart? Niemals. Schaut euch die Daten an.',
     'Okay, das war knapp. Sehr knapp.',
   ],
+  damage: [
+    'Der Frontflügel ist beschädigt. Ich habe null Abtrieb vorn.',
+    'Das Auto zieht nach rechts. Irgendwas ist kaputt.',
+    'Ich habe einen Plattfuß! Ich schleiche an die Box.',
+    'Der Unterboden schleift. Das Auto ist unfahrbar, ich komme rein.',
+    'Da flattert was am Seitenkasten. Ich brauche einen neuen Flügel.',
+  ],
   pitIn: [
     'Die Reifen sind am Ende. Ich komme rein.',
     'Box, Box. Verstanden.',
@@ -263,6 +270,7 @@ export const LINES = {
 
 // Antworten vom Kommandostand
 export const REPLIES = {
+  damage: ['Verstanden. Box diese Runde, neuer Frontflügel.', 'Wir sehen es in den Daten. Komm rein.'],
   pitIn: ['Verstanden, Box diese Runde.', 'Wir sind bereit.'],
   slowStop: ['Entschuldigung. Problem hinten links.', 'Tut uns leid. Das klären wir intern.'],
   collisionAttacker: ['Verstanden. Kopf runter, weiterfahren.', 'Wir schauen uns das an. Konzentrier dich.'],

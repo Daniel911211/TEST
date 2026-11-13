@@ -600,6 +600,7 @@ export class Race {
       c.rejoinAt = null
       c.latTarget = 0
       this.msg(`${this.tag(c)} - BACK ON TRACK`, 'info')
+      if (Math.random() < 0.3) { c.damage = true; this.radioQueue.push({ at: this.t + rnd(3, 6), car: c, dmg: true }) }
     }
   }
 
@@ -683,7 +684,7 @@ export class Race {
     const prev = c.dist
     c.dist += c.speed * dt
     c.lat += clamp(c.latTarget - c.lat, -1.2 * dt, 1.2 * dt)
-    if (c.dist > 0) c.wear += (c.dist - prev) / (TYRES[c.tyre].life * this.raceDist) * (isWetTyre(c.tyre) && this.wet < 0.12 ? 2.5 : 1)
+    if (c.dist > 0) c.wear += (c.dist - prev) / (TYRES[c.tyre].life * Math.max(this.raceDist, 8 * L)) * (isWetTyre(c.tyre) && this.wet < 0.12 ? 2.5 : 1)
     // Boxeneinfahrt
     const P = T.pit
     if (c.dist > 0 && mod(prev, L) < P.inS && mod(c.dist, L) >= P.inS) {
@@ -710,7 +711,7 @@ export class Race {
     if (c.tyre === 'I') f = w < 0.12 ? 0.9 : 0.93 - 0.3 * Math.max(0, w - 0.7)
     else if (c.tyre === 'W') f = w < 0.4 ? 0.85 : 0.885
     else f = TYRES[c.tyre].base * (1 - 0.5 * w)
-    return f * (1 - 0.025 * c.wear * c.wear - (c.wear > 1 ? 0.06 * (c.wear - 1) : 0))
+    return f * (1 - 0.025 * c.wear * c.wear - (c.wear > 1 ? 0.06 * (c.wear - 1) : 0)) * (c.damage ? 0.965 : 1)
   }
   fitTyre(c, k) {
     c.tyre = k
@@ -734,7 +735,9 @@ export class Race {
     }
     const remaining = this.laps * this.L - c.dist
     if (remaining < this.L * 0.5) return null
-    const frac = remaining / this.raceDist
+    const frac = remaining / Math.max(this.raceDist, 8 * this.L)
+    // Kurzrennen (bis 3 Runden): keine Pflichtstopps, nur Schaden, Strafe oder Wetter
+    const sprint = this.laps <= 3
     const wetT = isWetTyre(c.tyre)
     let next = null, must = false
     const lead = this.order.find((o) => o.status === 'run')
@@ -744,9 +747,15 @@ export class Race {
     else if (c.tyre === 'W' && this.wet < 0.55 && this.wet > c.dryThr) next = 'I'
     else if (wetT && this.wet < c.dryThr && this.rain < 0.05) next = this.chooseDry(c, frac)
     else if (!wetT) {
-      must = c.usedDry.length < 2 && !c.usedWet && Math.min(remaining, leadLeft) < this.L * c.mustAt
-      const cheap = (this.state === 'SC' || this.state === 'VSC') && c.wear > 0.45 && Math.random() < 0.7
-      if (c.wear >= c.pitAt || must || cheap) next = this.chooseDry(c, frac)
+      must = !sprint && c.usedDry.length < 2 && !c.usedWet && Math.min(remaining, leadLeft) < this.L * c.mustAt
+      const cheap = !sprint && (this.state === 'SC' || this.state === 'VSC') && c.wear > 0.45 && Math.random() < 0.7
+      if ((!sprint && c.wear >= c.pitAt) || must || cheap) next = this.chooseDry(c, frac)
+    }
+    // Beschädigtes Auto: Reparaturstopp mit frischen Reifen
+    if (c.damage) {
+      const tyre = next || (isWetTyre(c.tyre) ? c.tyre : sprint ? c.tyre : this.chooseDry(c, frac))
+      this.msg(`${this.tag(c)} - IN PIT LANE FOR REPAIRS`, 'info')
+      return { stop: rnd(7, 12) + c.penaltySec, tyre, repair: true, served: c.penaltySec }
     }
     if (!next) return null
     // Kein Doppelstopp: der Teamkollege steht noch an der Box
@@ -776,6 +785,7 @@ export class Race {
       if (pit.timer <= 0 && this.releaseOk(c)) {
         const j = pit.job
         if (j.tyre) { this.fitTyre(c, j.tyre); c.stops++ }
+        if (j.repair) c.damage = false
         if (j.served) { c.penaltySec = Math.max(0, c.penaltySec - j.served); this.msg(`${this.tag(c)} - ${j.served} SECOND TIME PENALTY SERVED`, 'info') }
         if (j.pen) this.msg(`${this.tag(c)} - STOP & GO PENALTY SERVED`, 'info')
         if (j.slow) this.say('slowStop', c, {}, { force: true })
@@ -910,7 +920,8 @@ export class Race {
     for (let i = q.length - 1; i >= 0; i--) {
       if (this.t < q[i].at) continue
       const e = q.splice(i, 1)[0]
-      if (e.key) this.sayRandom(e.key, 1)
+      if (e.dmg) { if (e.car.status === 'run') this.say('damage', e.car, {}, { force: true, replyChance: 0.8 }) }
+      else if (e.key) this.sayRandom(e.key, 1)
       else this.radio(e.car, e.text, true)
     }
     if (this.state === 'GREEN' && !this.chequered && this.t > this.nextAmbient) {
@@ -1171,6 +1182,8 @@ export class Race {
       this.incidents.push(inc)
       this.msg(`${this.tag(A)} / ${this.tag(B)} - COLLISION AT TURN ${w.turn} - UNDER INVESTIGATION`, 'warn')
       for (const c of stopped) this.stopCar(c, 'COLLISION')
+      // Wer weiterfährt, hat oft einen Schaden und muss zur Reparatur an die Box
+      for (const c of [A, B]) if (!stopped.includes(c) && Math.random() < 0.55) { c.damage = true; this.radioQueue.push({ at: this.t + rnd(5, 9), car: c, dmg: true }) }
       this.say(stopped.includes(B) ? 'dnfCollision' : 'collisionVictim', B, { other: A }, { force: true })
       this.say(stopped.includes(A) ? 'dnfCollision' : 'collisionAttacker', A, { other: B }, { force: true })
     }
@@ -1232,6 +1245,7 @@ export class Race {
         wear: Math.round(c.wear * 100),
         stops: c.stops,
         inPit: !!c.pit,
+        damage: !!c.damage,
         gap,
       }
     })

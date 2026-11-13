@@ -33,7 +33,7 @@ for (const key of ['spa', 'monza', 'monaco']) {
   }
   const lead = r.standings()[0]
   const fin = r.cars.filter((c) => c.status === 'fin')
-  console.log('   Stopps:', fin.map((c) => c.stops).join(''), 'Mischungen:', fin.map((c) => c.usedDry.join('') + (c.usedWet ? 'w' : '')).join(' '), 'Regel verletzt:', fin.filter((c) => c.usedDry.length < 2 && !c.usedWet).length)
+  console.log('   Stopps:', fin.map((c) => c.stops).join(''), 'Mischungen:', fin.map((c) => c.usedDry.join('') + (c.usedWet ? 'w' : '')).join(' '), r.laps <= 3 ? '(Kurzrennen: keine Pflichtstopps)' : 'Regel verletzt: ' + fin.filter((c) => c.usedDry.length < 2 && !c.usedWet).length)
   console.log(key, 'state', r.state, 't=', r.t.toFixed(0), 'turns', r.track.corners.length,
     'finished', r.cars.filter((c) => c.status === 'fin').length, 'safety', r.safety.toFixed(0), 'fair', r.fairness.toFixed(0),
     'msgs', r.messages.length, 'leader', lead.code)
