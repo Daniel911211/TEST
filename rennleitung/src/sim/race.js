@@ -139,7 +139,7 @@ export class Race {
       lapDirty: false,
     }))
     this.teams = [...new Set(this.cars.map((c) => c.team))]
-    this.msg('CARS ON GRID - AWAITING FORMATION LAP')
+    this.msg('AUTOS IN DER STARTAUFSTELLUNG - WARTEN AUF DIE EINFÜHRUNGSRUNDE')
   }
 
   // ---------- Hilfsfunktionen ----------
@@ -178,7 +178,7 @@ export class Race {
     this.feedbackLog.push({ t: this.t, text, delta: Math.round(delta) })
   }
   tag(c) {
-    return `CAR ${c.num} (${c.code})`
+    return `AUTO ${c.num} (${c.code})`
   }
   where(c) {
     const s = mod(c.dist, this.L)
@@ -212,7 +212,7 @@ export class Race {
       c.speed = 0
       c.gridOver = c === fault ? +rnd(0.1, 1.3).toFixed(2) : 0
     }
-    this.msg(this.formations > 1 ? 'EXTRA FORMATION LAP STARTED' : 'FORMATION LAP STARTED', 'flag')
+    this.msg(this.formations > 1 ? 'ZUSÄTZLICHE EINFÜHRUNGSRUNDE GESTARTET' : 'EINFÜHRUNGSRUNDE GESTARTET', 'flag')
     this.radioQueue.push({ at: this.t + 12, key: 'formation' }, { at: this.t + 30, key: 'formation' })
   }
   // 2) Startampel: fünf rote Lichter, dann gehen sie nach zufälliger Wartezeit aus
@@ -222,7 +222,7 @@ export class Race {
     this.lightsAt = this.t
     this.lightsOutAt = this.t + 5 + rnd(0.5, 2.3)
     this.jump = Math.random() < 0.3 ? { car: pick(this.cars.filter((c) => c.status === 'run' && !c.stalled)), kind: pick(['twitch', 'roll', 'roll', 'clear']), done: false } : null
-    this.msg('START PROCEDURE - LIGHTS SEQUENCE', 'warn')
+    this.msg('STARTPROZEDUR - AMPEL LÄUFT', 'warn')
   }
   // Start abbrechen: zusätzliche Einführungsrunde, Renndistanz minus eine Runde
   abortStart() {
@@ -230,14 +230,14 @@ export class Race {
     const stalled = this.cars.filter((c) => c.stalled)
     if (!stalled.length) this.flow = clamp(this.flow - 8, 0, 100)
     else this.logEvent('Start abgebrochen: Auto stand in der Aufstellung', 0)
-    this.msg('START ABORTED - EXTRA FORMATION LAP, RACE DISTANCE REDUCED BY ONE LAP', 'bad')
+    this.msg('START ABGEBROCHEN - ZUSÄTZLICHE EINFÜHRUNGSRUNDE, RENNDISTANZ UM EINE RUNDE VERKÜRZT', 'bad')
     this.laps = Math.max(1, this.laps - 1)
     let back = Math.min(...this.cars.filter((c) => c.status === 'run').map((c) => c.slot))
     for (const c of stalled) {
       c.stalled = false
       back -= 8
       c.slot = back
-      this.msg(`${this.tag(c)} - PUSHED TO PIT LANE, WILL START FROM THE BACK`, 'info')
+      this.msg(`${this.tag(c)} - IN DIE BOXENGASSE GESCHOBEN, STARTET VON HINTEN`, 'info')
     }
     this.sayRandom('abort', 2)
     this.startFormation()
@@ -251,14 +251,14 @@ export class Race {
     this.raceDist = this.laps * this.L
     if (this.rainPlan) this.rainPlan.start += this.t
     this.nextAmbient = this.t + rnd(15, 30)
-    this.msg('LIGHTS OUT AND AWAY WE GO', 'flag')
+    this.msg('LICHTER AUS - DAS RENNEN LÄUFT', 'flag')
     this.radioQueue.push({ at: this.t + 6, key: 'start' }, { at: this.t + 11, key: 'start' })
     for (const c of this.cars) {
       c.lapStart = this.t
       c.onGrid = false
       if (c.stalled) {
         c.stalled = false
-        this.stopCar(c, 'STALLED ON GRID')
+        this.stopCar(c, 'MOTOR ABGEWÜRGT')
         this.safety = clamp(this.safety - 15, 0, 100)
         this.logEvent(`Start trotz stehendem Auto (${c.code})`, -15)
         this.radioQueue.push({ at: this.t + 3, key: 'danger' })
@@ -285,7 +285,7 @@ export class Race {
       inc.replay = { kind: 'jump', variant: j.kind }
       inc.expert = j.kind === 'twitch' ? 'Experten: Zucken ohne Sensorauslösung, keine Strafe.' : j.kind === 'roll' ? 'Experten: Frühstart, Sensor ausgelöst. 5 Sekunden.' : 'Experten: Klarer Frühstart. Durchfahrtsstrafe.'
       this.incidents.push(inc)
-      this.msg(`${this.tag(c)} - FALSE START - UNDER INVESTIGATION`, 'warn')
+      this.msg(`${this.tag(c)} - FRÜHSTART - WIRD UNTERSUCHT`, 'warn')
       this.say('jump', c, {}, { force: true })
     }
     for (const c of this.cars) {
@@ -304,7 +304,7 @@ export class Race {
       inc.replay = { kind: 'grid', over }
       inc.expert = over > 0.03 ? `Experten: Vorderreifen ${over.toFixed(2)} m über der Linie. 5 Sekunden.` : `Experten: Reifen noch ${Math.abs(over).toFixed(2)} m hinter der Linie, keine Strafe.`
       this.incidents.push(inc)
-      this.msg(`${this.tag(c)} - INCORRECT STARTING POSITION - UNDER INVESTIGATION`, 'warn')
+      this.msg(`${this.tag(c)} - FALSCHE STARTPOSITION - WIRD UNTERSUCHT`, 'warn')
       c.gridOver = 0
     }
   }
@@ -318,8 +318,8 @@ export class Race {
   setSector(i, flag) {
     if (this.sectors[i] === flag) return
     this.sectors[i] = flag
-    const name = flag === 'green' ? 'CLEAR' : flag === 'yellow' ? 'YELLOW' : 'DOUBLE YELLOW'
-    this.msg(`SECTOR ${i + 1} - ${name}`, flag === 'green' ? 'ok' : 'warn')
+    const name = flag === 'green' ? 'FREI' : flag === 'yellow' ? 'GELBE FLAGGE' : 'DOPPELT GELB'
+    this.msg(`SEKTOR ${i + 1} - ${name}`, flag === 'green' ? 'ok' : 'warn')
     if (flag !== 'green' && this.state === 'GREEN' && !this.cars.some((c) => c.status === 'stopped' && sectorOf(mod(c.dist, this.L), this.L) === i)) {
       this.radioQueue.push({ at: this.t + rnd(4, 9), key: 'yellowNoReason' })
     }
@@ -333,13 +333,13 @@ export class Race {
     this.state = 'VSC'
     this.vscEndAt = null
     if (!this.cars.some((c) => c.status === 'stopped') && this.wet < 0.6) this.flow = clamp(this.flow - 2, 0, 100)
-    this.msg('VIRTUAL SAFETY CAR DEPLOYED', 'warn')
+    this.msg('VIRTUELLES SAFETY CAR AKTIV', 'warn')
     this.reactRadio('vsc')
   }
   endVSC() {
     if (this.state !== 'VSC' || this.vscEndAt) return
     this.vscEndAt = this.t + 8
-    this.msg('VSC ENDING - THIS IS THE VSC ENDING MESSAGE', 'warn')
+    this.msg('VSC ENDET GLEICH', 'warn')
   }
   callSC() {
     if (this.state !== 'GREEN' && this.state !== 'VSC') return
@@ -352,7 +352,7 @@ export class Race {
     const ld = lead ? lead.dist : 0
     const P = this.track.pit
     this.sc = { dist: (Math.floor((ld + 40) / this.L) + 1) * this.L + (P.span - (this.L - P.inS)), speed: 0, lat: 0, lights: true, waiting: true, leaving: false, pitU: this.parkU(), shift: 1 }
-    this.msg('SAFETY CAR DEPLOYED', 'warn')
+    this.msg('SAFETY CAR IM EINSATZ', 'warn')
     this.reactRadio('sc')
   }
   scInThisLap() {
@@ -362,19 +362,19 @@ export class Race {
       this.sc = null
       this.scEnding = false
       this.state = 'GREEN'
-      this.msg('SAFETY CAR STOOD DOWN - TRACK CLEAR, GREEN FLAG', 'ok')
+      this.msg('SAFETY CAR ZURÜCKGERUFEN - STRECKE FREI, GRÜNE FLAGGE', 'ok')
       if (this.cars.some((c) => c.status === 'stopped')) {
         this.safety = clamp(this.safety - 12, 0, 100)
-        this.msg('WARNING - STOPPED CAR STILL ON TRACK', 'bad')
+        this.msg('WARNUNG - ES STEHT NOCH EIN AUTO AUF DER STRECKE', 'bad')
       } else this.allGreen()
       return
     }
     this.scEnding = true
     if (this.sc) this.sc.lights = false
-    this.msg('SAFETY CAR IN THIS LAP - LIGHTS OUT', 'warn')
+    this.msg('SAFETY CAR KOMMT IN DIESER RUNDE REIN - LICHTER AUS', 'warn')
     if (this.cars.some((c) => c.status === 'stopped')) {
       this.safety = clamp(this.safety - 12, 0, 100)
-      this.msg('WARNING - STOPPED CAR STILL ON TRACK', 'bad')
+      this.msg('WARNUNG - ES STEHT NOCH EIN AUTO AUF DER STRECKE', 'bad')
     }
   }
   callRed() {
@@ -384,7 +384,7 @@ export class Race {
     this.sc = null
     this.scEnding = false
     this.vscEndAt = null
-    this.msg('RED FLAG - SESSION SUSPENDED', 'bad')
+    this.msg('ROTE FLAGGE - RENNEN UNTERBROCHEN', 'bad')
     this.reactRadio('red')
   }
   restart() {
@@ -408,7 +408,7 @@ export class Race {
     this.allGreen()
     this.state = 'RESTART'
     this.restartAt = this.t + 6
-    this.msg('RACE WILL RESUME IN 6 SECONDS', 'warn')
+    this.msg('NEUSTART IN 6 SEKUNDEN', 'warn')
     this.sayRandom('restart', 1)
   }
 
@@ -417,46 +417,46 @@ export class Race {
     const o = OPTIONS[key]
     const tag = this.tag(car)
     if (key === 'nfa') {
-      this.msg(`${tag} - NO FURTHER ACTION (${reason})`, 'ok')
+      this.msg(`${tag} - KEINE WEITERE MASSNAHME (${reason})`, 'ok')
       return
     }
     if (key === 'lap' || key === 'lap5') {
       if (key === 'lap5') car.penaltySec += 5
-      this.msg(`${tag} - LAP TIME DELETED${key === 'lap5' ? ' + 5 SECOND TIME PENALTY' : ''} (${reason})`, key === 'lap5' ? 'bad' : 'warn')
+      this.msg(`${tag} - RUNDENZEIT GESTRICHEN${key === 'lap5' ? ' + 5 SEKUNDEN ZEITSTRAFE' : ''} (${reason})`, key === 'lap5' ? 'bad' : 'warn')
       return
     }
     if (key === 'warn') {
       car.warnings++
-      this.msg(`${tag} - WARNING (${reason})`, 'warn')
+      this.msg(`${tag} - VERWARNUNG (${reason})`, 'warn')
       return
     }
     if (key === 't5' || key === 't10') {
       const s = key === 't5' ? 5 : 10
       car.penaltySec += s
-      this.msg(`${s} SECOND TIME PENALTY FOR ${tag} (${reason})`, 'bad')
+      this.msg(`${s} SEKUNDEN ZEITSTRAFE FÜR ${tag} (${reason})`, 'bad')
       return
     }
     if (key === 'black') {
       car.status = 'dsq'
       car.speed = 0
-      this.msg(`${tag} - DISQUALIFIED, BLACK AND ORANGE FLAG (${reason})`, 'bad')
+      this.msg(`${tag} - DISQUALIFIZIERT, SCHWARZE FLAGGE (${reason})`, 'bad')
       return
     }
     // Durchfahrt / Stop&Go: nur sinnvoll für fahrende Autos
     if (car.status !== 'run') {
       const s = key === 'dt' ? 20 : 30
       car.penaltySec += s
-      this.msg(`${s} SECOND TIME PENALTY FOR ${tag} - NOT SERVED (${reason})`, 'bad')
+      this.msg(`${s} SEKUNDEN ZEITSTRAFE FÜR ${tag} - STRAFE NICHT ABGESESSEN (${reason})`, 'bad')
       return
     }
     car.pending = key === 'dt' ? { type: 'dt', rem: 20 } : { type: 'sg', rem: 10 }
-    this.msg(`${key === 'dt' ? 'DRIVE THROUGH' : '10 SECOND STOP & GO'} PENALTY FOR ${tag} (${reason})`, 'bad')
+    this.msg(`${key === 'dt' ? 'DURCHFAHRTSSTRAFE' : '10 SEKUNDEN STOP & GO'} FÜR ${tag} (${reason})`, 'bad')
   }
 
   penalizeCar(carId, key) {
     const c = this.cars[carId]
     if (!c || c.status === 'dsq' || c.status === 'fin') return
-    this.applyPenalty(c, key, 'DIRECT RACE CONTROL ACTION')
+    this.applyPenalty(c, key, 'DIREKTE MASSNAHME DER RENNLEITUNG')
     const o = OPTIONS[key]
     const dl = key === 'black' ? 30 : o.sev * 4
     this.fairness = clamp(this.fairness - dl, 0, 100)
@@ -499,12 +499,12 @@ export class Race {
     }
     this.feedback.push(fb)
     this.logEvent(fb.text, delta)
-    const reason = { pitSpeed: 'PIT LANE SPEEDING', jumpStart: 'FALSE START', gridPosition: 'INCORRECT STARTING POSITION', collision: 'CAUSING A COLLISION', unsafeRelease: 'UNSAFE RELEASE', overtakeYellow: 'OVERTAKING UNDER YELLOW' }[inc.type] || 'TRACK LIMITS'
+    const reason = { pitSpeed: 'ZU SCHNELL IN DER BOXENGASSE', jumpStart: 'FRÜHSTART', gridPosition: 'FALSCHE STARTPOSITION', collision: 'VERURSACHEN EINER KOLLISION', unsafeRelease: 'UNSICHERE FREIGABE', overtakeYellow: 'ÜBERHOLEN UNTER GELB' }[inc.type] || 'TRACK LIMITS'
     if (target) {
       this.applyPenalty(target, opt, reason)
       if (opt !== 'nfa') this.reactRadio('penalty', target, opt)
     } else {
-      this.msg(`${this.tag(a)} / ${this.tag(b)} - RACING INCIDENT, NO FURTHER ACTION`, 'ok')
+      this.msg(`${this.tag(a)} / ${this.tag(b)} - RENNUNFALL, KEINE WEITERE MASSNAHME`, 'ok')
       if (inc.type === 'collision') {
         this.say('nfaVictim', b, { other: a }, { force: true })
         this.say('nfaRelief', a, {}, { force: true })
@@ -541,11 +541,11 @@ export class Race {
       const run = this.cars.filter((c) => c.status === 'run')
       if (run.every((c) => c.onGrid)) {
         this.state = 'GRIDREADY'
-        this.msg('ALL CARS ON GRID - READY FOR START', 'ok')
+        this.msg('ALLE AUTOS IN DER AUFSTELLUNG - BEREIT ZUM START', 'ok')
         if (Math.random() < 0.18) {
           const c = pick(run)
           c.stalled = true
-          this.msg(`${this.tag(c)} - STALLED ON GRID, YELLOW FLAGS`, 'bad')
+          this.msg(`${this.tag(c)} - MOTOR IN DER AUFSTELLUNG ABGEWÜRGT`, 'bad')
           this.say('stall', c, {}, { force: true })
         }
       }
@@ -561,11 +561,11 @@ export class Race {
     if (this.state === 'VSC' && this.vscEndAt && this.t >= this.vscEndAt) {
       this.state = 'GREEN'
       this.vscEndAt = null
-      this.msg('VSC ENDED - GREEN FLAG', 'ok')
+      this.msg('VSC BEENDET - GRÜNE FLAGGE', 'ok')
     }
     if (this.state === 'RESTART' && this.t >= this.restartAt) {
       this.state = 'GREEN'
-      this.msg('LIGHTS OUT - RACE RESUMED', 'flag')
+      this.msg('LICHTER AUS - RENNEN WIEDER FREI', 'flag')
     }
     if (this.sc) {
       const sc = this.sc
@@ -617,7 +617,7 @@ export class Race {
       c.status = 'run'
       c.rejoinAt = null
       c.latTarget = 0
-      this.msg(`${this.tag(c)} - BACK ON TRACK`, 'info')
+      this.msg(`${this.tag(c)} - FÄHRT WEITER`, 'info')
       if (Math.random() < 0.3) { c.damage = true; this.radioQueue.push({ at: this.t + rnd(3, 6), car: c, dmg: true }) }
     }
   }
@@ -748,7 +748,7 @@ export class Race {
     if (c.pending) {
       const pen = c.pending.type
       c.pending = null
-      this.msg(`${this.tag(c)} - IN PIT LANE TO SERVE ${pen === 'dt' ? 'DRIVE THROUGH' : 'STOP & GO'} PENALTY`, 'info')
+      this.msg(`${this.tag(c)} - IN DER BOXENGASSE, SITZT ${pen === 'dt' ? 'DURCHFAHRTSSTRAFE' : 'STOP & GO'} AB`, 'info')
       return pen === 'dt' ? { stop: 0, pen } : { stop: 10, pen }
     }
     const remaining = this.laps * this.L - c.dist
@@ -772,7 +772,7 @@ export class Race {
     // Beschädigtes Auto: Reparaturstopp mit frischen Reifen
     if (c.damage) {
       const tyre = next || (isWetTyre(c.tyre) ? c.tyre : sprint ? c.tyre : this.chooseDry(c, frac))
-      this.msg(`${this.tag(c)} - IN PIT LANE FOR REPAIRS`, 'info')
+      this.msg(`${this.tag(c)} - ZUR REPARATUR IN DER BOXENGASSE`, 'info')
       return { stop: rnd(7, 12) + c.penaltySec, tyre, repair: true, served: c.penaltySec }
     }
     if (!next) return null
@@ -804,8 +804,8 @@ export class Race {
         const j = pit.job
         if (j.tyre) { this.fitTyre(c, j.tyre); c.stops++ }
         if (j.repair) c.damage = false
-        if (j.served) { c.penaltySec = Math.max(0, c.penaltySec - j.served); this.msg(`${this.tag(c)} - ${j.served} SECOND TIME PENALTY SERVED`, 'info') }
-        if (j.pen) this.msg(`${this.tag(c)} - STOP & GO PENALTY SERVED`, 'info')
+        if (j.served) { c.penaltySec = Math.max(0, c.penaltySec - j.served); this.msg(`${this.tag(c)} - ${j.served} SEKUNDEN ZEITSTRAFE ABGESESSEN`, 'info') }
+        if (j.pen) this.msg(`${this.tag(c)} - STOP & GO ABGESESSEN`, 'info')
         if (j.slow) this.say('slowStop', c, {}, { force: true })
         pit.phase = 'out'
       }
@@ -825,7 +825,7 @@ export class Race {
       this.spawn('pitSpeed', { car: c, kmh: pit.speeding })
     }
     if (pit.u >= P.len) {
-      if (pit.job.pen === 'dt') this.msg(`${this.tag(c)} - DRIVE THROUGH PENALTY SERVED`, 'info')
+      if (pit.job.pen === 'dt') this.msg(`${this.tag(c)} - DURCHFAHRTSSTRAFE ABGESESSEN`, 'info')
       c.pit = null
       c.lat = 0
       c.latTarget = 0
@@ -902,7 +902,7 @@ export class Race {
       this.sc = null
       this.scEnding = false
       this.allGreen()
-      this.msg('SAFETY CAR IN - TRACK CLEAR, GREEN FLAG', 'ok')
+      this.msg('SAFETY CAR IN DER BOX - STRECKE FREI, GRÜNE FLAGGE', 'ok')
     }
   }
 
@@ -915,15 +915,15 @@ export class Race {
       this.chequered = true
       this.sc = null
       this.state = this.state === 'SC' || this.state === 'VSC' ? 'GREEN' : this.state
-      this.msg('CHEQUERED FLAG', 'flag')
+      this.msg('ZIELFLAGGE', 'flag')
       for (const o of this.cars) if (o.status === 'stopped') o.status = 'out'
     }
-    this.msg(`${this.tag(c)} - FINISHED P${this.finishCount}`, 'info')
+    this.msg(`${this.tag(c)} - IM ZIEL AUF P${this.finishCount}`, 'info')
     if (this.finishCount === 1) this.say('win', c, {}, { force: true, replyChance: 1 })
     else if (Math.random() < 0.3) this.say(this.finishCount >= this.cars.length - 4 ? 'finishLast' : 'finishMid', c, { pos: this.finishCount }, { force: true })
     if (!this.cars.some((o) => o.status === 'run' || o.status === 'stopped')) {
       this.state = 'FINISHED'
-      this.msg('SESSION FINISHED', 'flag')
+      this.msg('RENNEN BEENDET', 'flag')
     }
   }
 
@@ -939,9 +939,9 @@ export class Race {
     else this.wet = Math.max(this.rain, this.wet - dt / 110)
     const phase = this.rain > 0.02 ? (this.wet > 0.7 ? 'heavy' : 'rain') : this.wet > 0.08 ? 'drying' : 'dry'
     if (phase !== this.rainPhase) {
-      if (phase === 'rain' && this.rainPhase !== 'heavy') { this.msg('RAIN REPORTED - LOW GRIP CONDITIONS', 'warn'); this.sayRandom('rainStart', 2) }
-      if (phase === 'heavy') { this.msg('HEAVY RAIN - RISK OF AQUAPLANING', 'bad'); this.sayRandom('rainHeavy', 2) }
-      if (phase === 'drying') { this.msg('RAIN STOPPED - TRACK DRYING', 'ok'); this.sayRandom('rainEnd', 1) }
+      if (phase === 'rain' && this.rainPhase !== 'heavy') { this.msg('REGEN GEMELDET - WENIG GRIP', 'warn'); this.sayRandom('rainStart', 2) }
+      if (phase === 'heavy') { this.msg('STARKREGEN - AQUAPLANING-GEFAHR', 'bad'); this.sayRandom('rainHeavy', 2) }
+      if (phase === 'drying') { this.msg('REGEN VORBEI - STRECKE TROCKNET AB', 'ok'); this.sayRandom('rainEnd', 1) }
       this.rainPhase = phase
     }
     if (phase === 'heavy' && (this.state === 'GREEN' || this.state === 'VSC')) {
@@ -978,7 +978,7 @@ export class Race {
         if (c.recov <= 0) {
           c.status = 'out'
           c.speed = 0
-          this.msg(`${this.tag(c)} - REMOVED FROM TRACK`, 'ok')
+          this.msg(`${this.tag(c)} - GEBORGEN, STRECKE DORT FREI`, 'ok')
         }
       }
     }
@@ -1005,7 +1005,7 @@ export class Race {
         const miss = inc.ideal.sev >= 2 ? 10 : 3
         this.fairness = clamp(this.fairness - miss, 0, 100)
         this.logEvent(`Fall ${String(inc.no).padStart(2, '0')} (${TYPE_TITLE[inc.type]}): nicht entschieden`, -miss)
-        this.msg(`CASE ${inc.no} - NO DECISION WITHIN TIME, CASE CLOSED`, 'warn')
+        this.msg(`FALL ${inc.no} - KEINE ENTSCHEIDUNG IN DER FRIST, FALL GESCHLOSSEN`, 'warn')
       }
     }
     this.incidents = this.incidents.filter((i) => i.status === 'open')
@@ -1057,7 +1057,7 @@ export class Race {
     c.passing = null
     c.latTarget = c.verge
     const w = this.where(c)
-    this.msg(`${this.tag(c)} - STOPPED ON TRACK AT TURN ${w.turn} (${why})`, 'bad')
+    this.msg(`${this.tag(c)} - STEHT AUF DER STRECKE IN KURVE ${w.turn} ${w.name.toUpperCase()} (${why})`, 'bad')
     this.incidents.push({ ...this.makeBase('hazard', 'hazard', [c.id], w), why })
   }
 
@@ -1078,13 +1078,13 @@ export class Race {
       inc.replay = { kind: 'pitspeed', kmh }
       inc.expert = kmh <= 80 ? `Experten: ${kmh.toFixed(1)} km/h, innerhalb des Limits. Keine Strafe.` : kmh <= 90 ? `Experten: ${(kmh - 80).toFixed(1)} km/h zu schnell. 5 Sekunden.` : `Experten: ${(kmh - 80).toFixed(1)} km/h zu schnell. 10 Sekunden.`
       this.incidents.push(inc)
-      this.msg(`${this.tag(c)} - PIT LANE SPEEDING - UNDER INVESTIGATION`, 'warn')
+      this.msg(`${this.tag(c)} - ZU SCHNELL IN DER BOXENGASSE - WIRD UNTERSUCHT`, 'warn')
       return
     }
     if (type !== 'unsafeRelease' && run.length < 4) return
     if (type === 'breakdown') {
       const c = pick(run.slice(1))
-      this.stopCar(c, 'TECHNICAL')
+      this.stopCar(c, 'DEFEKT')
       this.say('breakdown', c, {}, { force: true })
       return
     }
@@ -1092,7 +1092,7 @@ export class Race {
       const slicks = run.filter((x) => !isWetTyre(x.tyre))
       const c = this.wet > 0.3 && slicks.length ? pick(slicks) : pick(run.slice(1))
       c.rejoinAt = this.t + rnd(15, 25)
-      this.stopCar(c, 'SPIN')
+      this.stopCar(c, 'DREHER')
       c.recov = null
       this.say('spin', c, {}, { force: true })
       return
@@ -1124,7 +1124,7 @@ export class Race {
         : `Experten: Kein Vergehen. Der innere Reifen berührte noch ${Math.abs(over).toFixed(2)} m die weiße Linie.`
       inc.consequence = 'Kein Einfluss auf andere Fahrer.'
       this.incidents.push(inc)
-      this.msg(`${this.tag(c)} - TRACK LIMITS AT TURN ${w.turn} - UNDER INVESTIGATION`, 'warn')
+      this.msg(`${this.tag(c)} - TRACK LIMITS IN KURVE ${w.turn} - WIRD UNTERSUCHT`, 'warn')
       if (Math.random() < 0.6) this.say('trackLimits', c)
       return
     }
@@ -1151,7 +1151,7 @@ export class Race {
       inc.expert = slow ? 'Experten: Überholter Wagen war offensichtlich langsam, keine Strafe.' : `Experten: Überholen unter ${status}, Richtwert ${dbl ? '10' : '5'} Sek.`
       inc.consequence = status
       this.incidents.push(inc)
-      this.msg(`${this.tag(A)} - OVERTAKING UNDER ${status.toUpperCase()} - UNDER INVESTIGATION`, 'warn')
+      this.msg(`${this.tag(A)} - ÜBERHOLEN UNTER ${status.toUpperCase()} - WIRD UNTERSUCHT`, 'warn')
       this.say('overtakeYellow', A, { other: B })
       return
     }
@@ -1172,7 +1172,7 @@ export class Race {
       inc.replay = { kind: 'release', react }
       inc.consequence = `${b.code} bremst um ${react} km/h.`
       this.incidents.push(inc)
-      this.msg(`${this.tag(a)} / ${this.tag(b)} - UNSAFE RELEASE - UNDER INVESTIGATION`, 'warn')
+      this.msg(`${this.tag(a)} / ${this.tag(b)} - UNSICHERE FREIGABE - WIRD UNTERSUCHT`, 'warn')
       if (react >= 10) this.say('unsafeVictim', b, { other: a })
       else this.say('unsafeReleased', a)
       return
@@ -1215,8 +1215,8 @@ export class Race {
       inc.replay = { kind: 'collision', axle, outcome }
       inc.consequence = consequence
       this.incidents.push(inc)
-      this.msg(`${this.tag(A)} / ${this.tag(B)} - COLLISION AT TURN ${w.turn} - UNDER INVESTIGATION`, 'warn')
-      for (const c of stopped) this.stopCar(c, 'COLLISION')
+      this.msg(`${this.tag(A)} / ${this.tag(B)} - KOLLISION IN KURVE ${w.turn} - WIRD UNTERSUCHT`, 'warn')
+      for (const c of stopped) this.stopCar(c, 'UNFALL')
       // Wer weiterfährt, hat oft einen Schaden und muss zur Reparatur an die Box
       for (const c of [A, B]) if (!stopped.includes(c) && Math.random() < 0.55) { c.damage = true; this.radioQueue.push({ at: this.t + rnd(5, 9), car: c, dmg: true }) }
       this.say(stopped.includes(B) ? 'dnfCollision' : 'collisionVictim', B, { other: A }, { force: true })

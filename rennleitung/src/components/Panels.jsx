@@ -125,7 +125,7 @@ export function MessageLog({ messages, radio }) {
   return (
     <>
       <div className="panel logbox">
-        <div className="ptitle">RACE CONTROL MESSAGES</div>
+        <div className="ptitle">MELDUNGEN DER RENNLEITUNG</div>
         <div className="loglist">
           {[...messages].reverse().map((m) => (
             <div key={m.id} className={`msg ${m.level}`}><span className="dim">{clockStr(m.t)}</span> {m.text}</div>
