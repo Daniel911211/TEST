@@ -114,6 +114,25 @@ export function drawSafetyCar(ctx, x, y, ang, k, lights, now) {
   ctx.restore()
 }
 
+// Fahrerkürzel am Auto; das als schuldig gewählte Auto bekommt zusätzlich einen pulsierenden Ring
+function mark(ctx, x, y, k, code, active, now) {
+  const r = 3.6 * k
+  if (active) {
+    ctx.strokeStyle = `rgba(255,210,31,${0.55 + 0.45 * Math.sin(now / 160)})`
+    ctx.lineWidth = 3
+    ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.stroke()
+  }
+  ctx.font = '700 11px ui-monospace, monospace'
+  const text = active ? `${code} · SCHULD` : code
+  const w = ctx.measureText(text).width + 10
+  const lx = Math.min(W - w - 4, x + r * 0.75), ly = Math.max(4, y - r - 6)
+  ctx.fillStyle = active ? '#ffd21f' : 'rgba(8,10,14,0.85)'
+  ctx.fillRect(lx, ly, w, 17)
+  ctx.fillStyle = active ? '#10141c' : '#e8edf7'
+  ctx.textAlign = 'left'
+  ctx.fillText(text, lx + 5, ly + 12.5)
+}
+
 function kerbV(ctx, S, x0, x1, cy, k) {
   const y0 = cy - H / 2 / k - 2, y1 = cy + H / 2 / k + 2
   for (let y = Math.floor(y0 / 1.2) * 1.2, i = 0; y < y1; y += 1.2, i++) {
@@ -135,7 +154,7 @@ function label(ctx, text, x, y, color = '#ffd21f', align = 'left') {
   ctx.fillText(text, bx + 6, y + 13)
 }
 
-export default function Replay({ inc, carA, carB }) {
+export default function Replay({ inc, carA, carB, highlight = null }) {
   const cv = useRef(null)
   const [p, setP] = useState(0)
   const [playing, setPlaying] = useState(true)
@@ -144,7 +163,7 @@ export default function Replay({ inc, carA, carB }) {
   const [fixed, setFixed] = useState(false)
   const [overlay, setOverlay] = useState(false)
   const st = useRef({})
-  st.current = { p, playing, tempo, zoom, fixed, overlay, inc, carA, carB }
+  st.current = { p, playing, tempo, zoom, fixed, overlay, inc, carA, carB, highlight }
   const kind = inc.replay.kind
 
   useEffect(() => {
@@ -160,7 +179,7 @@ export default function Replay({ inc, carA, carB }) {
         st.current.p = np
         setP(np)
       }
-      draw(ctx, st.current)
+      draw(ctx, st.current, now)
       raf = requestAnimationFrame(loop)
     }
     raf = requestAnimationFrame(loop)
@@ -197,8 +216,8 @@ export default function Replay({ inc, carA, carB }) {
   )
 }
 
-function draw(ctx, s) {
-  const { p, zoom, fixed, overlay, inc, carA, carB, tempo } = s
+function draw(ctx, s, now) {
+  const { p, zoom, fixed, overlay, inc, carA, carB, tempo, highlight } = s
   const kind = inc.replay.kind
   ctx.clearRect(0, 0, W, H)
   ctx.font = '700 11px ui-monospace, monospace'
@@ -268,6 +287,8 @@ function draw(ctx, s) {
     const [bx, by] = S(xB, yB), [ax, ay] = S(xA, yA)
     drawCar(ctx, bx, by, angB, carB.livery, k)
     drawCar(ctx, ax, ay, angA, carA.livery, k)
+    mark(ctx, bx, by, k, carB.code, highlight === 'b', now)
+    mark(ctx, ax, ay, k, carA.code, highlight === 'a', now)
     if (overlay) {
       const mirrorY = yB - 1.0
       const frontY = yA - 3.0
@@ -301,6 +322,8 @@ function draw(ctx, s) {
     const [bx, by] = S(xB, yB), [ax, ay] = S(xA, yA)
     drawCar(ctx, bx, by, 0, carB.livery, k)
     drawCar(ctx, ax, ay, 0, carA.livery, k)
+    mark(ctx, bx, by, k, carB.code, false, now)
+    mark(ctx, ax, ay, k, carA.code, false, now)
     ctx.fillStyle = '#ff9a1f'; ctx.fillRect(W - 170, 10, 160, 18)
     ctx.fillStyle = '#10141c'; ctx.textAlign = 'center'; ctx.fillText(status.toUpperCase(), W - 90, 23); ctx.textAlign = 'left'
     label(ctx, `${carA.code} ${va} km/h · ${carB.code} ${slow ? Math.round(ref * 0.4) : ref} km/h`, 10, H - 28, '#e8edf7')
@@ -379,6 +402,8 @@ function draw(ctx, s) {
     const [bx, by] = S(xB, -3), [ax, ay] = S(xA, yA)
     drawCar(ctx, bx, by, Math.PI / 2, carB.livery, k)
     if (!solo) drawCar(ctx, ax, ay, Math.PI / 2, carA.livery, k)
+    mark(ctx, bx, by, k, carB.code, false, now)
+    if (!solo) mark(ctx, ax, ay, k, carA.code, false, now)
     if (solo) {
       label(ctx, `${carB.code}: ${inc.replay.kmh.toFixed(1)} km/h`, W - 10, 10, inc.replay.kmh > 80 ? '#ff6a6a' : '#2fe08a', 'right')
       label(ctx, 'LIMIT 80 km/h', W - 10, 32, '#ffd21f', 'right')

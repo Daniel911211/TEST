@@ -37,7 +37,7 @@ export function CaseDialog({ race, incId, onClose }) {
           <button className="btn sm right" onClick={onClose}>SCHLIESSEN · ESC</button>
         </div>
         <div className="dbody">
-          <Replay inc={inc} carA={carA} carB={carB} />
+          <Replay inc={inc} carA={carA} carB={carB} highlight={culprit} />
           <div className="dside">
             <table className="facts">
               <tbody>
