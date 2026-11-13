@@ -131,7 +131,9 @@ select {
 .msg.radio { border-color: transparent; color: #c9d3e6; }
 .msg.radio.box { padding-left: 18px; color: var(--dim); }
 .msg.radio.box b { opacity: 0.7; font-weight: 400; }
-.cams { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; flex: 1; min-height: 260px; }
+.stage { flex: 1; min-height: 0; display: grid; grid-template-columns: 1.35fr 1fr; gap: 6px; }
+.cams { display: grid; grid-template-rows: 1fr 1fr; gap: 6px; min-height: 0; }
+.cam { min-height: 0; }
 .cam { position: relative; padding: 0; overflow: hidden; display: flex; }
 .cam canvas { width: 100%; height: 100%; display: block; }
 .camlabel { position: absolute; top: 5px; left: 7px; font-size: 9px; letter-spacing: 1px; background: rgba(8, 10, 14, 0.8); padding: 2px 6px; border-radius: 2px; }
@@ -183,8 +185,7 @@ select {
   .main { grid-template-columns: 1fr; }
   .mapbox { min-height: 340px; }
   .controls { grid-template-columns: 1fr; }
-  .cams { grid-template-columns: 1fr; height: auto; }
-  .cams { flex: none; min-height: 0; }
+  .stage { grid-template-columns: 1fr; }
   .cam { height: 260px; }
   .dbody, .repcols { grid-template-columns: 1fr; }
   .meters { margin-left: 0; }

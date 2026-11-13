@@ -187,6 +187,7 @@ export default function App() {
       <main className="main">
         <TimingTower rows={snap.rows} selected={selected} onSelect={setSelected} state={snap.state} />
         <section className="center">
+          <div className="stage">
           <div className="panel mapbox">
             <div className="ptitle">STRECKENÜBERSICHT · {snap.track.name.toUpperCase()}</div>
             <TrackMap race={race} selected={selected} onSelect={setSelected} />
@@ -206,6 +207,7 @@ export default function App() {
           <div className="cams">
             <CamView race={race} mode="follow" selected={selected} />
             <CamView race={race} mode="cctv" selected={selected} />
+          </div>
           </div>
           <ControlPanel snap={snap} race={race} selectedRow={row} selectedCar={selCar} />
         </section>
