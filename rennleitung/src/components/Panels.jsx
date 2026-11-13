@@ -1,4 +1,4 @@
-import { OPTION_LIST, TYPE_TITLE, clockStr } from '../sim/race.js'
+import { OPTION_LIST, TYPE_TITLE, TYRES, clockStr } from '../sim/race.js'
 
 export function TimingTower({ rows, selected, onSelect, state }) {
   return (
@@ -12,11 +12,13 @@ export function TimingTower({ rows, selected, onSelect, state }) {
             <span className="code" title={r.name}>{r.name}</span>
             <span className="badges">
               {r.status === 'stopped' && <i className="b red">STOP</i>}
+              {r.inPit && <i className="b blue">BOX</i>}
               {r.serving && <i className="b amber">STRAFE</i>}
               {r.penaltySec > 0 && <i className="b amber">+{r.penaltySec}s</i>}
               {r.warnings > 0 && <i className="b gray">{'▲'.repeat(Math.min(3, r.warnings))}</i>}
             </span>
             <span className="gap">{state === 'GRID' ? '' : r.gap}</span>
+            <span className="tyre" style={{ borderColor: TYRES[r.tyre].color, color: TYRES[r.tyre].color }} title={`${TYRES[r.tyre].name}, ${r.wear} % abgefahren, ${r.stops} Stopps`}>{r.tyre}</span>
           </div>
         ))}
       </div>
@@ -63,6 +65,7 @@ export function ControlPanel({ snap, race, selectedRow, selectedCar }) {
             <div className="carinfo">
               <b style={{ color: selectedCar.color }}>#{selectedCar.num} {selectedCar.name}</b>
               <span className="dim">{selectedCar.team} · P{selectedRow.pos} · Strafen {selectedCar.penaltySec}s · Verwarnungen {selectedCar.warnings}</span>
+              <span className="dim">Reifen: <b style={{ color: TYRES[selectedRow.tyre].color }}>{TYRES[selectedRow.tyre].name}</b> · {selectedRow.wear} % abgefahren · {selectedRow.stops} {selectedRow.stops === 1 ? 'Stopp' : 'Stopps'}</span>
             </div>
             <div className="penalties">
               {OPTION_LIST.filter((o) => !['nfa', 'lap', 'lap5'].includes(o.key)).map((o) => (

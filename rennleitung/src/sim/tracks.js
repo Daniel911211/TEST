@@ -10,6 +10,8 @@ const TRACKS = {
     length: 7004,
     lapRef: 107,
     vmax: 335,
+    // Boxengasse rechts: Einfahrt nach der Bus-Stop-Schikane, Ausfahrt innen an La Source vorbei
+    pit: { side: 1, in: 290, par: 150, out: 420, off: 15 },
     start: 0,
     // [Kurvennummer, Position in Metern der Rohdaten, Name]
     corners: [
@@ -24,6 +26,8 @@ const TRACKS = {
     length: 5793,
     lapRef: 83,
     vmax: 345,
+    // Boxengasse rechts: Einfahrt nach der Parabolica, Ausfahrt vor der ersten Schikane
+    pit: { side: 1, in: 420, par: 330, out: 470, off: 15 },
     start: 0,
     corners: [
       [1, 675, 'Variante del Rettifilo'], [3, 1100, 'Curva Grande'], [4, 1789, 'Variante della Roggia'], [6, 2254, 'Lesmo 1'],
@@ -36,6 +40,8 @@ const TRACKS = {
     length: 3337,
     lapRef: 73,
     vmax: 290,
+    // Boxengasse rechts: Einfahrt nach Anthony Noghès, Ausfahrt hinter Sainte Dévote
+    pit: { side: 1, in: 240, par: 200, out: 350, off: 13 },
     start: 2400, // Rohdaten beginnen am Casino, Start/Ziel liegt vor Sainte Dévote
     corners: [
       [1, 2677, 'Sainte Dévote'], [2, 3000, 'Beau Rivage'], [3, 150, 'Massenet'], [4, 250, 'Casino'], [5, 340, 'Mirabeau Haute'],
@@ -171,6 +177,71 @@ export function buildTrack(key) {
   const kerb = new Uint8Array(N)
   for (let i = 0; i < N; i++) kerb[i] = sm[i] > 1 / 260 ? 1 : 0
 
+  // 6) Boxengasse: parallel zur Strecke versetzt, Einfahrt als sanfter Übergang, Ausfahrt als eigene Kurve
+  const P = def.pit
+  const at = (sm_) => {
+    const f = (((sm_ % def.length) + def.length) % def.length) / ds
+    const i = Math.floor(f) % N, j2 = (i + 1) % N, u = f - Math.floor(f)
+    return { x: xs[i] + (xs[j2] - xs[i]) * u, y: ys[i] + (ys[j2] - ys[i]) * u, h: h[i] }
+  }
+  const ss = (t) => (t <= 0 ? 0 : t >= 1 ? 1 : t * t * (3 - 2 * t))
+  const rawPit = []
+  const TAPER = 90
+  for (let d = 0; d <= P.in + P.par; d += 2) {
+    const q = at(-P.in + d)
+    const o = P.off * P.side * ss(d / TAPER)
+    rawPit.push([q.x - Math.sin(q.h) * o, q.y + Math.cos(q.h) * o])
+  }
+  {
+    const a = at(P.par), b = at(P.out)
+    const p0 = [a.x - Math.sin(a.h) * P.off * P.side, a.y + Math.cos(a.h) * P.off * P.side]
+    const p3 = [b.x, b.y]
+    const dd = Math.hypot(p3[0] - p0[0], p3[1] - p0[1]) * 0.42
+    const p1 = [p0[0] + Math.cos(a.h) * dd, p0[1] + Math.sin(a.h) * dd]
+    const p2 = [p3[0] - Math.cos(b.h) * dd, p3[1] - Math.sin(b.h) * dd]
+    for (let i = 1; i <= 60; i++) {
+      const t = i / 60, m1 = 1 - t
+      rawPit.push([
+        m1 ** 3 * p0[0] + 3 * m1 * m1 * t * p1[0] + 3 * m1 * t * t * p2[0] + t ** 3 * p3[0],
+        m1 ** 3 * p0[1] + 3 * m1 * m1 * t * p1[1] + 3 * m1 * t * t * p2[1] + t ** 3 * p3[1],
+      ])
+    }
+  }
+  const pc = [0]
+  for (let i = 1; i < rawPit.length; i++) pc.push(pc[i - 1] + Math.hypot(rawPit[i][0] - rawPit[i - 1][0], rawPit[i][1] - rawPit[i - 1][1]))
+  const pLen = pc[pc.length - 1]
+  const PN = Math.floor(pLen / 2)
+  const pxs = new Float32Array(PN + 1), pys = new Float32Array(PN + 1), phs = new Float32Array(PN + 1)
+  for (let i = 0, q = 0; i <= PN; i++) {
+    const tgt = (i / PN) * pLen
+    while (q < rawPit.length - 2 && pc[q + 1] < tgt) q++
+    const u = (tgt - pc[q]) / (pc[q + 1] - pc[q] || 1)
+    pxs[i] = rawPit[q][0] + (rawPit[q + 1][0] - rawPit[q][0]) * u
+    pys[i] = rawPit[q][1] + (rawPit[q + 1][1] - rawPit[q][1]) * u
+  }
+  for (let i = 0; i <= PN; i++) {
+    const a = Math.max(0, i - 1), b = Math.min(PN, i + 1)
+    phs[i] = Math.atan2(pys[b] - pys[a], pxs[b] - pxs[a])
+  }
+  const uA = pc[Math.round(TAPER / 2)] // Beginn Tempolimit (Ende der Einfahrt)
+  const uB = pc[Math.round((P.in + P.par) / 2)] // Ende Tempolimit (Beginn der Ausfahrt)
+  const pit = {
+    side: P.side,
+    xs: pxs, ys: pys, h: phs, n: PN, len: pLen, step: pLen / PN,
+    inS: def.length - P.in, // Einfahrt, Position auf der Strecke
+    span: P.in + P.out, // Streckenmeter, die die Boxengasse überbrückt
+    uA, uB,
+    boxU: (i, count) => uA + 25 + ((uB - uA - 50) * i) / Math.max(1, count - 1),
+    at(u) {
+      const f = Math.max(0, Math.min(PN - 0.001, u / (pLen / PN)))
+      const i = Math.floor(f), t = f - i
+      let dh = phs[i + 1] - phs[i]
+      if (dh > Math.PI) dh -= 2 * Math.PI
+      if (dh < -Math.PI) dh += 2 * Math.PI
+      return { x: pxs[i] + (pxs[i + 1] - pxs[i]) * t, y: pys[i] + (pys[i + 1] - pys[i]) * t, h: phs[i] + dh * t }
+    },
+  }
+
   const track = {
     key,
     name: def.name,
@@ -185,6 +256,7 @@ export function buildTrack(key) {
     v,
     corners,
     kerb,
+    pit,
     cornerAt(s) {
       const idx = Math.floor(s / ds) % N
       let best = corners[0], bd = Infinity

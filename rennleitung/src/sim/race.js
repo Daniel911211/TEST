@@ -20,6 +20,8 @@ export const OPTIONS = {
 export const OPTION_LIST = Object.values(OPTIONS)
 
 export const RULES = {
+  pitSpeed:
+    'Tempolimit in der Boxengasse: 80 km/h. Messwert bis 80,0 km/h: keine Strafe. Überschreitung bis 10 km/h: 5 Sekunden. Mehr als 10 km/h zu schnell: 10 Sekunden.',
   jumpStart:
     'Frühstart: Bewegt sich ein Auto, bevor die Lichter ausgehen, und löst den Sensor aus, gibt es 5 Sekunden. Wer klar vor dem Signal losfährt, bekommt eine Durchfahrtsstrafe. Ein Zucken ohne Sensorauslösung bleibt straffrei.',
   gridPosition:
@@ -35,6 +37,7 @@ export const RULES = {
 }
 
 export const TYPE_TITLE = {
+  pitSpeed: 'Tempo in der Boxengasse',
   jumpStart: 'Frühstart',
   gridPosition: 'Falsche Startposition',
   overtakeYellow: 'Überholen unter Gelb',
@@ -43,6 +46,16 @@ export const TYPE_TITLE = {
   trackLimits: 'Track Limits',
   hazard: 'Auto steht auf der Strecke',
 }
+
+// Reifen: base = Tempo im Trockenen, life = Haltbarkeit als Anteil der Renndistanz
+export const TYRES = {
+  S: { name: 'Soft', color: '#ff3b3b', base: 1.0, life: 0.36 },
+  M: { name: 'Medium', color: '#ffd21f', base: 0.994, life: 0.58 },
+  H: { name: 'Hard', color: '#f2f2f2', base: 0.989, life: 0.9 },
+  I: { name: 'Intermediate', color: '#3fd65a', base: 0.93, life: 0.7 },
+  W: { name: 'Regen', color: '#3b8bff', base: 0.885, life: 0.9 },
+}
+const isWetTyre = (k) => k === 'I' || k === 'W'
 
 export const sectorOf = (s, L) => Math.min(2, Math.floor(s / (L / 3)))
 const mod = (x, L) => ((x % L) + L) % L
@@ -81,6 +94,7 @@ export class Race {
     this.wet = 0
     this.rainPlan = Math.random() < 0.55 ? { start: rnd(0.15, 0.6) * dur, dur: rnd(90, 240), peak: rnd(0.35, 1) } : null
     this.rainPhase = 'dry'
+    this.raceDist = laps * this.L
     this.heavyT = 0
     this.scEnding = false
     this.sc = null
@@ -112,9 +126,19 @@ export class Race {
       finishTime: null,
       finishIdx: null,
       lapStart: 0,
+      ...(() => { const t = pick(['M', 'M', 'M', 'M', 'M', 'S', 'S', 'S', 'H', 'H']); return { tyre: t, usedDry: [t] } })(),
+      wear: 0,
+      usedWet: false,
+      stops: 0,
+      pitAt: rnd(0.72, 0.95),
+      mustAt: rnd(1.15, 2.2), // spätester Pflichtstopp, in Runden vor Rennende
+      wetThr: rnd(0.2, 0.4),
+      dryThr: rnd(0.08, 0.16),
+      pit: null,
       bestLap: null,
       lapDirty: false,
     }))
+    this.teams = [...new Set(this.cars.map((c) => c.team))]
     this.msg('CARS ON GRID - AWAITING FORMATION LAP')
   }
 
@@ -224,6 +248,7 @@ export class Race {
   go() {
     this.state = 'GREEN'
     this.raceStart = this.t
+    this.raceDist = this.laps * this.L
     if (this.rainPlan) this.rainPlan.start += this.t
     this.nextAmbient = this.t + rnd(15, 30)
     this.msg('LIGHTS OUT AND AWAY WE GO', 'flag')
@@ -362,6 +387,10 @@ export class Race {
       c.lat = i % 2 ? 0.9 : -0.9
       c.latTarget = c.lat
       c.passing = null
+      c.pit = null
+      // Unter Rot dürfen die Reifen frei gewechselt werden
+      const want = this.wet > 0.8 ? 'W' : this.wet > 0.25 ? 'I' : isWetTyre(c.tyre) || c.wear > 0.4 ? this.chooseDry(c, (this.laps * this.L - c.dist) / this.raceDist) : null
+      if (want && want !== c.tyre) this.fitTyre(c, want)
     })
     this.allGreen()
     this.state = 'RESTART'
@@ -457,7 +486,7 @@ export class Race {
     }
     this.feedback.push(fb)
     this.logEvent(fb.text, delta)
-    const reason = { jumpStart: 'FALSE START', gridPosition: 'INCORRECT STARTING POSITION', collision: 'CAUSING A COLLISION', unsafeRelease: 'UNSAFE RELEASE', overtakeYellow: 'OVERTAKING UNDER YELLOW' }[inc.type] || 'TRACK LIMITS'
+    const reason = { pitSpeed: 'PIT LANE SPEEDING', jumpStart: 'FALSE START', gridPosition: 'INCORRECT STARTING POSITION', collision: 'CAUSING A COLLISION', unsafeRelease: 'UNSAFE RELEASE', overtakeYellow: 'OVERTAKING UNDER YELLOW' }[inc.type] || 'TRACK LIMITS'
     if (target) {
       this.applyPenalty(target, opt, reason)
       if (opt !== 'nfa') this.reactRadio('penalty', target, opt)
@@ -569,7 +598,8 @@ export class Race {
     const idx = Math.floor(s / T.ds) % T.n
     const sec = sectorOf(s, L)
     const st = this.state
-    let v = T.v[idx] * c.pace * c.form * (1 - 0.14 * this.wet)
+    if (c.pit) return this.stepPit(c, dt, idxInOrder)
+    let v = T.v[idx] * c.pace * c.form * this.tyreFactor(c)
     let catchGap = null
     const pre = st === 'FORMATION' || st === 'GRIDREADY' || st === 'LIGHTS'
     if (st === 'RED' || st === 'RESTART' || st === 'GRIDREADY' || st === 'LIGHTS') v = 0
@@ -597,17 +627,7 @@ export class Race {
       else if (f === 'double') v *= 0.55
     }
 
-    if (st !== 'GREEN' || this.sectors.some((f) => f !== 'green') || c.serve) c.lapDirty = true
-    // Strafen abfahren
-    if (c.serve) {
-      c.serve.rem -= dt
-      v = c.serve.type === 'dt' ? v * 0.3 : 0
-      if (c.serve.rem <= 0) {
-        this.msg(`${this.tag(c)} - PENALTY SERVED`, 'info')
-        c.serve = null
-      }
-    }
-
+    if (st !== 'GREEN' || this.sectors.some((f) => f !== 'green')) c.lapDirty = true
     // Vordermann / Überholen
     let blocker = null, bgap = 1e9
     const consider = (o, isSC) => {
@@ -619,7 +639,7 @@ export class Race {
         blocker.isSC = isSC
       }
     }
-    for (const o of running) if (o !== c) consider(o, false)
+    for (const o of running) if (o !== c && !o.pit) consider(o, false)
     if (this.sc) consider(this.sc, true)
     const free = st === 'GREEN'
     if (blocker) {
@@ -652,7 +672,158 @@ export class Race {
     const prev = c.dist
     c.dist += c.speed * dt
     c.lat += clamp(c.latTarget - c.lat, -1.2 * dt, 1.2 * dt)
+    if (c.dist > 0) c.wear += (c.dist - prev) / (TYRES[c.tyre].life * this.raceDist) * (isWetTyre(c.tyre) && this.wet < 0.12 ? 2.5 : 1)
+    // Boxeneinfahrt
+    const P = T.pit
+    if (c.dist > 0 && mod(prev, L) < P.inS && mod(c.dist, L) >= P.inS) {
+      const job = this.pitDecision(c)
+      if (job) {
+        const u = mod(c.dist, L) - P.inS
+        const sp = Math.random() < 0.06 ? pick([rnd(78.8, 80), rnd(80.3, 89), rnd(80.3, 89), rnd(90.5, 97)]) : null
+        c.pit = { u, entryAbs: c.dist - u, job, phase: 'lane', shift: 0, timer: 0, speeding: sp ? +sp.toFixed(1) : null, boxU: P.boxU(this.teams.indexOf(c.team), this.teams.length) }
+        c.lat = 0
+        c.latTarget = 0
+        c.passing = null
+        c.lapDirty = true
+        if (job.tyre && Math.random() < 0.3) this.say('pitIn', c)
+        return
+      }
+    }
     if (Math.floor(c.dist / L) > Math.floor(prev / L) && c.dist > 0) this.onLine(c, idxInOrder)
+  }
+
+  // Tempo je nach Reifenmischung, Nässe und Verschleiß
+  tyreFactor(c) {
+    const w = this.wet
+    let f
+    if (c.tyre === 'I') f = w < 0.12 ? 0.9 : 0.93 - 0.3 * Math.max(0, w - 0.7)
+    else if (c.tyre === 'W') f = w < 0.4 ? 0.85 : 0.885
+    else f = TYRES[c.tyre].base * (1 - 0.5 * w)
+    return f * (1 - 0.025 * c.wear * c.wear - (c.wear > 1 ? 0.06 * (c.wear - 1) : 0))
+  }
+  fitTyre(c, k) {
+    c.tyre = k
+    c.wear = 0
+    if (isWetTyre(k)) c.usedWet = true
+    else if (!c.usedDry.includes(k)) c.usedDry.push(k)
+  }
+  chooseDry(c, frac) {
+    const only = c.usedDry.length < 2 && !c.usedWet && !isWetTyre(c.tyre) ? c.tyre : null
+    const ok = ['S', 'M', 'H'].filter((k) => k !== only)
+    return ok.find((k) => TYRES[k].life * 0.92 >= frac) || ok[ok.length - 1]
+  }
+  // Entscheidet an der Boxeneinfahrt, ob und wofür das Auto reinkommt
+  pitDecision(c) {
+    if (!['GREEN', 'SC', 'VSC'].includes(this.state) || this.chequered) return null
+    if (c.pending) {
+      const pen = c.pending.type
+      c.pending = null
+      this.msg(`${this.tag(c)} - IN PIT LANE TO SERVE ${pen === 'dt' ? 'DRIVE THROUGH' : 'STOP & GO'} PENALTY`, 'info')
+      return pen === 'dt' ? { stop: 0, pen } : { stop: 10, pen }
+    }
+    const remaining = this.laps * this.L - c.dist
+    if (remaining < this.L * 0.5) return null
+    const frac = remaining / this.raceDist
+    const wetT = isWetTyre(c.tyre)
+    let next = null, must = false
+    const lead = this.order.find((o) => o.status === 'run')
+    const leadLeft = lead ? this.laps * this.L - lead.dist : remaining
+    if (!wetT && this.wet > c.wetThr) next = this.wet > 0.8 ? 'W' : 'I'
+    else if (c.tyre === 'I' && this.wet > 0.88) next = 'W'
+    else if (c.tyre === 'W' && this.wet < 0.55 && this.wet > c.dryThr) next = 'I'
+    else if (wetT && this.wet < c.dryThr && this.rain < 0.05) next = this.chooseDry(c, frac)
+    else if (!wetT) {
+      must = c.usedDry.length < 2 && !c.usedWet && Math.min(remaining, leadLeft) < this.L * c.mustAt
+      const cheap = (this.state === 'SC' || this.state === 'VSC') && c.wear > 0.45 && Math.random() < 0.7
+      if (c.wear >= c.pitAt || must || cheap) next = this.chooseDry(c, frac)
+    }
+    if (!next) return null
+    // Kein Doppelstopp: der Teamkollege steht noch an der Box
+    if (!must && this.cars.some((o) => o !== c && o.team === c.team && o.pit && o.pit.phase !== 'out')) return null
+    const stop = Math.random() < 0.08 ? rnd(5, 9) : rnd(2.0, 3.2)
+    return { stop: stop + c.penaltySec, tyre: next, slow: stop > 4.5, served: c.penaltySec }
+  }
+
+  stepPit(c, dt, idxInOrder) {
+    const P = this.track.pit, pit = c.pit, L = this.L, st = this.state
+    const lim = pit.speeding ? pit.speeding / 3.6 : 22.2
+    let v
+    if (st === 'RED' || st === 'RESTART') v = 0
+    else if (pit.u < P.uA) v = Math.sqrt(lim * lim + 2 * 34 * (P.uA - pit.u))
+    else if (pit.u < P.uB) v = lim
+    else v = 75
+    if (pit.job.stop && pit.phase === 'lane') {
+      const rem = pit.boxU - pit.u
+      v = Math.min(v, Math.sqrt(2 * 9 * Math.max(0, rem)) + 0.4)
+      if (rem < 0.4) { pit.phase = 'stop'; pit.timer = pit.job.stop; c.speed = 0 }
+    }
+    if (!pit.job.stop && pit.phase === 'lane' && pit.u > P.uB) pit.phase = 'out'
+    if (pit.phase === 'stop') {
+      v = 0
+      pit.shift = Math.min(1, pit.shift + dt * 4)
+      pit.timer -= dt
+      if (pit.timer <= 0 && this.releaseOk(c)) {
+        const j = pit.job
+        if (j.tyre) { this.fitTyre(c, j.tyre); c.stops++ }
+        if (j.served) { c.penaltySec = Math.max(0, c.penaltySec - j.served); this.msg(`${this.tag(c)} - ${j.served} SECOND TIME PENALTY SERVED`, 'info') }
+        if (j.pen) this.msg(`${this.tag(c)} - STOP & GO PENALTY SERVED`, 'info')
+        if (j.slow) this.say('slowStop', c, {}, { force: true })
+        pit.phase = 'out'
+      }
+    } else pit.shift = Math.max(0, pit.shift - dt * 4)
+    // Vordermann in der Boxengasse
+    for (const o of this.cars) {
+      if (o === c || !o.pit || o.pit.phase === 'stop' || o.status !== 'run') continue
+      const g = o.pit.u - pit.u
+      if (g > 0 && g < 14) v = Math.min(v, o.speed * 0.98 + Math.max(0, g - 8))
+    }
+    c.speed += clamp(v - c.speed, -40 * dt, 12 * dt)
+    const prev = c.dist
+    pit.u += c.speed * dt
+    c.dist = Math.max(prev, pit.entryAbs + (Math.min(pit.u, P.len) / P.len) * P.span)
+    if (pit.speeding && !pit.caught && pit.u >= P.uA + 30) {
+      pit.caught = true
+      this.spawn('pitSpeed', { car: c, kmh: pit.speeding })
+    }
+    if (pit.u >= P.len) {
+      if (pit.job.pen === 'dt') this.msg(`${this.tag(c)} - DRIVE THROUGH PENALTY SERVED`, 'info')
+      c.pit = null
+      c.lat = 0
+      c.latTarget = 0
+    }
+    if (Math.floor(c.dist / L) > Math.floor(prev / L) && c.dist > 0) this.onLine(c, idxInOrder)
+  }
+
+  // Freigabe an der Box: normalerweise wartet die Crew, bis die Fahrspur frei ist
+  releaseOk(c) {
+    const pit = c.pit
+    const o = this.cars.find((x) => x !== c && x.pit && x.status === 'run' && x.pit.phase !== 'stop' && pit.u - x.pit.u > 3 && pit.u - x.pit.u < 26)
+    if (!o) return true
+    if (pit.rolled === undefined) pit.rolled = Math.random() < 0.22
+    if (!pit.rolled) return false
+    const react = Math.round(clamp((30 - (pit.u - o.pit.u)) * 2.2, 8, 60))
+    o.speed *= 1 - react / 120
+    this.spawn('unsafeRelease', { a: c, b: o, react })
+    return true
+  }
+
+  // Position eines Autos in Metern (Strecke oder Boxengasse); latM = Meter pro Einheit Querversatz
+  pose(c, latM) {
+    const T = this.track
+    if (c.pit) {
+      const q = T.pit.at(c.pit.u)
+      const o = c.pit.shift * 5.5 * T.pit.side
+      return { x: q.x - Math.sin(q.h) * o, y: q.y + Math.cos(q.h) * o, h: q.h, pit: true }
+    }
+    const s = mod(c.dist, this.L)
+    const f = s / T.ds
+    const i = Math.floor(f) % T.n, j = (i + 1) % T.n, u = f - Math.floor(f)
+    let dh = T.h[j] - T.h[i]
+    if (dh > Math.PI) dh -= 2 * Math.PI
+    if (dh < -Math.PI) dh += 2 * Math.PI
+    const h = T.h[i] + dh * u
+    const o = c.lat * latM
+    return { x: T.xs[i] + (T.xs[j] - T.xs[i]) * u - Math.sin(h) * o, y: T.ys[i] + (T.ys[j] - T.ys[i]) * u + Math.cos(h) * o, h, pit: false }
   }
 
   onLine(c, idxInOrder) {
@@ -664,11 +835,6 @@ export class Race {
     if (c.dist >= this.laps * this.L - 1 || this.chequered) {
       this.finish(c)
       return
-    }
-    if (c.pending) {
-      c.serve = c.pending
-      this.msg(`${this.tag(c)} - SERVING ${c.pending.type === 'dt' ? 'DRIVE THROUGH' : 'STOP & GO'} PENALTY`, 'info')
-      c.pending = null
     }
     if (idxInOrder === 0 && this.state === 'SC' && this.scEnding) {
       this.state = 'GREEN'
@@ -790,7 +956,7 @@ export class Race {
     if (open >= 4) return
     const mult = this.state === 'GREEN' ? 1 : 0.25
     if (Math.random() > (dt * mult * (1 + 2.2 * this.wet)) / 45) return
-    const types = ['trackLimits', 'trackLimits', 'collision', 'collision', 'unsafeRelease', 'breakdown', 'offTrack']
+    const types = ['trackLimits', 'trackLimits', 'collision', 'collision', 'breakdown', 'offTrack']
     if (this.state !== 'GREEN' || this.sectors.some((f) => f !== 'green')) types.push('overtakeYellow', 'overtakeYellow', 'overtakeYellow')
     if (this.wet > 0.3) types.push('offTrack', 'offTrack', 'offTrack', 'collision')
     const type = pick(types)
@@ -798,7 +964,7 @@ export class Race {
   }
 
   runningCars() {
-    return this.order.filter((c) => c.status === 'run')
+    return this.order.filter((c) => c.status === 'run' && !c.pit)
   }
 
   makeBase(kind, type, carIds, loc) {
@@ -833,9 +999,27 @@ export class Race {
     this.incidents.push({ ...this.makeBase('hazard', 'hazard', [c.id], w), why })
   }
 
-  spawn(type) {
+  spawn(type, opts = {}) {
     const run = this.runningCars()
-    if (run.length < 4) return
+    if (type === 'pitSpeed') {
+      const c = opts.car, kmh = opts.kmh
+      const inc = this.makeBase('decision', 'pitSpeed', [c.id], { sector: 0, turn: 0, label: 'Boxengasse' })
+      inc.ideal = { culprit: null, sev: kmh <= 80 ? 0 : kmh <= 90 ? 2 : 3 }
+      inc.options = ['nfa', 'warn', 't5', 't10', 'dt']
+      inc.facts = [
+        ['Fahrer', `${c.num} ${c.name} - ${c.team}`],
+        ['Messung', `${kmh.toFixed(1)} km/h`],
+        ['Limit', '80,0 km/h'],
+        ['Ort', 'Boxengasse, Messschleife nach der Einfahrt'],
+      ]
+      inc.statements = [{ code: c.code, text: pick(['Der Begrenzer war drin! Hundertprozentig!', 'Ich habe den Knopf einen Hauch zu spät gedrückt.', 'Das Limit ist ein Witz, da läuft man ja schneller.']) }]
+      inc.replay = { kind: 'pitspeed', kmh }
+      inc.expert = kmh <= 80 ? `Experten: ${kmh.toFixed(1)} km/h, innerhalb des Limits. Keine Strafe.` : kmh <= 90 ? `Experten: ${(kmh - 80).toFixed(1)} km/h zu schnell. 5 Sekunden.` : `Experten: ${(kmh - 80).toFixed(1)} km/h zu schnell. 10 Sekunden.`
+      this.incidents.push(inc)
+      this.msg(`${this.tag(c)} - PIT LANE SPEEDING - UNDER INVESTIGATION`, 'warn')
+      return
+    }
+    if (type !== 'unsafeRelease' && run.length < 4) return
     if (type === 'breakdown') {
       const c = pick(run.slice(1))
       this.stopCar(c, 'TECHNICAL')
@@ -843,7 +1027,8 @@ export class Race {
       return
     }
     if (type === 'offTrack') {
-      const c = pick(run.slice(1))
+      const slicks = run.filter((x) => !isWetTyre(x.tyre))
+      const c = this.wet > 0.3 && slicks.length ? pick(slicks) : pick(run.slice(1))
       c.rejoinAt = this.t + rnd(15, 25)
       this.stopCar(c, 'SPIN')
       c.recov = null
@@ -909,9 +1094,7 @@ export class Race {
       return
     }
     if (type === 'unsafeRelease') {
-      const i = Math.floor(rnd(1, run.length))
-      const a = run[i - 1], b = run[i] // a: aus der Box entlassen, b: Betroffener
-      const react = Math.round(rnd(0, 60))
+      const { a, b, react } = opts // a: aus der Box entlassen, b: Betroffener
       const inc = this.makeBase('decision', 'unsafeRelease', [a.id, b.id], { sector: 0, turn: 1 })
       inc.ideal = { culprit: null, sev: react > 30 ? 2 : react >= 10 ? 1 : 0 }
       inc.facts = [
@@ -1028,7 +1211,11 @@ export class Race {
         status: c.status,
         penaltySec: c.penaltySec,
         warnings: c.warnings,
-        serving: !!(c.pending || c.serve),
+        serving: !!c.pending,
+        tyre: c.tyre,
+        wear: Math.round(c.wear * 100),
+        stops: c.stops,
+        inPit: !!c.pit,
         gap,
       }
     })

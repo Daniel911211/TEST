@@ -350,7 +350,8 @@ function draw(ctx, s) {
     }
   } else {
     // Unsichere Freigabe (Boxengasse, Fahrtrichtung nach rechts)
-    const { react } = inc.replay
+    const solo = kind === 'pitspeed'
+    const react = solo ? 0 : inc.replay.react
     const dip = react / 100
     const xB = -24 + 60 * p - 14 * dip * Math.sin(Math.PI * Math.min(1, p * 1.3)) ** 2
     const rel = ease((p - 0.18) / 0.45)
@@ -371,14 +372,17 @@ function draw(ctx, s) {
       ctx.fillStyle = '#17191e'; ctx.fillRect(gx, gy, 6.2 * k, 5 * k)
       ctx.fillStyle = cols[i % cols.length]; ctx.fillRect(gx + 4, gy + 4, 6.2 * k - 8, 5)
     }
-    const green = p > 0.15
+    const green = solo || p > 0.15
     const [lx, ly] = S(5.2, 2.6)
     ctx.fillStyle = green ? '#2fe08a' : '#ff4a4a'; ctx.fillRect(lx, ly, 3 * k, 6)
     ctx.fillStyle = green ? '#2fe08a' : '#ff4a4a'; ctx.textAlign = 'center'; ctx.fillText(green ? 'FREIGABE' : 'STOPP', lx + 1.5 * k, ly + 22); ctx.textAlign = 'left'
     const [bx, by] = S(xB, -3), [ax, ay] = S(xA, yA)
     drawCar(ctx, bx, by, Math.PI / 2, carB.livery, k)
-    drawCar(ctx, ax, ay, Math.PI / 2, carA.livery, k)
-    label(ctx, `${carB.code}: ${Math.round(200 - react * Math.sin(Math.PI * Math.min(1, p * 1.3)))} km/h`, W - 10, 10, '#e8edf7', 'right')
+    if (!solo) drawCar(ctx, ax, ay, Math.PI / 2, carA.livery, k)
+    if (solo) {
+      label(ctx, `${carB.code}: ${inc.replay.kmh.toFixed(1)} km/h`, W - 10, 10, inc.replay.kmh > 80 ? '#ff6a6a' : '#2fe08a', 'right')
+      label(ctx, 'LIMIT 80 km/h', W - 10, 32, '#ffd21f', 'right')
+    } else label(ctx, `${carB.code}: ${Math.round(200 - react * Math.sin(Math.PI * Math.min(1, p * 1.3)))} km/h`, W - 10, 10, '#e8edf7', 'right')
   }
   label(ctx, hud, 8, 8, '#ffd21f')
 }

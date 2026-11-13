@@ -29,6 +29,18 @@ export const LINES = {
     'Frühstart? Niemals. Schaut euch die Daten an.',
     'Okay, das war knapp. Sehr knapp.',
   ],
+  pitIn: [
+    'Die Reifen sind am Ende. Ich komme rein.',
+    'Box, Box. Verstanden.',
+    'Vorne links ist komplett weg. Ich brauche neue Reifen.',
+    'Okay, ich komme rein. Macht keinen Mist beim Stopp.',
+  ],
+  slowStop: [
+    'Was war DAS denn für ein Stopp?! Habt ihr zwischendurch Kaffee getrunken?',
+    'Neun Sekunden?! Ich hätte die Räder selbst schneller gewechselt!',
+    'Was ist da hinten links passiert? Das hat ewig gedauert!',
+    'Na super. Das ganze Rennen im Eimer wegen einer Radmutter.',
+  ],
   collisionAttacker: [
     '{other} macht einfach die Tür zu. Was für ein Idiot!',
     'Rennunfall. Da war eine Lücke, also bin ich reingefahren.',
@@ -251,6 +263,8 @@ export const LINES = {
 
 // Antworten vom Kommandostand
 export const REPLIES = {
+  pitIn: ['Verstanden, Box diese Runde.', 'Wir sind bereit.'],
+  slowStop: ['Entschuldigung. Problem hinten links.', 'Tut uns leid. Das klären wir intern.'],
   collisionAttacker: ['Verstanden. Kopf runter, weiterfahren.', 'Wir schauen uns das an. Konzentrier dich.'],
   collisionVictim: ['Verstanden, wir melden es. Das Auto sieht okay aus.', 'Beruhig dich. Wir kümmern uns.', 'Wir haben es gesehen. Bleib ruhig.'],
   dnfCollision: ['Tut uns leid. Stell das Auto sicher ab.', 'Verstanden. Komm zurück, wir reden später.'],

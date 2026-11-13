@@ -28,7 +28,10 @@ function buildPaths(T) {
       else { kerb.moveTo(T.xs[k], T.ys[k]); open = true }
     } else open = false
   }
-  return { road, kerb }
+  const P = T.pit
+  const pit = new Path2D()
+  for (let i = 0; i <= P.n; i++) (i ? pit.lineTo(P.xs[i], P.ys[i]) : pit.moveTo(P.xs[i], P.ys[i]))
+  return { road, kerb, pit }
 }
 
 // mode 'follow': folgt dem gewählten Auto bzw. dem Führenden. mode 'cctv': zeigt den Ort des letzten Vorfalls.
@@ -68,7 +71,7 @@ export default function CamView({ race, mode, selected, freeCam }) {
       let target, text, hint = ''
       if (mode === 'follow') {
         const car = (selected != null && ['run', 'stopped'].includes(race.cars[selected].status) && race.cars[selected]) || race.order.find((c) => c.status === 'run') || race.cars[0]
-        target = posAt(T, L, car.dist)
+        target = race.pose(car, 0)
         text = `WELTREGIE · FOLGT ${car.last.toUpperCase()}`
       } else if (fc && fc.manual) {
         target = { x: fc.x, y: fc.y }
@@ -110,6 +113,26 @@ export default function CamView({ race, mode, selected, freeCam }) {
       ctx.lineJoin = 'round'
       ctx.lineCap = 'butt'
       ctx.strokeStyle = '#3b6d7a'; ctx.lineWidth = 44; ctx.stroke(cache.road)
+      // Boxengasse mit Garagen, Tempolimit-Linien und Boxenplätzen
+      const P = T.pit
+      ctx.strokeStyle = '#f4f4f4'; ctx.lineWidth = 9.2; ctx.stroke(cache.pit)
+      ctx.strokeStyle = '#56585f'; ctx.lineWidth = 8.4; ctx.stroke(cache.pit)
+      race.teams.forEach((team, i) => {
+        const q = P.at(P.boxU(i, race.teams.length))
+        const col = race.cars.find((c) => c.team === team).color
+        ctx.save()
+        ctx.translate(q.x, q.y)
+        ctx.rotate(q.h)
+        const sd = P.side
+        ctx.fillStyle = '#1b1d23'; ctx.fillRect(-8, sd > 0 ? 8.6 : -17.6, 16, 9)
+        ctx.fillStyle = col; ctx.fillRect(-8, sd > 0 ? 8.6 : -9.8, 16, 1.2)
+        ctx.strokeStyle = col; ctx.lineWidth = 0.35; ctx.strokeRect(-3.2, sd > 0 ? 4.4 : -7.4, 6.4, 3)
+        ctx.restore()
+      })
+      for (const u of [P.uA, P.uB]) {
+        const q = P.at(u)
+        ctx.save(); ctx.translate(q.x, q.y); ctx.rotate(q.h); ctx.fillStyle = '#ffd21f'; ctx.fillRect(-0.4, -4.2, 0.8, 8.4); ctx.restore()
+      }
       ctx.strokeStyle = '#f1f1f1'; ctx.lineWidth = 17; ctx.stroke(cache.kerb)
       ctx.setLineDash([3, 3]); ctx.strokeStyle = '#d93a3a'; ctx.stroke(cache.kerb); ctx.setLineDash([])
       ctx.strokeStyle = '#f4f4f4'; ctx.lineWidth = 13.4; ctx.stroke(cache.road)
@@ -117,18 +140,17 @@ export default function CamView({ race, mode, selected, freeCam }) {
       // Start/Ziel
       ctx.save(); ctx.translate(T.xs[0], T.ys[0]); ctx.rotate(T.h[0]); ctx.fillStyle = '#fff'; ctx.fillRect(-0.6, -6.3, 1.2, 12.6); ctx.restore()
 
-      const drawOne = (dist, lat, color, stopped) => {
-        const p = posAt(T, L, dist)
+      const drawOne = (c, color, stopped) => {
+        const p = race.pose(c, 3.6)
         if (Math.abs(p.x - cam.x) > w / SCALE || Math.abs(p.y - cam.y) > h / SCALE) return
-        const nx = -Math.sin(p.h), ny = Math.cos(p.h)
-        const x = p.x + nx * lat * 3.6, y = p.y + ny * lat * 3.6
+        const x = p.x, y = p.y
         drawCar(ctx, x, y, p.h + Math.PI / 2 + (stopped ? 0.9 : 0), color, 1)
         if (stopped) {
           ctx.fillStyle = `rgba(255,210,31,${0.5 + 0.5 * Math.sin(now / 150)})`
           ctx.beginPath(); ctx.arc(x, y - 5, 1.2, 0, Math.PI * 2); ctx.fill()
         }
       }
-      for (const c of race.cars) if (c.status === 'run' || c.status === 'stopped') drawOne(c.dist, c.lat, c.livery, c.status === 'stopped')
+      for (const c of race.cars) if (c.status === 'run' || c.status === 'stopped') drawOne(c, c.livery, c.status === 'stopped')
       if (race.sc) {
         const p = posAt(T, L, race.sc.dist)
         const nx = -Math.sin(p.h), ny = Math.cos(p.h)

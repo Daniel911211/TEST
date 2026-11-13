@@ -62,7 +62,7 @@ select {
 
 .tower { display: flex; flex-direction: column; overflow: hidden; }
 .towerrows { overflow-y: auto; flex: 1; }
-.trow { display: grid; grid-template-columns: 20px 4px minmax(0, 1fr) auto auto; align-items: center; gap: 6px; padding: 3px 4px; border-bottom: 1px solid #141a24; cursor: pointer; }
+.trow { display: grid; grid-template-columns: 20px 4px minmax(0, 1fr) auto auto 18px; align-items: center; gap: 6px; padding: 3px 4px; border-bottom: 1px solid #141a24; cursor: pointer; }
 .trow:hover { background: #151b26; }
 .trow.sel { background: #1c2636; outline: 1px solid var(--blue); }
 .trow .pos { color: var(--dim); text-align: right; }
@@ -73,6 +73,8 @@ select {
 .trow.stopped .code { color: var(--red); }
 .badges { display: flex; gap: 3px; }
 .b { font-style: normal; font-size: 8px; padding: 1px 4px; border-radius: 2px; font-weight: 800; }
+.b.blue { background: var(--blue); color: #000; }
+.tyre { width: 17px; height: 17px; border: 2px solid; border-radius: 50%; font-size: 9px; font-weight: 800; display: grid; place-items: center; line-height: 1; }
 .b.red { background: var(--red); color: #000; }
 .b.amber { background: var(--amber); color: #000; }
 .b.gray { background: #2a3342; color: #ccd; }

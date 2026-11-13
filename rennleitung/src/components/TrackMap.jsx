@@ -124,6 +124,19 @@ export default function TrackMap({ race, selected, onSelect, freeCam }) {
         ctx.shadowBlur = 0
       }
 
+      // Boxengasse
+      {
+        const P = T.pit
+        ctx.beginPath()
+        for (let i = 0; i <= P.n; i += 2) (i ? ctx.lineTo(P.xs[i] * sc + ox, P.ys[i] * sc + oy) : ctx.moveTo(P.xs[i] * sc + ox, P.ys[i] * sc + oy))
+        ctx.strokeStyle = '#0b0e14'; ctx.lineWidth = 6; ctx.stroke()
+        ctx.strokeStyle = '#8fa0bd'; ctx.lineWidth = 2; ctx.stroke()
+        const q = P.at((P.uA + P.uB) / 2)
+        ctx.font = '600 9px ui-monospace, monospace'
+        ctx.fillStyle = '#8fa0bd'
+        ctx.textAlign = 'center'
+        ctx.fillText('BOX', q.x * sc + ox - Math.sin(q.h) * 14 * P.side, q.y * sc + oy + Math.cos(q.h) * 14 * P.side + 3)
+      }
       // Sektorgrenzen & Ziellinie
       ctx.font = '600 10px ui-monospace, monospace'
       ctx.textAlign = 'center'
@@ -190,10 +203,9 @@ export default function TrackMap({ race, selected, onSelect, freeCam }) {
       const sel = selRef.current
       const sorted = [...cars].sort((a, b) => (a.id === sel) - (b.id === sel))
       for (const c of sorted) {
-        const p = carPos(T, L, c.dist, c.lat)
-        const nx = -Math.sin(p.h), ny = Math.cos(p.h)
-        const x = p.x * sc + ox + nx * c.lat * 5
-        const y = p.y * sc + oy + ny * c.lat * 5
+        const p = race.pose(c, 5 / sc)
+        const x = p.x * sc + ox
+        const y = p.y * sc + oy
         hits.current.push({ id: c.id, x, y })
         const stopped = c.status === 'stopped'
         ctx.beginPath()
