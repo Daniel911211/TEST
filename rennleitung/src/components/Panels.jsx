@@ -53,7 +53,7 @@ export function ControlPanel({ snap, race, selectedRow, selectedCar }) {
           <button className="btn amber" disabled={s !== 'GREEN'} onClick={() => race.callVSC()}>VSC</button>
           <button className="btn gray" disabled={s !== 'VSC' || snap.vscEnding} onClick={() => race.endVSC()}>{snap.vscEnding ? 'VSC ENDET…' : 'VSC BEENDEN'}</button>
           <button className="btn orange" disabled={s !== 'GREEN' && s !== 'VSC'} onClick={() => race.callSC()}>SAFETY CAR</button>
-          <button className="btn gray" disabled={s !== 'SC' || snap.scEnding} onClick={() => race.scInThisLap()}>{snap.scEnding ? 'SC KOMMT REIN…' : 'SC IN DIESER RUNDE'}</button>
+          <button className="btn gray" disabled={s !== 'SC' || snap.scEnding} onClick={() => race.scInThisLap()}>{snap.scEnding ? 'SC KOMMT REIN…' : snap.scWaiting ? 'SC ZURÜCKRUFEN' : 'SC IN DIESER RUNDE'}</button>
           <button className="btn red" disabled={!['GREEN', 'VSC', 'SC'].includes(s)} onClick={() => race.callRed()}>ROTE FLAGGE</button>
           <button className="btn ok" disabled={s !== 'RED'} onClick={() => race.restart()}>NEUSTART</button>
         </div>

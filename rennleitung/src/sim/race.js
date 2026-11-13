@@ -357,6 +357,18 @@ export class Race {
   }
   scInThisLap() {
     if (this.state !== 'SC' || this.scEnding) return
+    // Steht das Safety Car noch auf dem Parkplatz, bleibt es einfach stehen und das Rennen ist sofort wieder frei
+    if (this.sc && this.sc.waiting) {
+      this.sc = null
+      this.scEnding = false
+      this.state = 'GREEN'
+      this.msg('SAFETY CAR STOOD DOWN - TRACK CLEAR, GREEN FLAG', 'ok')
+      if (this.cars.some((c) => c.status === 'stopped')) {
+        this.safety = clamp(this.safety - 12, 0, 100)
+        this.msg('WARNING - STOPPED CAR STILL ON TRACK', 'bad')
+      } else this.allGreen()
+      return
+    }
     this.scEnding = true
     if (this.sc) this.sc.lights = false
     this.msg('SAFETY CAR IN THIS LAP - LIGHTS OUT', 'warn')
@@ -1302,6 +1314,7 @@ export class Race {
       safety: this.safety,
       fairness: this.fairness,
       scEnding: this.scEnding,
+      scWaiting: !!(this.sc && this.sc.waiting),
       vscEnding: !!this.vscEndAt,
       restartIn: this.state === 'RESTART' ? Math.max(0, Math.ceil(this.restartAt - this.t)) : 0,
       results,
