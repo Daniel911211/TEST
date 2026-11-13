@@ -1,5 +1,6 @@
 import { buildTrack } from './tracks.js'
 import { DRIVERS } from './drivers.js'
+import { LINES, REPLIES } from './radio.js'
 
 const rnd = (a, b) => a + Math.random() * (b - a)
 const pick = (a) => a[Math.floor(Math.random() * a.length)]
@@ -58,6 +59,19 @@ export class Race {
     this.feedback = []
     this.feedbackLog = []
     this.flow = 100
+    // Funk
+    this.radioQueue = []
+    this.usedLines = {}
+    this.nextAmbient = rnd(15, 30)
+    this.dangerT = 0
+    this.scIdleT = 0
+    // Wetter: mit 55 % Wahrscheinlichkeit zieht ein Schauer durch
+    const dur = laps * this.track.lapRef
+    this.rain = 0
+    this.wet = 0
+    this.rainPlan = Math.random() < 0.55 ? { start: rnd(0.15, 0.6) * dur, dur: rnd(90, 240), peak: rnd(0.35, 1) } : null
+    this.rainPhase = 'dry'
+    this.heavyT = 0
     this.scEnding = false
     this.sc = null
     this.vscEndAt = null
@@ -95,9 +109,32 @@ export class Race {
     this.messages.push({ t: this.t, text, level, id: this.messages.length })
     if (this.messages.length > 200) this.messages.shift()
   }
-  radio(car, text) {
-    this.radioLog.push({ t: this.t, code: car.code, color: car.color, text, id: this.t + car.code + text.length })
-    if (this.radioLog.length > 60) this.radioLog.shift()
+  radio(car, text, box = false) {
+    this.radioLog.push({ t: this.t, name: car.name, code: car.code, color: car.color, text, box, id: this.radioLog.length + '-' + this.t })
+    if (this.radioLog.length > 80) this.radioLog.shift()
+  }
+  // Spruch aus der Sammlung, ohne direkte Wiederholung; optional mit Antwort vom Kommandostand
+  say(key, car, vars = {}, { force = false, replyChance = 0.4 } = {}) {
+    if (!car || !LINES[key]) return
+    if (!force && car.lastRadio != null && this.t - car.lastRadio < 6) return
+    const used = (this.usedLines[key] ||= [])
+    let pool = LINES[key].filter((l) => !used.includes(l) && (vars.other || !l.includes('{other}')))
+    if (!pool.length) { used.length = 0; pool = LINES[key].filter((l) => vars.other || !l.includes('{other}')) }
+    const line = pick(pool)
+    used.push(line)
+    const w = this.where(car)
+    const text = line
+      .replaceAll('{other}', vars.other ? vars.other.last : 'der da')
+      .replaceAll('{turn}', w.name)
+      .replaceAll('{sector}', String(w.sector + 1))
+      .replaceAll('{pos}', String(vars.pos ?? ''))
+    car.lastRadio = this.t
+    this.radio(car, text)
+    if (REPLIES[key] && Math.random() < replyChance) this.radioQueue.push({ at: this.t + rnd(2, 4), car, text: pick(REPLIES[key]) })
+  }
+  sayRandom(key, n = 1, vars = {}) {
+    const alive = this.cars.filter((c) => c.status === 'run')
+    for (let i = 0; i < n && alive.length; i++) this.say(key, alive.splice(Math.floor(Math.random() * alive.length), 1)[0], vars)
   }
   logEvent(text, delta) {
     this.feedbackLog.push({ t: this.t, text, delta: Math.round(delta) })
@@ -107,7 +144,8 @@ export class Race {
   }
   where(c) {
     const s = mod(c.dist, this.L)
-    return { sector: sectorOf(s, this.L), turn: this.track.turnAt(s) }
+    const k = this.track.cornerAt(s)
+    return { sector: sectorOf(s, this.L), turn: k.n, name: k.name, label: `Kurve ${k.n} (${k.name})` }
   }
   lapNo(c) {
     return clamp(Math.floor(c.dist / this.L) + 1, 1, this.laps)
@@ -127,6 +165,7 @@ export class Race {
     if (this.state !== 'GRID') return
     this.state = 'GREEN'
     this.msg('LIGHTS OUT AND AWAY WE GO', 'flag')
+    this.radioQueue.push({ at: 6, key: 'start' }, { at: 11, key: 'start' })
   }
 
   cycleSector(i) {
@@ -140,6 +179,9 @@ export class Race {
     this.sectors[i] = flag
     const name = flag === 'green' ? 'CLEAR' : flag === 'yellow' ? 'YELLOW' : 'DOUBLE YELLOW'
     this.msg(`SECTOR ${i + 1} - ${name}`, flag === 'green' ? 'ok' : 'warn')
+    if (flag !== 'green' && this.state === 'GREEN' && !this.cars.some((c) => c.status === 'stopped' && sectorOf(mod(c.dist, this.L), this.L) === i)) {
+      this.radioQueue.push({ at: this.t + rnd(4, 9), key: 'yellowNoReason' })
+    }
   }
   allGreen() {
     for (let i = 0; i < 3; i++) this.setSector(i, 'green')
@@ -149,7 +191,7 @@ export class Race {
     if (this.state !== 'GREEN') return
     this.state = 'VSC'
     this.vscEndAt = null
-    if (!this.cars.some((c) => c.status === 'stopped')) this.flow = clamp(this.flow - 2, 0, 100)
+    if (!this.cars.some((c) => c.status === 'stopped') && this.wet < 0.6) this.flow = clamp(this.flow - 2, 0, 100)
     this.msg('VIRTUAL SAFETY CAR DEPLOYED', 'warn')
     this.reactRadio('vsc')
   }
@@ -164,7 +206,7 @@ export class Race {
     this.state = 'SC'
     this.vscEndAt = null
     this.scEnding = false
-    if (!this.cars.some((c) => c.status === 'stopped')) this.flow = clamp(this.flow - 4, 0, 100)
+    if (!this.cars.some((c) => c.status === 'stopped') && this.wet < 0.6) this.flow = clamp(this.flow - 4, 0, 100)
     this.sc = { dist: (lead ? lead.dist : 0) + 70, speed: 0, lat: 0 }
     this.msg('SAFETY CAR DEPLOYED', 'warn')
     this.reactRadio('sc')
@@ -181,7 +223,7 @@ export class Race {
   callRed() {
     if (!['GREEN', 'VSC', 'SC'].includes(this.state)) return
     this.state = 'RED'
-    this.flow = clamp(this.flow - 6, 0, 100)
+    if (this.wet < 0.75) this.flow = clamp(this.flow - 6, 0, 100)
     this.sc = null
     this.scEnding = false
     this.vscEndAt = null
@@ -206,6 +248,7 @@ export class Race {
     this.state = 'RESTART'
     this.restartAt = this.t + 6
     this.msg('RACE WILL RESUME IN 6 SECONDS', 'warn')
+    this.sayRandom('restart', 1)
   }
 
   // Strafen
@@ -298,9 +341,13 @@ export class Race {
     const reason = { collision: 'CAUSING A COLLISION', unsafeRelease: 'UNSAFE RELEASE', overtakeYellow: 'OVERTAKING UNDER YELLOW' }[inc.type] || 'TRACK LIMITS'
     if (target) {
       this.applyPenalty(target, opt, reason)
-      if (opt !== 'nfa' && opt !== 'lap') this.reactRadio('penalty', target, opt)
+      if (opt !== 'nfa') this.reactRadio('penalty', target, opt)
     } else {
       this.msg(`${this.tag(a)} / ${this.tag(b)} - RACING INCIDENT, NO FURTHER ACTION`, 'ok')
+      if (inc.type === 'collision') {
+        this.say('nfaVictim', b, { other: a }, { force: true })
+        this.say('nfaRelief', a, {}, { force: true })
+      }
     }
     inc.status = 'done'
     inc.result = opt
@@ -313,23 +360,12 @@ export class Race {
   }
 
   reactRadio(kind, car, key) {
-    const alive = this.cars.filter((c) => c.status === 'run')
-    if (!alive.length) return
-    if (kind === 'sc') {
-      const c = pick(alive)
-      this.radio(c, pick(['Safety Car, verstanden. Kommen wir rein?', 'Die Strecke ist doch frei, wozu das Safety Car?', 'Okay, Gap zum Vordermann halten.']))
-    } else if (kind === 'vsc') {
-      this.radio(pick(alive), pick(['VSC, verstanden. Delta halten.', 'Gelb bis zum Ende, ich lupfe.']))
-    } else if (kind === 'red') {
-      this.radio(pick(alive), pick(['Rote Flagge? Ich fahre in die Box.', 'Verstanden, Rennen unterbrochen.']))
-    } else if (kind === 'penalty' && car) {
-      const heavy = ['dt', 'sg', 'black'].includes(key)
-      this.radio(
-        car,
-        heavy
-          ? pick(['Was?! Das kann nicht euer Ernst sein!', 'Das ist die falsche Entscheidung, ihr habt es nicht gesehen.', 'Unglaublich. Wirklich unglaublich.'])
-          : pick(['Okay, verstanden.', 'Ich war doch auf der Strecke...', 'Na gut. Weiter geht es.']),
-      )
+    if (kind === 'sc') this.sayRandom('sc', 2)
+    else if (kind === 'vsc') this.sayRandom('vsc', 1)
+    else if (kind === 'red') this.sayRandom(this.wet > 0.7 ? 'rainHeavy' : 'red', 2)
+    else if (kind === 'penalty' && car) {
+      const k = key === 'black' ? 'black' : ['dt', 'sg', 't10'].includes(key) ? 'penaltyHeavy' : key === 'warn' ? 'warn' : key === 'lap' ? 'lapDeleted' : 'penaltyLight'
+      this.say(k, car, {}, { force: true })
     }
   }
 
@@ -360,8 +396,10 @@ export class Race {
     for (let i = 0; i < running.length; i++) this.stepCar(running[i], dt, running, i)
     for (const c of order) if (c.status === 'stopped') this.stepStopped(c, dt)
 
+    this.weather(dt)
     this.hazards(dt)
     this.randomEvents(dt)
+    this.chatter(dt)
     this.expireIncidents()
   }
 
@@ -383,7 +421,7 @@ export class Race {
     const idx = Math.floor(s / T.ds) % T.n
     const sec = sectorOf(s, L)
     const st = this.state
-    let v = T.v[idx] * c.pace * c.form
+    let v = T.v[idx] * c.pace * c.form * (1 - 0.14 * this.wet)
     let catchGap = null
     if (st === 'RED' || st === 'RESTART') v = 0
     else if (st === 'VSC') v *= 0.6
@@ -427,6 +465,10 @@ export class Race {
       if (bgap < sp + 2) v = Math.min(v, blocker.speed * 0.99)
       else v = Math.min(v, blocker.speed + (bgap - sp) * 0.9)
       c.blockT += dt
+      if (free && this.t > 70 && this.t > (this.nextStuck || 0) && c.blockT > 9 && !blocker.isSC && Math.random() < dt * 0.02 && (c.lastRadio == null || this.t - c.lastRadio > 50)) {
+        this.nextStuck = this.t + rnd(25, 50)
+        this.say(blocker.dist < c.dist - L * 0.5 ? 'blue' : 'stuck', c, { other: blocker })
+      }
       const lapped = !blocker.isSC && blocker.dist < c.dist - L * 0.5
       if (free && !c.passing && this.sectors[sec] === 'green' && !blocker.isSC && c.blockT > (lapped ? 0.3 : 3) && (lapped || Math.random() < dt * 0.3)) {
         c.passing = { until: this.t + 5, side: Math.random() < 0.5 ? -1 : 1 }
@@ -488,9 +530,48 @@ export class Race {
       for (const o of this.cars) if (o.status === 'stopped') o.status = 'out'
     }
     this.msg(`${this.tag(c)} - FINISHED P${this.finishCount}`, 'info')
+    if (this.finishCount === 1) this.say('win', c, {}, { force: true, replyChance: 1 })
+    else if (Math.random() < 0.3) this.say(this.finishCount >= this.cars.length - 4 ? 'finishLast' : 'finishMid', c, { pos: this.finishCount }, { force: true })
     if (!this.cars.some((o) => o.status === 'run' || o.status === 'stopped')) {
       this.state = 'FINISHED'
       this.msg('SESSION FINISHED', 'flag')
+    }
+  }
+
+  weather(dt) {
+    const p = this.rainPlan
+    let target = 0
+    if (p && this.t > p.start && this.t < p.start + p.dur) {
+      const u = this.t - p.start
+      target = p.peak * Math.min(1, u / 40, (p.dur - u) / 40)
+    }
+    this.rain = Math.max(0, target)
+    if (this.rain > this.wet) this.wet = Math.min(this.rain, this.wet + dt / 28)
+    else this.wet = Math.max(this.rain, this.wet - dt / 110)
+    const phase = this.rain > 0.02 ? (this.wet > 0.7 ? 'heavy' : 'rain') : this.wet > 0.08 ? 'drying' : 'dry'
+    if (phase !== this.rainPhase) {
+      if (phase === 'rain' && this.rainPhase !== 'heavy') { this.msg('RAIN REPORTED - LOW GRIP CONDITIONS', 'warn'); this.sayRandom('rainStart', 2) }
+      if (phase === 'heavy') { this.msg('HEAVY RAIN - RISK OF AQUAPLANING', 'bad'); this.sayRandom('rainHeavy', 2) }
+      if (phase === 'drying') { this.msg('RAIN STOPPED - TRACK DRYING', 'ok'); this.sayRandom('rainEnd', 1) }
+      this.rainPhase = phase
+    }
+    if (phase === 'heavy' && (this.state === 'GREEN' || this.state === 'VSC')) {
+      this.heavyT += dt
+      if (this.heavyT > 14) { this.heavyT = 0; this.sayRandom('rainHeavy', 1) }
+    }
+  }
+
+  chatter(dt) {
+    const q = this.radioQueue
+    for (let i = q.length - 1; i >= 0; i--) {
+      if (this.t < q[i].at) continue
+      const e = q.splice(i, 1)[0]
+      if (e.key) this.sayRandom(e.key, 1)
+      else this.radio(e.car, e.text, true)
+    }
+    if (this.state === 'GREEN' && !this.chequered && this.t > this.nextAmbient) {
+      this.nextAmbient = this.t + rnd(22, 45)
+      this.sayRandom('ambient', 1)
     }
   }
 
@@ -511,9 +592,15 @@ export class Race {
         }
       }
     }
-    this.safety = clamp(this.safety + (danger ? -0.7 * danger * dt : 0.04 * dt), 0, 100)
+    const flood = this.wet > 0.78 && (this.state === 'GREEN' || this.state === 'VSC')
+    this.safety = clamp(this.safety + (danger ? -0.7 * danger * dt : flood ? -0.45 * dt : 0.04 * dt), 0, 100)
+    this.dangerT = danger ? this.dangerT + dt : 0
+    if (this.dangerT > 7) { this.dangerT = -18; this.sayRandom('danger', 1) }
     const stoppedSecs = new Set(this.cars.filter((c) => c.status === 'stopped').map((c) => sectorOf(mod(c.dist, this.L), this.L)))
-    if ((this.state === 'SC' || this.state === 'VSC') && !stoppedSecs.size) this.flow = clamp(this.flow - 0.25 * dt, 0, 100)
+    const idle = (this.state === 'SC' || this.state === 'VSC') && !stoppedSecs.size && this.wet < 0.6
+    if (idle) this.flow = clamp(this.flow - 0.25 * dt, 0, 100)
+    this.scIdleT = idle && !this.scEnding && !this.vscEndAt ? this.scIdleT + dt : 0
+    if (this.scIdleT > 30) { this.scIdleT = 0; this.sayRandom('scTooLong', 1) }
     for (let k = 0; k < 3; k++) if (this.sectors[k] !== 'green' && !stoppedSecs.has(k) && this.state === 'GREEN') this.flow = clamp(this.flow - 0.05 * dt, 0, 100)
     for (const inc of this.incidents) {
       if (inc.kind === 'hazard' && inc.status === 'open' && this.cars[inc.carIds[0]].status !== 'stopped') inc.status = 'done'
@@ -540,9 +627,10 @@ export class Race {
     const open = this.incidents.filter((i) => i.kind === 'decision').length
     if (open >= 4) return
     const mult = this.state === 'GREEN' ? 1 : 0.25
-    if (Math.random() > (dt * mult) / 45) return
+    if (Math.random() > (dt * mult * (1 + 2.2 * this.wet)) / 45) return
     const types = ['trackLimits', 'trackLimits', 'collision', 'collision', 'unsafeRelease', 'breakdown', 'offTrack']
     if (this.state !== 'GREEN' || this.sectors.some((f) => f !== 'green')) types.push('overtakeYellow', 'overtakeYellow', 'overtakeYellow')
+    if (this.wet > 0.3) types.push('offTrack', 'offTrack', 'offTrack', 'collision')
     const type = pick(types)
     this.spawn(type)
   }
@@ -560,6 +648,8 @@ export class Race {
       lap: this.lapNo(this.cars[carIds[0]]),
       sector: loc ? loc.sector : 0,
       turn: loc ? loc.turn : 1,
+      place: loc && loc.label ? loc.label : 'Boxengasse',
+      s: mod(this.cars[carIds[0]].dist, this.L),
       created: this.t,
       status: 'open',
     }
@@ -587,7 +677,7 @@ export class Race {
     if (type === 'breakdown') {
       const c = pick(run.slice(1))
       this.stopCar(c, 'TECHNICAL')
-      this.radio(c, pick(['Motor aus! Ich muss anhalten.', 'Ich verliere Leistung, ich stelle ihn ab.']))
+      this.say('breakdown', c, {}, { force: true })
       return
     }
     if (type === 'offTrack') {
@@ -595,7 +685,7 @@ export class Race {
       c.rejoinAt = this.t + rnd(15, 25)
       this.stopCar(c, 'SPIN')
       c.recov = null
-      this.radio(c, 'Ich habe mich gedreht, alles okay!')
+      this.say('spin', c, {}, { force: true })
       return
     }
     if (type === 'trackLimits') {
@@ -611,7 +701,7 @@ export class Race {
       inc.optionSev = { nfa: 0, lap: 1, lap5: 2 }
       inc.facts = [
         ['Fahrer', `${c.num} ${c.name} - ${c.team}`],
-        ['Ort', `Ausgang Kurve ${w.turn}`],
+        ['Ort', `Ausgang ${w.label}`],
         ['Runde', `Runde ${inc.lap} von ${this.laps}`],
         ['Rundenzeit', gain ? `-${gain.toFixed(2)} s Vorteil` : 'kein Zeitgewinn'],
         ['Bisherige Verstöße', String(prior)],
@@ -626,6 +716,7 @@ export class Race {
       inc.consequence = 'Kein Einfluss auf andere Fahrer.'
       this.incidents.push(inc)
       this.msg(`${this.tag(c)} - TRACK LIMITS AT TURN ${w.turn} - UNDER INVESTIGATION`, 'warn')
+      if (Math.random() < 0.6) this.say('trackLimits', c)
       return
     }
     if (type === 'overtakeYellow') {
@@ -652,6 +743,7 @@ export class Race {
       inc.consequence = status
       this.incidents.push(inc)
       this.msg(`${this.tag(A)} - OVERTAKING UNDER ${status.toUpperCase()} - UNDER INVESTIGATION`, 'warn')
+      this.say('overtakeYellow', A, { other: B })
       return
     }
     if (type === 'unsafeRelease') {
@@ -674,6 +766,8 @@ export class Race {
       inc.consequence = `${b.code} bremst um ${react} km/h.`
       this.incidents.push(inc)
       this.msg(`${this.tag(a)} / ${this.tag(b)} - UNSAFE RELEASE - UNDER INVESTIGATION`, 'warn')
+      if (react >= 10) this.say('unsafeVictim', b, { other: a })
+      else this.say('unsafeReleased', a)
       return
     }
     if (type === 'collision') {
@@ -702,7 +796,7 @@ export class Race {
       inc.facts = [
         ['Auto A (Angreifer)', `${A.num} ${A.name} - ${A.team}`],
         ['Auto B (Verteidiger)', `${B.num} ${B.name} - ${B.team}`],
-        ['Ort', `Kurve ${w.turn} - Sektor ${w.sector + 1}`],
+        ['Ort', `${w.label} - Sektor ${w.sector + 1}`],
         ['Folge', consequence],
         ['Überholpunkt A', axleTxt],
       ]
@@ -716,8 +810,8 @@ export class Race {
       this.incidents.push(inc)
       this.msg(`${this.tag(A)} / ${this.tag(B)} - COLLISION AT TURN ${w.turn} - UNDER INVESTIGATION`, 'warn')
       for (const c of stopped) this.stopCar(c, 'COLLISION')
-      this.radio(A, pick(['Der hat mich einfach abgeschossen!', 'Rennunfall, da war kein Platz.']))
-      this.radio(B, pick(['Der Kontakt war komplett unnötig!', 'Ich hatte keine Chance auszuweichen.']))
+      this.say(stopped.includes(B) ? 'dnfCollision' : 'collisionVictim', B, { other: A }, { force: true })
+      this.say(stopped.includes(A) ? 'dnfCollision' : 'collisionAttacker', A, { other: B }, { force: true })
     }
   }
 
@@ -766,6 +860,7 @@ export class Race {
         id: c.id,
         pos: i + 1,
         code: c.code,
+        name: c.name,
         num: c.num,
         color: c.color,
         status: c.status,
@@ -798,7 +893,7 @@ export class Race {
       rows,
       incidents: this.incidents.map((i) => ({ ...i })),
       messages: this.messages.slice(-60),
-      radio: this.radioLog.slice(-25),
+      radio: this.radioLog.slice(-40),
       safety: this.safety,
       fairness: this.fairness,
       scEnding: this.scEnding,
@@ -807,6 +902,12 @@ export class Race {
       results,
       feedback: this.feedback.slice(-3),
       flow: this.flow,
+      weather: {
+        rain: this.rain,
+        wet: this.wet,
+        phase: this.rainPhase,
+        forecast: this.rainPlan && this.t < this.rainPlan.start ? Math.max(0, this.rainPlan.start - this.t) : null,
+      },
       report: this.report(),
       track: { name: this.track.name, gp: this.track.gp },
     }

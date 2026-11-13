@@ -55,18 +55,18 @@ select {
   background: #151a23; color: var(--text); border: 1px solid var(--line); border-radius: 3px; padding: 5px 6px; font: inherit;
 }
 
-.main { flex: 1; min-height: 0; display: grid; grid-template-columns: 230px 1fr 340px; gap: 6px; padding: 6px; }
+.main { flex: 1; min-height: 0; display: grid; grid-template-columns: 270px 1fr 340px; gap: 6px; padding: 6px; }
 .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 3px; padding: 8px; min-height: 0; }
 .ptitle { font-size: 9px; letter-spacing: 1.5px; color: var(--dim); margin-bottom: 6px; display: flex; gap: 6px; }
 
 .tower { display: flex; flex-direction: column; overflow: hidden; }
 .towerrows { overflow-y: auto; flex: 1; }
-.trow { display: grid; grid-template-columns: 22px 4px 38px 1fr auto; align-items: center; gap: 6px; padding: 3px 4px; border-bottom: 1px solid #141a24; cursor: pointer; }
+.trow { display: grid; grid-template-columns: 20px 4px minmax(0, 1fr) auto auto; align-items: center; gap: 6px; padding: 3px 4px; border-bottom: 1px solid #141a24; cursor: pointer; }
 .trow:hover { background: #151b26; }
 .trow.sel { background: #1c2636; outline: 1px solid var(--blue); }
 .trow .pos { color: var(--dim); text-align: right; }
 .trow .bar { height: 14px; border-radius: 1px; }
-.trow .code { font-weight: 800; }
+.trow .code { font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .trow .gap { color: var(--dim); font-variant-numeric: tabular-nums; }
 .trow.out, .trow.dsq { opacity: 0.4; }
 .trow.stopped .code { color: var(--red); }
@@ -128,6 +128,18 @@ select {
 .msg.ok { border-color: var(--green); }
 .msg.flag { border-color: #fff; }
 .msg.radio { border-color: transparent; color: #c9d3e6; }
+.msg.radio.box { padding-left: 18px; color: var(--dim); }
+.msg.radio.box b { opacity: 0.7; font-weight: 400; }
+.cams { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; height: 190px; flex: none; }
+.cam { position: relative; padding: 0; overflow: hidden; display: flex; }
+.cam canvas { width: 100%; height: 100%; display: block; }
+.camlabel { position: absolute; top: 5px; left: 7px; font-size: 9px; letter-spacing: 1px; background: rgba(8, 10, 14, 0.8); padding: 2px 6px; border-radius: 2px; }
+.camlabel i { color: var(--red); font-style: normal; }
+.camnote { position: absolute; bottom: 5px; left: 7px; right: 7px; font-size: 10px; background: rgba(8, 10, 14, 0.8); padding: 2px 6px; border-radius: 2px; color: #ffd21f; }
+.weather { display: flex; flex-direction: column; }
+.weather b { font-size: 12px; }
+.weather.rain b { color: var(--blue); }
+.weather.heavy b { color: var(--red); animation: pulse 1s infinite; }
 
 .overlay { position: fixed; inset: 0; background: rgba(2, 4, 8, 0.78); display: flex; align-items: center; justify-content: center; z-index: 20; padding: 12px; }
 .dialog { background: #0e121a; border: 1px solid #2a3342; border-radius: 4px; width: min(1100px, 100%); max-height: 100%; overflow: auto; }
@@ -170,6 +182,8 @@ select {
   .main { grid-template-columns: 1fr; }
   .mapbox { min-height: 340px; }
   .controls { grid-template-columns: 1fr; }
+  .cams { grid-template-columns: 1fr; height: auto; }
+  .cam { height: 180px; }
   .dbody, .repcols { grid-template-columns: 1fr; }
   .meters { margin-left: 0; }
 }

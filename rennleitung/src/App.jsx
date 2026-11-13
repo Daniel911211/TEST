@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { Race, clockStr, raceTimeStr } from './sim/race.js'
 import { TRACK_LIST } from './sim/tracks.js'
 import TrackMap from './components/TrackMap.jsx'
+import CamView from './components/CamView.jsx'
 import { TimingTower, ControlPanel, IncidentPanel, MessageLog } from './components/Panels.jsx'
 import { CaseDialog, ReportDialog } from './components/Dialogs.jsx'
 
@@ -14,6 +15,8 @@ const STATE_LABEL = {
   RESTART: ['NEUSTART', 'red'],
   FINISHED: ['ZIELFLAGGE', 'fin'],
 }
+
+const WEATHER = { dry: 'TROCKEN', rain: 'REGEN', heavy: 'STARKREGEN', drying: 'TROCKNET AB' }
 
 const Meter = ({ label, value }) => (
   <div className="meter">
@@ -122,6 +125,10 @@ export default function App() {
         <div className="stat"><span className="dim">RUNDE</span><b>{snap.lap}/{snap.laps}</b></div>
         <div className="stat"><span className="dim">RENNZEIT</span><b>{raceTimeStr(snap.t)}</b></div>
         <div className="stat"><span className="dim">UHRZEIT</span><b>{clockStr(snap.t)}</b></div>
+        <div className={`weather ${snap.weather.phase}`}>
+          <span className="dim" style={{ fontSize: 9, letterSpacing: 1 }}>WETTER</span>
+          <b>{WEATHER[snap.weather.phase]}{snap.weather.forecast !== null && snap.weather.forecast < 240 && snap.weather.phase === 'dry' ? ` · Regen in ${Math.ceil(snap.weather.forecast / 60)} min` : ''}</b>
+        </div>
         <div className="speeds">
           {[1, 2, 4, 8].map((s) => (
             <button key={s} className={`btn sm ${speed === s ? 'on' : ''}`} onClick={() => setSpeed(s)}>{s}×</button>
@@ -162,6 +169,10 @@ export default function App() {
                 {toast.delta > 0 ? '+' : ''}{toast.delta} Fairness: {toast.text}
               </div>
             )}
+          </div>
+          <div className="cams">
+            <CamView race={race} mode="follow" selected={selected} />
+            <CamView race={race} mode="cctv" selected={selected} />
           </div>
           <ControlPanel snap={snap} race={race} selectedRow={row} selectedCar={selCar} />
         </section>

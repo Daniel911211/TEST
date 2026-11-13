@@ -140,13 +140,29 @@ export default function TrackMap({ race, selected, onSelect }) {
 
       // Kurvennummern
       const cx = ((minx + maxx) / 2) * sc + ox, cy = ((miny + maxy) / 2) * sc + oy
-      ctx.fillStyle = '#566178'
+      ctx.font = '500 9px ui-monospace, monospace'
+      const boxes = []
       for (const c of T.corners) {
         const x = X(c.idx), y = Y(c.idx)
-        const dx = x - cx, dy = y - cy
-        const d = Math.hypot(dx, dy) || 1
-        ctx.fillText(String(c.n), x + (dx / d) * 18, y + (dy / d) * 18 + 3)
+        let nx = -Math.sin(T.h[c.idx]), ny = Math.cos(T.h[c.idx])
+        if (nx * (x - cx) + ny * (y - cy) < 0) { nx = -nx; ny = -ny }
+        const align = nx > 0.3 ? 'left' : nx < -0.3 ? 'right' : 'center'
+        const lx = x + nx * 14, ly = y + ny * 14 + 3
+        // Namen weglassen, wenn sie eine andere Beschriftung überdecken würden
+        for (const text of [`${c.n} ${c.name}`, String(c.n)]) {
+          const tw = ctx.measureText(text).width
+          const x0 = align === 'left' ? lx : align === 'right' ? lx - tw : lx - tw / 2
+          const box = [x0 - 3, ly - 10, x0 + tw + 3, ly + 3]
+          if (boxes.some((b) => box[0] < b[2] && box[2] > b[0] && box[1] < b[3] && box[3] > b[1])) continue
+          boxes.push(box)
+          ctx.textAlign = align
+          ctx.fillStyle = '#6b7890'
+          ctx.fillText(text, lx, ly)
+          break
+        }
       }
+      ctx.textAlign = 'center'
+      ctx.font = '600 10px ui-monospace, monospace'
 
       // Autos
       const cars = race.cars.filter((c) => c.status === 'run' || c.status === 'stopped')
@@ -190,6 +206,19 @@ export default function TrackMap({ race, selected, onSelect }) {
         ctx.fillStyle = '#10141c'
         ctx.font = '700 10px ui-monospace, monospace'
         ctx.fillText('SC', x, y + 3.5)
+      }
+      // Regen
+      if (race.rain > 0.02) {
+        ctx.strokeStyle = `rgba(150,190,255,${0.12 + race.rain * 0.3})`
+        ctx.lineWidth = 1
+        ctx.beginPath()
+        const n = Math.floor(40 + race.rain * 160)
+        for (let i = 0; i < n; i++) {
+          const rx = (i * 97.3 + now * 0.25) % (w + 40) - 20
+          const ry = (i * 53.7 + now * (0.5 + (i % 5) * 0.06)) % (h + 30) - 15
+          ctx.moveTo(rx, ry); ctx.lineTo(rx - 3, ry + 9)
+        }
+        ctx.stroke()
       }
       raf = requestAnimationFrame(draw)
     }

@@ -9,7 +9,7 @@ export function TimingTower({ rows, selected, onSelect, state }) {
           <div key={r.id} className={`trow ${selected === r.id ? 'sel' : ''} ${r.status}`} onClick={() => onSelect(r.id === selected ? null : r.id)}>
             <span className="pos">{r.pos}</span>
             <span className="bar" style={{ background: r.color }} />
-            <span className="code">{r.code}</span>
+            <span className="code" title={r.name}>{r.name}</span>
             <span className="badges">
               {r.status === 'stopped' && <i className="b red">STOP</i>}
               {r.serving && <i className="b amber">STRAFE</i>}
@@ -97,7 +97,7 @@ export function IncidentPanel({ incidents, t, onOpen, race }) {
                 {left !== null && <span className={`timer ${left < 30 ? 'low' : ''}`}>{left}s</span>}
               </div>
               <div className="dim">
-                {cars.map((c) => c.code).join(' / ')} · {i.type === 'unsafeRelease' ? 'Boxengasse' : `Kurve ${i.turn}`} · Runde {i.lap}
+                {cars.map((c) => c.code).join(' / ')} · {i.place} · Runde {i.lap}
               </div>
               {i.kind === 'decision' ? (
                 <button className="btn sm amber" onClick={() => onOpen(i.id)}>FALL PRÜFEN</button>
@@ -132,7 +132,7 @@ export function MessageLog({ messages, radio }) {
         <div className="ptitle">FUNKVERKEHR</div>
         <div className="loglist">
           {[...radio].reverse().map((m) => (
-            <div key={m.id} className="msg radio"><b style={{ color: m.color }}>{m.code}</b> {m.text}</div>
+            <div key={m.id} className={`msg radio ${m.box ? 'box' : ''}`}><b style={{ color: m.color }}>{m.box ? `Box → ${m.name}` : m.name}</b> {m.text}</div>
           ))}
         </div>
       </div>

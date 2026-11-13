@@ -6,7 +6,7 @@ const ease = (t) => (t <= 0 ? 0 : t >= 1 ? 1 : t * t * (3 - 2 * t))
 const lerp = (a, b, t) => a + (b - a) * t
 
 // Auto in Metern, Nase zeigt nach oben (-y)
-function drawCar(ctx, x, y, ang, color, k) {
+export function drawCar(ctx, x, y, ang, color, k) {
   ctx.save()
   ctx.translate(x, y)
   ctx.rotate(ang)
