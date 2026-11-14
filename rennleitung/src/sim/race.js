@@ -81,6 +81,10 @@ export class Race {
     this.fairness = 80
     this.feedback = []
     this.feedbackLog = []
+    // Streckensicherung: manuell oder automatisch. actor sagt, wer gerade handelt ('du' oder 'auto').
+    this.auto = false
+    this.actor = 'du'
+    this.ad = { clearAt: null, secClearAt: [null, null, null], rainAt: null, rainOn: false, note: '' }
     this.flow = 100
     // Funk
     this.radioQueue = []
@@ -175,7 +179,15 @@ export class Race {
     for (let i = 0; i < n && alive.length; i++) this.say(key, alive.splice(Math.floor(Math.random() * alive.length), 1)[0], vars)
   }
   logEvent(text, delta) {
-    this.feedbackLog.push({ t: this.t, text, delta: Math.round(delta) })
+    this.feedbackLog.push({ t: this.t, text, delta: Math.round(delta), by: 'du' })
+  }
+  // Eingriff der Streckensicherung fürs Protokoll, mit Vermerk, wer ihn ausgelöst hat
+  logAction(text) {
+    this.feedbackLog.push({ t: this.t, text, delta: 0, by: this.actor, safety: true })
+  }
+  // Im Automatik-Modus sind die Bedienelemente der Streckensicherung für den Spieler gesperrt
+  locked() {
+    return this.auto && this.actor !== 'auto'
   }
   tag(c) {
     return `AUTO ${c.num} (${c.code})`
@@ -309,27 +321,144 @@ export class Race {
     }
   }
 
+  // ---------- Automatische Streckensicherung ----------
+  // Übernimmt Flaggen, VSC, Safety Car, Rote Flagge und den Neustart nach Rot.
+  // Start und Fälle bleiben beim Spieler. Die Automatik reagiert wie ein Mensch:
+  // mit ein paar Sekunden Verzögerung und gelegentlich mit einer Fehleinschätzung.
+  setAuto(on) {
+    if (this.auto === !!on) return
+    this.auto = !!on
+    this.ad = { clearAt: null, secClearAt: [null, null, null], rainAt: null, rainOn: false, note: '' }
+    for (const c of this.cars) if (c.haz) c.haz.seenAt = null
+    this.msg(on ? 'STRECKENSICHERUNG - AUTOMATIK ÜBERNIMMT' : 'STRECKENSICHERUNG - WIEDER MANUELL', 'info')
+  }
+  autoDirector() {
+    if (!this.auto) return
+    const st = this.state
+    if (!['GREEN', 'VSC', 'SC', 'RED'].includes(st) || this.chequered) {
+      this.ad.note = st === 'RESTART' ? 'Neustart läuft' : this.chequered ? 'Rennen ist abgewinkt' : 'wartet auf den Start'
+      return
+    }
+    this.actor = 'auto'
+    try {
+      this.autoThink(st, this.ad)
+    } finally {
+      this.actor = 'du'
+    }
+  }
+  autoThink(st, A) {
+    const L = this.L
+    const stopped = this.cars.filter((c) => c.status === 'stopped')
+    const flags = [0, 0, 0] // gewünschte Flagge je Sektor: 1 = Gelb, 2 = Doppelgelb
+    let want = 0 // gewünschte Neutralisierung: 2 = VSC, 3 = Safety Car, 4 = Rot
+    let pending = 0
+    for (const c of stopped) {
+      const h = c.haz
+      const need = { rand: 1, teil: 2, linie: 3 }[h.pos]
+      if (h.seenAt == null) {
+        // Meldung der Streckenposten braucht ein paar Sekunden; die Einschätzung liegt manchmal eine Stufe daneben
+        h.seenAt = this.t + rnd(2, 6)
+        const r = Math.random()
+        h.plan = clamp(need + (r < 0.14 ? -1 : r > 0.9 ? 1 : 0), 1, 3)
+        h.reviewAt = h.seenAt + rnd(14, 28)
+      }
+      if (this.t < h.seenAt) { pending++; continue }
+      // Zu schwach abgesichert: nach einer Weile wird nachgebessert
+      if (this.t >= h.reviewAt && h.plan < need) h.plan = need
+      const sec = sectorOf(mod(c.dist, L), L)
+      flags[sec] = Math.max(flags[sec], h.plan >= 2 ? 2 : 1)
+      if (h.plan >= 2) want = Math.max(want, h.plan)
+    }
+    const seen = stopped.length - pending
+    // Massenunfall: drei oder mehr Autos, die geborgen werden müssen (Dreher fahren selbst weiter)
+    if (stopped.filter((c) => !c.haz.self && this.t >= c.haz.seenAt).length >= 3) want = 4
+    // Starkregen: erst Safety Car, bei Aquaplaning Abbruch
+    if (this.wet > 0.78) {
+      if (A.rainAt == null) A.rainAt = this.t + rnd(4, 10)
+      if (this.t >= A.rainAt) A.rainOn = true
+    } else {
+      A.rainAt = null
+      if (this.wet < 0.6) A.rainOn = false
+    }
+    if (A.rainOn) want = Math.max(want, this.wet > 0.93 ? 4 : 3)
+
+    // Absichern und hochstufen
+    if (st !== 'RED') {
+      for (let k = 0; k < 3; k++) {
+        const cur = this.sectors[k] === 'double' ? 2 : this.sectors[k] === 'yellow' ? 1 : 0
+        if (flags[k] > cur) this.setSector(k, flags[k] === 2 ? 'double' : 'yellow')
+      }
+    }
+    if (want === 4 && st !== 'RED') this.callRed()
+    else if (want === 3 && (st === 'GREEN' || st === 'VSC')) this.callSC()
+    else if (want === 3 && st === 'SC' && this.scEnding) this.scStayOut()
+    else if (want === 2 && st === 'GREEN') this.callVSC()
+    else if (want === 2 && st === 'VSC' && this.vscEndAt) {
+      this.vscEndAt = null
+      this.logAction('VSC bleibt aktiv')
+      this.msg('VSC BLEIBT AKTIV', 'warn')
+    }
+
+    // Freigeben, wenn nichts mehr zu sichern ist (manchmal trödelt die Automatik dabei)
+    // Unter Rot zählen nur Autos, die geborgen werden müssen: gedrehte Autos fahren erst nach dem Neustart weiter
+    const toRecover = stopped.filter((c) => !c.haz.self).length
+    const calm = this.state === 'RED' ? toRecover === 0 && !A.rainOn : stopped.length === 0 && want === 0
+    if (calm && this.state !== 'GREEN') {
+      if (A.clearAt == null) A.clearAt = this.t + rnd(2, 5) + (Math.random() < 0.15 ? rnd(8, 15) : 0)
+      if (this.t >= A.clearAt) {
+        if (this.state === 'VSC') this.endVSC()
+        else if (this.state === 'SC') this.scInThisLap()
+        else if (this.state === 'RED') this.restart()
+      }
+    } else A.clearAt = null
+    if (this.state === 'GREEN') {
+      for (let k = 0; k < 3; k++) {
+        const busy = flags[k] > 0 || stopped.some((c) => sectorOf(mod(c.dist, L), L) === k)
+        if (this.sectors[k] !== 'green' && !busy) {
+          if (A.secClearAt[k] == null) A.secClearAt[k] = this.t + rnd(2, 5)
+          else if (this.t >= A.secClearAt[k]) { this.setSector(k, 'green'); A.secClearAt[k] = null }
+        } else A.secClearAt[k] = null
+      }
+    }
+
+    A.note = pending
+      ? 'prüft eine Meldung der Streckenposten'
+      : this.state === 'RED'
+        ? calm ? 'bereitet den Neustart vor' : 'Rennen unterbrochen, Bergung läuft'
+        : seen
+          ? `sichert ${seen === 1 ? 'eine Stelle' : seen + ' Stellen'} ab`
+          : A.rainOn
+            ? 'neutralisiert wegen Regen'
+            : this.state !== 'GREEN'
+              ? 'gibt die Strecke wieder frei'
+              : 'Strecke frei, beobachtet'
+  }
+
   cycleSector(i) {
-    if (this.state === 'GRID' || this.state === 'FINISHED') return
+    if (this.state === 'GRID' || this.state === 'FINISHED' || this.locked()) return
     const order = ['green', 'yellow', 'double']
     const next = order[(order.indexOf(this.sectors[i]) + 1) % 3]
     this.setSector(i, next)
   }
-  setSector(i, flag) {
+  setSector(i, flag, internal = false) {
     if (this.sectors[i] === flag) return
+    if (!internal && this.locked()) return
     this.sectors[i] = flag
+    if (!internal && flag !== 'green') this.logAction(`Sektor ${i + 1}: ${flag === 'yellow' ? 'Gelb' : 'Doppelgelb'}`)
     const name = flag === 'green' ? 'FREI' : flag === 'yellow' ? 'GELBE FLAGGE' : 'DOPPELT GELB'
     this.msg(`SEKTOR ${i + 1} - ${name}`, flag === 'green' ? 'ok' : 'warn')
     if (flag !== 'green' && this.state === 'GREEN' && !this.cars.some((c) => c.status === 'stopped' && sectorOf(mod(c.dist, this.L), this.L) === i)) {
       this.radioQueue.push({ at: this.t + rnd(4, 9), key: 'yellowNoReason' })
     }
   }
-  allGreen() {
-    for (let i = 0; i < 3; i++) this.setSector(i, 'green')
+  allGreen(internal = false) {
+    if (!internal && this.locked()) return
+    for (let i = 0; i < 3; i++) this.setSector(i, 'green', true)
   }
 
   callVSC() {
-    if (this.state !== 'GREEN') return
+    if (this.state !== 'GREEN' || this.locked()) return
+    this.logAction('VSC ausgelöst')
     this.state = 'VSC'
     this.vscEndAt = null
     if (!this.cars.some((c) => c.status === 'stopped') && this.wet < 0.6) this.flow = clamp(this.flow - 2, 0, 100)
@@ -337,12 +466,14 @@ export class Race {
     this.reactRadio('vsc')
   }
   endVSC() {
-    if (this.state !== 'VSC' || this.vscEndAt) return
+    if (this.state !== 'VSC' || this.vscEndAt || this.locked()) return
+    this.logAction('VSC beendet')
     this.vscEndAt = this.t + 8
     this.msg('VSC ENDET GLEICH', 'warn')
   }
   callSC() {
-    if (this.state !== 'GREEN' && this.state !== 'VSC') return
+    if ((this.state !== 'GREEN' && this.state !== 'VSC') || this.locked()) return
+    this.logAction('Safety Car gerufen')
     const lead = this.standings().find((c) => c.status === 'run')
     this.state = 'SC'
     this.vscEndAt = null
@@ -355,8 +486,17 @@ export class Race {
     this.msg('SAFETY CAR IM EINSATZ', 'warn')
     this.reactRadio('sc')
   }
+  // Das Safety Car bleibt doch draußen, weil es eine neue Gefahr gibt
+  scStayOut() {
+    if (this.state !== 'SC' || !this.scEnding || !this.sc || this.sc.leaving || this.locked()) return
+    this.scEnding = false
+    this.sc.lights = true
+    this.logAction('Safety Car bleibt draußen')
+    this.msg('SAFETY CAR BLEIBT DRAUSSEN - LICHTER AN', 'warn')
+  }
   scInThisLap() {
-    if (this.state !== 'SC' || this.scEnding) return
+    if (this.state !== 'SC' || this.scEnding || this.locked()) return
+    this.logAction(this.sc && this.sc.waiting ? 'Safety Car zurückgerufen' : 'Safety Car reingeholt')
     // Steht das Safety Car noch auf dem Parkplatz, bleibt es einfach stehen und das Rennen ist sofort wieder frei
     if (this.sc && this.sc.waiting) {
       this.sc = null
@@ -366,7 +506,7 @@ export class Race {
       if (this.cars.some((c) => c.status === 'stopped')) {
         this.safety = clamp(this.safety - 12, 0, 100)
         this.msg('WARNUNG - ES STEHT NOCH EIN AUTO AUF DER STRECKE', 'bad')
-      } else this.allGreen()
+      } else this.allGreen(true)
       return
     }
     this.scEnding = true
@@ -378,7 +518,8 @@ export class Race {
     }
   }
   callRed() {
-    if (!['GREEN', 'VSC', 'SC'].includes(this.state)) return
+    if (!['GREEN', 'VSC', 'SC'].includes(this.state) || this.locked()) return
+    this.logAction('Rote Flagge')
     this.state = 'RED'
     if (this.wet < 0.75) this.flow = clamp(this.flow - 6, 0, 100)
     this.sc = null
@@ -388,7 +529,7 @@ export class Race {
     this.reactRadio('red')
   }
   restart() {
-    if (this.state !== 'RED') return
+    if (this.state !== 'RED' || this.locked()) return
     const run = this.standings().filter((c) => c.status === 'run' || c.status === 'stopped')
     const alive = run.filter((c) => c.status === 'run')
     if (!alive.length) return
@@ -405,7 +546,8 @@ export class Race {
       const want = this.wet > 0.8 ? 'W' : this.wet > 0.25 ? 'I' : isWetTyre(c.tyre) || c.wear > 0.4 ? this.chooseDry(c, (this.laps * this.L - c.dist) / this.raceDist) : null
       if (want && want !== c.tyre) this.fitTyre(c, want)
     })
-    this.allGreen()
+    this.logAction('Neustart nach Rot')
+    this.allGreen(true)
     this.state = 'RESTART'
     this.restartAt = this.t + 6
     this.msg('NEUSTART IN 6 SEKUNDEN', 'warn')
@@ -604,6 +746,7 @@ export class Race {
 
     this.weather(dt)
     this.hazards(dt)
+    this.autoDirector()
     this.randomEvents(dt)
     this.chatter(dt)
     this.expireIncidents()
@@ -921,7 +1064,7 @@ export class Race {
       this.state = 'GREEN'
       this.sc = null
       this.scEnding = false
-      this.allGreen()
+      this.allGreen(true)
       this.msg('SAFETY CAR IN DER BOX - STRECKE FREI, GRÜNE FLAGGE', 'ok')
     }
   }
@@ -1286,7 +1429,10 @@ export class Race {
       decided: cases.length,
       good: cases.filter((e) => e.delta > 0).length,
       open,
-      log: [...this.feedbackLog].reverse().slice(0, 40),
+      // Eingriffe der Streckensicherung, getrennt nach Spieler und Automatik
+      actsYou: this.feedbackLog.filter((e) => e.safety && e.by === 'du').length,
+      actsAuto: this.feedbackLog.filter((e) => e.safety && e.by === 'auto').length,
+      log: [...this.feedbackLog].reverse().slice(0, 80),
     }
   }
 
@@ -1358,6 +1504,8 @@ export class Race {
       radio: this.radioLog.slice(-40),
       safety: this.safety,
       fairness: this.fairness,
+      auto: this.auto,
+      autoNote: this.ad.note,
       scEnding: this.scEnding,
       scWaiting: !!(this.sc && this.sc.waiting),
       vscEnding: !!this.vscEndAt,

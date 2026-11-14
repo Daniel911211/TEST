@@ -58,7 +58,17 @@ select {
 
 .main { flex: 1; min-height: 0; display: grid; grid-template-columns: 270px 1fr 340px; gap: 6px; padding: 6px; }
 .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 3px; padding: 8px; min-height: 0; }
-.ptitle { font-size: 9px; letter-spacing: 1.5px; color: var(--dim); margin-bottom: 6px; display: flex; gap: 6px; }
+.ptitle { font-size: 9px; letter-spacing: 1.5px; color: var(--dim); margin-bottom: 6px; display: flex; gap: 6px; align-items: center; }
+.push { margin-left: auto; }
+.seg { display: inline-flex; }
+.seg .btn { border-radius: 0; padding: 3px 8px; letter-spacing: 1px; }
+.seg .btn:first-child { border-radius: 3px 0 0 3px; }
+.seg .btn:last-child { border-radius: 0 3px 3px 0; border-left: 0; }
+.autonote { font-size: 11px; color: #c9d3e6; padding: 4px 0; }
+.autonote b, .autotag { color: var(--blue); font-size: 9px; letter-spacing: 1px; margin-right: 6px; }
+.who { font-style: normal; font-size: 8px; font-weight: 800; letter-spacing: 1px; padding: 1px 4px; border-radius: 2px; margin-right: 6px; }
+.who.you { background: #2a3342; color: #ccd; }
+.who.auto { background: var(--blue); color: #000; }
 
 .tower { display: flex; flex-direction: column; overflow: hidden; }
 .towerrows { overflow-y: auto; flex: 1; }

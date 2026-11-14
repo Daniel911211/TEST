@@ -21,6 +21,7 @@ npm run sim-test # Simulation ohne Oberfläche testen
 - Töne für Funk, Meldungen, Vorfälle und Startampel
 - Streckenkamera frei verschiebbar: Rechteck auf der Karte ziehen oder doppelklicken
 - Boxengasse mit Garagen und Tempolimit, Boxenstopps, Reifen (Soft, Medium, Hard, Intermediate, Regen) mit Verschleiß und Pflicht zu zwei Mischungen. In Rennen bis 3 Runden gibt es keine Pflichtstopps, nur Reparatur-, Straf- und Wetterstopps
+- Streckensicherung umschaltbar zwischen MANUELL und AUTO: Die Automatik übernimmt Flaggen, VSC, Safety Car, Rote Flagge und den Neustart, mit menschlicher Reaktionszeit und gelegentlichen Fehleinschätzungen. Start und Fälle bleiben beim Spieler
 - Sektorflaggen (Grün/Gelb/Doppelgelb, Tasten 1 2 3), VSC, Safety Car, Rote Flagge, Neustart
 - Zufallsfälle mit Fall-Dialog, Replay, Regelauszug und Fahreraussagen:
   Track Limits, Kollision (Schuldfrage), Unsichere Freigabe, Überholen unter Gelb, Frühstart, Falsche Startposition, Tempo in der Boxengasse

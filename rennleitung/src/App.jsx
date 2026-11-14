@@ -32,7 +32,15 @@ const Meter = ({ label, value }) => (
 export default function App() {
   const [trackKey, setTrackKey] = useState('spa')
   const [laps, setLaps] = useState(10)
-  const [race, setRace] = useState(() => new Race('spa', 10))
+  // Streckensicherung manuell oder automatisch; die Wahl bleibt für das nächste Rennen erhalten
+  const [auto, setAutoState] = useState(() => {
+    try { return localStorage.getItem('rennleitung-auto') === '1' } catch { return false }
+  })
+  const [race, setRace] = useState(() => {
+    const r = new Race('spa', 10)
+    r.setAuto(auto)
+    return r
+  })
   const [snap, setSnap] = useState(() => race.snapshot())
   const [speed, setSpeed] = useState(2)
   const [paused, setPaused] = useState(false)
@@ -137,8 +145,15 @@ export default function App() {
     return () => window.removeEventListener('keydown', h)
   }, [])
 
+  const toggleAuto = (on) => {
+    setAutoState(on)
+    raceRef.current.setAuto(on)
+    try { localStorage.setItem('rennleitung-auto', on ? '1' : '0') } catch { /* ohne Speicher gilt die Wahl nur für diese Sitzung */ }
+  }
+
   const newRace = (key = trackKey, n = laps) => {
     const r = new Race(key, n)
+    r.setAuto(auto)
     setRace(r)
     setSnap(r.snapshot())
     setSelected(null)
@@ -238,7 +253,7 @@ export default function App() {
             <CamView race={race} mode="cctv" selected={selected} freeCam={freeCam} />
           </div>
           </div>
-          <ControlPanel snap={snap} race={race} selectedRow={row} selectedCar={selCar} />
+          <ControlPanel snap={snap} race={race} selectedRow={row} selectedCar={selCar} onAuto={toggleAuto} />
         </section>
         <aside className="right">
           <IncidentPanel incidents={snap.incidents} t={snap.t} onOpen={setCaseId} race={race} />

@@ -95,6 +95,7 @@ export function ReportDialog({ snap, onClose, onNew, finished }) {
           <div>
             <b>{r.summary}</b>
             <div className="dim">Sicherheit {r.safety} · Fairness {r.fairness} · Ablauf {r.flow} · {r.decided} Fälle entschieden, {r.good} davon gut{r.open ? ` · ${r.open} offen` : ''}</div>
+            <div className="dim">Streckensicherung: {r.actsYou} Eingriffe von dir, {r.actsAuto} von der Automatik</div>
           </div>
         </div>
         <div className="repcols">
@@ -117,7 +118,10 @@ export function ReportDialog({ snap, onClose, onNew, finished }) {
           <div className="replog">
             {r.log.length === 0 && <div className="hint">Noch keine Entscheidungen.</div>}
             {r.log.map((e, i) => (
-              <div key={i} className="logrow"><span>{e.text}</span><b className={e.delta >= 0 ? 'pos' : 'neg'}>{e.delta > 0 ? '+' : ''}{e.delta}</b></div>
+              <div key={i} className="logrow">
+                <span><i className={`who ${e.by === 'auto' ? 'auto' : 'you'}`}>{e.by === 'auto' ? 'AUTO' : 'DU'}</i>{e.text}</span>
+                {e.safety ? <b className="dim">·</b> : <b className={e.delta >= 0 ? 'pos' : 'neg'}>{e.delta > 0 ? '+' : ''}{e.delta}</b>}
+              </div>
             ))}
           </div>
         </div>

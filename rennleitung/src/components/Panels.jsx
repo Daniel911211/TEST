@@ -29,33 +29,44 @@ export function TimingTower({ rows, selected, onSelect, state }) {
 
 const FLAG_LABEL = { green: 'grün', yellow: 'gelb', double: 'doppelgelb' }
 
-export function ControlPanel({ snap, race, selectedRow, selectedCar }) {
+export function ControlPanel({ snap, race, selectedRow, selectedCar, onAuto }) {
   const s = snap.state
   const live = ['GREEN', 'VSC', 'SC', 'RED', 'RESTART'].includes(s)
+  const auto = snap.auto // Automatik sperrt Flaggen und Neutralisierung für den Spieler
   return (
     <div className="controls">
       <div className="panel">
-        <div className="ptitle">STRECKENSEKTOREN</div>
+        <div className="ptitle">
+          STRECKENSICHERUNG
+          <span className="seg push" role="group" aria-label="Streckensicherung">
+            <button className={`btn sm ${auto ? '' : 'on'}`} aria-pressed={!auto} onClick={() => onAuto(false)}>MANUELL</button>
+            <button className={`btn sm ${auto ? 'on' : ''}`} aria-pressed={auto} onClick={() => onAuto(true)}>AUTO</button>
+          </span>
+        </div>
         <div className="sectors">
           {snap.sectors.map((f, i) => (
-            <button key={i} disabled={!live} className={`sector ${f}`} onClick={() => race.cycleSector(i)}>
+            <button key={i} disabled={!live || auto} className={`sector ${f}`} onClick={() => race.cycleSector(i)}>
               S{i + 1}<small>{FLAG_LABEL[f]}</small>
             </button>
           ))}
         </div>
-        <div className="hint">Klick schaltet: Grün → Gelb → Doppelgelb. Tasten 1 2 3.</div>
-        <button className="btn wide ok" disabled={!live || snap.sectors.every((f) => f === 'green')} onClick={() => race.allGreen()}>ALLE SEKTOREN GRÜN</button>
+        {auto ? (
+          <div className="autonote"><b>AUTOMATIK</b> {snap.autoNote || 'wartet auf den Start'}</div>
+        ) : (
+          <div className="hint">Klick schaltet: Grün → Gelb → Doppelgelb. Tasten 1 2 3.</div>
+        )}
+        <button className="btn wide ok" disabled={!live || auto || snap.sectors.every((f) => f === 'green')} onClick={() => race.allGreen()}>ALLE SEKTOREN GRÜN</button>
       </div>
 
       <div className="panel">
-        <div className="ptitle">NEUTRALISIERUNG</div>
+        <div className="ptitle">NEUTRALISIERUNG{auto && <span className="push autotag">AUTOMATIK</span>}</div>
         <div className="neutral">
-          <button className="btn amber" disabled={s !== 'GREEN'} onClick={() => race.callVSC()}>VSC</button>
-          <button className="btn gray" disabled={s !== 'VSC' || snap.vscEnding} onClick={() => race.endVSC()}>{snap.vscEnding ? 'VSC ENDET…' : 'VSC BEENDEN'}</button>
-          <button className="btn orange" disabled={s !== 'GREEN' && s !== 'VSC'} onClick={() => race.callSC()}>SAFETY CAR</button>
-          <button className="btn gray" disabled={s !== 'SC' || snap.scEnding} onClick={() => race.scInThisLap()}>{snap.scEnding ? 'SC KOMMT REIN…' : snap.scWaiting ? 'SC ZURÜCKRUFEN' : 'SC IN DIESER RUNDE'}</button>
-          <button className="btn red" disabled={!['GREEN', 'VSC', 'SC'].includes(s)} onClick={() => race.callRed()}>ROTE FLAGGE</button>
-          <button className="btn ok" disabled={s !== 'RED'} onClick={() => race.restart()}>NEUSTART</button>
+          <button className="btn amber" disabled={auto || s !== 'GREEN'} onClick={() => race.callVSC()}>VSC</button>
+          <button className="btn gray" disabled={auto || s !== 'VSC' || snap.vscEnding} onClick={() => race.endVSC()}>{snap.vscEnding ? 'VSC ENDET…' : 'VSC BEENDEN'}</button>
+          <button className="btn orange" disabled={auto || (s !== 'GREEN' && s !== 'VSC')} onClick={() => race.callSC()}>SAFETY CAR</button>
+          <button className="btn gray" disabled={auto || s !== 'SC' || snap.scEnding} onClick={() => race.scInThisLap()}>{snap.scEnding ? 'SC KOMMT REIN…' : snap.scWaiting ? 'SC ZURÜCKRUFEN' : 'SC IN DIESER RUNDE'}</button>
+          <button className="btn red" disabled={auto || !['GREEN', 'VSC', 'SC'].includes(s)} onClick={() => race.callRed()}>ROTE FLAGGE</button>
+          <button className="btn ok" disabled={auto || s !== 'RED'} onClick={() => race.restart()}>NEUSTART</button>
         </div>
       </div>
 
@@ -114,12 +125,16 @@ export function IncidentPanel({ incidents, t, onOpen, race }) {
               {i.kind === 'decision' ? (
                 <button className="btn sm amber" onClick={() => onOpen(i.id)}>FALL PRÜFEN</button>
               ) : (
-                <div className="quick">
-                  <button className="btn sm" onClick={() => race.setSector(i.sector, 'yellow')}>GELB S{i.sector + 1}</button>
-                  <button className="btn sm" onClick={() => race.setSector(i.sector, 'double')}>DOPPELGELB</button>
-                  <button className="btn sm amber" disabled={race.state !== 'GREEN'} onClick={() => race.callVSC()}>VSC</button>
-                  <button className="btn sm orange" disabled={race.state !== 'GREEN' && race.state !== 'VSC'} onClick={() => race.callSC()}>SC</button>
-                </div>
+                race.auto ? (
+                  <div className="autonote"><b>AUTOMATIK</b> sichert diese Stelle selbst ab</div>
+                ) : (
+                  <div className="quick">
+                    <button className="btn sm" onClick={() => race.setSector(i.sector, 'yellow')}>GELB S{i.sector + 1}</button>
+                    <button className="btn sm" onClick={() => race.setSector(i.sector, 'double')}>DOPPELGELB</button>
+                    <button className="btn sm amber" disabled={race.state !== 'GREEN'} onClick={() => race.callVSC()}>VSC</button>
+                    <button className="btn sm orange" disabled={race.state !== 'GREEN' && race.state !== 'VSC'} onClick={() => race.callSC()}>SC</button>
+                  </div>
+                )
               )}
             </div>
           )
