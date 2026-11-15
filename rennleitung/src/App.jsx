@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { Race, clockStr, raceTimeStr } from './sim/race.js'
-import { TRACK_LIST } from './sim/tracks.js'
+import { SetupDialog, SeasonDialog, HelpDialog } from './components/Menus.jsx'
+import { CALENDAR, loadSetup, saveSetup, loadSeason, saveSeason, newSeason, helpSeen, markHelpSeen, gradeOf } from './season.js'
 import TrackMap from './components/TrackMap.jsx'
 import CamView from './components/CamView.jsx'
 import { TimingTower, ControlPanel, IncidentPanel, MessageLog } from './components/Panels.jsx'
@@ -30,14 +31,18 @@ const Meter = ({ label, value }) => (
 )
 
 export default function App() {
-  const [trackKey, setTrackKey] = useState('spa')
-  const [laps, setLaps] = useState(10)
+  // Einstellungen für das nächste Rennen und der Stand der Saison (beides im Browser gespeichert)
+  const [setup, setSetup] = useState(loadSetup)
+  const [season, setSeason] = useState(loadSeason)
+  const [menu, setMenu] = useState(() => (helpSeen() ? null : 'help')) // null | 'setup' | 'season' | 'help'
+  const inSeason = useRef(false) // läuft gerade ein Saisonrennen?
+  const recorded = useRef(null)
   // Streckensicherung manuell oder automatisch; die Wahl bleibt für das nächste Rennen erhalten
   const [auto, setAutoState] = useState(() => {
     try { return localStorage.getItem('rennleitung-auto') === '1' } catch { return false }
   })
   const [race, setRace] = useState(() => {
-    const r = new Race('spa', 10)
+    const r = new Race(setup.track, setup.laps, { diff: setup.diff, session: setup.mode === 'weekend' ? 'quali' : 'race' })
     r.setAuto(auto)
     return r
   })
@@ -87,7 +92,7 @@ export default function App() {
   const raceRef = useRef(race)
   raceRef.current = race
   const flags = useRef({})
-  flags.current = { speed, paused, dialog: caseId !== null || report }
+  flags.current = { speed, paused, dialog: caseId !== null || report || menu !== null }
 
   useEffect(() => {
     let raf, last = performance.now()
@@ -151,21 +156,55 @@ export default function App() {
     try { localStorage.setItem('rennleitung-auto', on ? '1' : '0') } catch { /* ohne Speicher gilt die Wahl nur für diese Sitzung */ }
   }
 
-  const newRace = (key = trackKey, n = laps) => {
-    const r = new Race(key, n)
+  // cfg: Strecke, Runden, Ablauf, Schwierigkeit. grid: Startaufstellung aus dem Qualifying.
+  const newRace = (cfg = setup, { grid = null, seasonRace = inSeason.current } = {}) => {
+    inSeason.current = seasonRace
+    const r = new Race(cfg.track, cfg.laps, { diff: cfg.diff, session: cfg.mode === 'weekend' && !grid ? 'quali' : 'race', grid })
     r.setAuto(auto)
     setRace(r)
     setSnap(r.snapshot())
     setSelected(null)
     setCaseId(null)
     setReport(false)
+    setMenu(null)
     setToast(null)
     lastFb.current = null
     heard.current = { msg: 0, radio: 0, inc: 0 }
     freeCam.current.manual = false
   }
 
-  const [stLabel, stClass] = STATE_LABEL[snap.state]
+  const startSetup = (cfg) => {
+    setSetup(cfg)
+    saveSetup(cfg)
+    newRace(cfg, { seasonRace: false })
+  }
+  const seasonCfg = (se) => ({ track: CALENDAR[se.races.length], laps: se.laps, mode: se.mode, diff: se.diff })
+  const beginSeason = () => {
+    const se = newSeason(setup)
+    setSeason(se)
+    saveSeason(se)
+  }
+  const nextSeasonRace = () => newRace(seasonCfg(season), { seasonRace: true })
+  const resetSeason = () => {
+    setSeason(null)
+    saveSeason(null)
+    inSeason.current = false
+  }
+  const closeHelp = () => { markHelpSeen(); setMenu(null) }
+  const practice = () => { markHelpSeen(); newRace({ track: 'spielberg', laps: 3, mode: 'race', diff: 'easy' }, { seasonRace: false }) }
+
+  // Saisonrennen nach der Zielflagge einmal in die Wertung schreiben
+  useEffect(() => {
+    if (snap.state !== 'FINISHED' || snap.quali || !inSeason.current || !season || recorded.current === race) return
+    recorded.current = race
+    const score = snap.report.safety * 0.4 + snap.report.fairness * 0.4 + snap.report.flow * 0.2
+    const top = (snap.results || []).filter((x) => x.time !== 'DNF' && x.time !== 'DSQ').slice(0, 10).map((x) => ({ code: x.code, name: x.name, team: x.team, color: x.color }))
+    const se = { ...season, races: [...season.races, { track: race.track.key, score, grade: gradeOf(score), top }] }
+    setSeason(se)
+    saveSeason(se)
+  }, [snap.state])
+
+  const [stLabel, stClass] = snap.quali && ['GREEN', 'GRID'].includes(snap.state) ? ['QUALIFYING', 'quali'] : STATE_LABEL[snap.state]
   const row = selected !== null ? snap.rows.find((r) => r.id === selected) : null
   const selCar = selected !== null ? race.cars[selected] : null
   const started = snap.state !== 'GRID'
@@ -201,12 +240,9 @@ export default function App() {
           <Meter label="ABLAUF" value={snap.flow} />
         </div>
         <div className="setup">
-          <select value={trackKey} onChange={(e) => { setTrackKey(e.target.value); newRace(e.target.value, laps) }}>
-            {TRACK_LIST.map((t) => <option key={t.key} value={t.key}>{t.name}</option>)}
-          </select>
-          <select value={laps} onChange={(e) => { setLaps(+e.target.value); newRace(trackKey, +e.target.value) }}>
-            {[3, 5, 10, 15, 20].map((n) => <option key={n} value={n}>{n} Runden</option>)}
-          </select>
+          <button className="btn sm" onClick={() => setMenu('setup')}>NEUES RENNEN</button>
+          <button className={`btn sm ${inSeason.current ? 'on' : ''}`} onClick={() => setMenu('season')}>SAISON</button>
+          <button className="btn sm" title="Einführung" onClick={() => setMenu('help')}>HILFE</button>
           <button className="btn sm" onClick={() => setReport(true)}>BERICHT</button>
           <button className={`btn sm ${muted ? '' : 'on'}`} title="Ton an/aus" onClick={() => { sound.setMuted(!muted); setMuted(!muted) }}>{muted ? 'TON AUS' : 'TON AN'}</button>
           <input id="volume" className="vol" type="range" min="0" max="1" step="0.05" value={muted ? 0 : vol} aria-label="Lautstärke" onChange={(e) => { const v = +e.target.value; sound.setVolume(v); setVol(v); setMuted(false) }} />
@@ -222,8 +258,10 @@ export default function App() {
             <TrackMap race={race} selected={selected} onSelect={setSelected} freeCam={freeCam} />
             {snap.state === 'GRID' && (
               <div className="startover">
-                <button className="btn big ok" onClick={() => race.startFormation()}>EINFÜHRUNGSRUNDE FREIGEBEN</button>
-                <div className="hint">{snap.laps} Runden · Du bist die Rennleitung: Flaggen, Neutralisierung, Strafen.</div>
+                {snap.quali
+                  ? <button className="btn big ok" onClick={() => race.startQuali()}>QUALIFYING STARTEN</button>
+                  : <button className="btn big ok" onClick={() => race.startFormation()}>EINFÜHRUNGSRUNDE FREIGEBEN</button>}
+                <div className="hint">{snap.quali ? 'Drei gezeitete Runden, die beste zählt. Du sicherst mit gelben Flaggen und entscheidest über Track Limits und Behinderungen.' : `${snap.laps} Runden · Du bist die Rennleitung: Flaggen, Neutralisierung, Strafen.`}</div>
               </div>
             )}
             {snap.state === 'GRIDREADY' && (
@@ -263,7 +301,19 @@ export default function App() {
       </main>
 
       {caseId !== null && <CaseDialog race={race} incId={caseId} onClose={() => setCaseId(null)} />}
-      {report && <ReportDialog snap={snap} finished={snap.state === 'FINISHED'} onClose={() => setReport(false)} onNew={() => newRace()} />}
+      {report && menu === null && (
+        <ReportDialog
+          snap={snap}
+          finished={snap.state === 'FINISHED'}
+          onClose={() => setReport(false)}
+          onNew={() => { setReport(false); setMenu('setup') }}
+          onRace={() => newRace(inSeason.current && season ? seasonCfg(season) : setup, { grid: snap.grid })}
+          onSeason={inSeason.current ? () => { setReport(false); setMenu('season') } : null}
+        />
+      )}
+      {menu === 'setup' && <SetupDialog setup={setup} onStart={startSetup} onClose={() => setMenu(null)} />}
+      {menu === 'season' && <SeasonDialog season={season} setup={setup} onBegin={beginSeason} onNext={nextSeasonRace} onReset={resetSeason} onClose={() => setMenu(null)} />}
+      {menu === 'help' && <HelpDialog onClose={closeHelp} onPractice={practice} />}
     </div>
   )
 }

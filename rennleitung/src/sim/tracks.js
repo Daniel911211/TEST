@@ -49,6 +49,49 @@ const TRACKS = {
       [12, 1521, 'Tabac'], [13, 1700, 'Piscine'], [15, 1876, 'Piscine 2'], [17, 2051, 'Rascasse'], [19, 2110, 'Anthony Noghès'],
     ],
   },
+  silverstone: {
+    name: 'Silverstone Circuit',
+    gp: 'Großer Preis von Großbritannien',
+    length: 5891,
+    lapRef: 88,
+    vmax: 325,
+    // Boxengasse rechts an der Hamilton Straight: Einfahrt nach Club, Ausfahrt vor Abbey
+    pit: { side: 1, in: 230, par: 180, out: 320, off: 15 },
+    start: 3150, // Rohdaten beginnen an der alten Start-Ziel-Geraden vor Copse
+    corners: [
+      [1, 3500, 'Abbey'], [2, 3660, 'Farm'], [3, 3930, 'Village'], [4, 4060, 'The Loop'], [5, 4210, 'Aintree'],
+      [6, 5050, 'Brooklands'], [7, 5270, 'Luffield'], [8, 5520, 'Woodcote'], [9, 250, 'Copse'], [10, 880, 'Maggotts'],
+      [11, 1020, 'Becketts'], [14, 1330, 'Chapel'], [15, 2200, 'Stowe'], [16, 2640, 'Vale'], [18, 2900, 'Club'],
+    ],
+  },
+  suzuka: {
+    name: 'Suzuka International Racing Course',
+    gp: 'Großer Preis von Japan',
+    length: 5807,
+    lapRef: 90,
+    vmax: 320,
+    // Boxengasse rechts: Einfahrt nach der letzten Kurve, Ausfahrt vor der ersten Kurve
+    pit: { side: 1, in: 380, par: 250, out: 420, off: 15 },
+    start: 0,
+    corners: [
+      [1, 500, 'Erste Kurve'], [3, 900, 'S-Kurven'], [7, 1650, 'Dunlop'], [8, 2080, 'Degner 1'], [9, 2230, 'Degner 2'],
+      [11, 2720, 'Haarnadel'], [13, 3650, 'Spoon'], [15, 4870, '130R'], [16, 5180, 'Casio Triangle'], [18, 5380, 'Letzte Kurve'],
+    ],
+  },
+  spielberg: {
+    name: 'Red Bull Ring',
+    gp: 'Großer Preis von Österreich',
+    length: 4318,
+    lapRef: 66,
+    vmax: 325,
+    // Boxengasse rechts: Einfahrt nach der letzten Kurve, Ausfahrt vor der Niki-Lauda-Kurve
+    pit: { side: 1, in: 300, par: 180, out: 290, off: 15 },
+    start: 0,
+    corners: [
+      [1, 330, 'Niki-Lauda-Kurve'], [3, 1275, 'Remus'], [4, 2090, 'Schlossgold'], [6, 2640, 'Rauch'],
+      [7, 2950, 'Würth-Kurve'], [9, 3700, 'Jochen-Rindt-Kurve'], [10, 3960, 'Red-Bull-Mobile-Kurve'],
+    ],
+  },
 }
 
 export const TRACK_LIST = Object.entries(TRACKS).map(([key, t]) => ({ key, name: t.name, gp: t.gp }))

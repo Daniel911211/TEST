@@ -16,10 +16,13 @@ export const OPTIONS = {
   dt: { key: 'dt', label: 'Durchfahrt', sev: 4, tone: 'bad' },
   sg: { key: 'sg', label: 'Stop & Go 10 s', sev: 5, tone: 'bad' },
   black: { key: 'black', label: 'Disqualifikation', sev: 7, tone: 'bad' },
+  grid3: { key: 'grid3', label: '3 Startplätze zurück', sev: 2, tone: 'bad' },
 }
 export const OPTION_LIST = Object.values(OPTIONS)
 
 export const RULES = {
+  impeding:
+    'Behindern im Qualifying: Wer langsam fährt, muss die Ideallinie für Autos auf schneller Runde freimachen. Klare Behinderung (Zeitverlust über 0,3 s): 3 Startplätze zurück. Zu spät Platz gemacht, geringer Zeitverlust (0,1 bis 0,3 s): Verwarnung. Kein messbarer Zeitverlust: keine Strafe.',
   blueFlags:
     'Blaue Flagge: Ein überrundetes Auto muss das schnellere bei der ersten Gelegenheit vorbeilassen. Bis 3 Posten mit blauer Flagge: kein Vergehen. 4 bis 5 Posten: Verwarnung. Mehr als 5 Posten: 5 Sekunden.',
   forcingOff:
@@ -49,6 +52,7 @@ export const RULES = {
 }
 
 export const TYPE_TITLE = {
+  impeding: 'Behindern im Qualifying',
   blueFlags: 'Blaue Flaggen ignoriert',
   forcingOff: 'Abdrängen',
   weaving: 'Spurwechsel beim Verteidigen',
@@ -76,11 +80,27 @@ export const TYRES = {
 }
 const isWetTyre = (k) => k === 'I' || k === 'W'
 
+// Schwierigkeit: Häufigkeit der Vorfälle, Frist je Fall, gleichzeitig offene Fälle, Gewicht von Fehlurteilen
+export const DIFFS = {
+  easy: { label: 'Einsteiger', rate: 0.6, deadline: 180, open: 2, pen: 0.7, hint: true },
+  normal: { label: 'Normal', rate: 1, deadline: 110, open: 4, pen: 1, hint: false },
+  hard: { label: 'Profi', rate: 1.5, deadline: 70, open: 6, pen: 1.3, hint: false },
+}
+
 export const sectorOf = (s, L) => Math.min(2, Math.floor(s / (L / 3)))
 const mod = (x, L) => ((x % L) + L) % L
 
 export class Race {
-  constructor(trackKey, laps = 10) {
+  constructor(trackKey, laps = 10, opts = {}) {
+    this.diffKey = DIFFS[opts.diff] ? opts.diff : 'normal'
+    this.diff = DIFFS[this.diffKey]
+    // Qualifying: alle Autos fahren verteilt über die Strecke drei gezeitete Runden, die beste zählt
+    this.quali = opts.session === 'quali'
+    if (this.quali) laps = 3
+    const grid = !this.quali && Array.isArray(opts.grid) && opts.grid.length === DRIVERS.length ? opts.grid : null
+    const qOrder = DRIVERS.map((_, i) => i).sort(() => Math.random() - 0.5)
+    const startDist = (i) => (this.quali ? -((qOrder.indexOf(i) + 0.5) * this.track.length) / DRIVERS.length : -(12 + (grid ? grid.indexOf(i) : i) * 8))
+    const startLat = (i) => (this.quali ? 0 : (grid ? grid.indexOf(i) : i) % 2 ? 0.9 : -0.9)
     this.track = buildTrack(trackKey)
     this.L = this.track.length
     this.laps = laps
@@ -118,7 +138,7 @@ export class Race {
     const dur = laps * this.track.lapRef
     this.rain = 0
     this.wet = 0
-    this.rainPlan = Math.random() < 0.55 ? { start: rnd(0.15, 0.6) * dur, dur: rnd(90, 240), peak: rnd(0.35, 1) } : null
+    this.rainPlan = !this.quali && Math.random() < 0.55 ? { start: rnd(0.15, 0.6) * dur, dur: rnd(90, 240), peak: rnd(0.35, 1) } : null
     this.rainPhase = 'dry'
     this.raceDist = laps * this.L
     this.heavyT = 0
@@ -132,14 +152,16 @@ export class Race {
     this.cars = DRIVERS.map((d, i) => ({
       ...d,
       id: i,
-      dist: -(12 + i * 8),
-      slot: -(12 + i * 8),
-      slotLat: i % 2 ? 0.9 : -0.9,
-      onGrid: true,
+      dist: startDist(i),
+      slot: startDist(i),
+      slotLat: startLat(i),
+      onGrid: !this.quali,
+      lapTimes: [],
+      gridDrop: 0,
       stalled: false,
       speed: 0,
-      lat: i % 2 ? 0.9 : -0.9,
-      latTarget: i % 2 ? 0.9 : -0.9,
+      lat: startLat(i),
+      latTarget: startLat(i),
       status: 'run', // run | stopped | out | dsq | fin
       pace: d.teamPace + rnd(-0.003, 0.003),
       form: 1,
@@ -167,7 +189,7 @@ export class Race {
     this.teams = [...new Set(this.cars.map((c) => c.team))]
     // Arztwagen (Medical Car): steht beim Start hinter dem Feld, folgt ihm in der Einführungsrunde und in
     // Runde 1 und fährt danach auf seinen Parkplatz neben dem Safety Car. null = geparkt.
-    this.med = { dist: -(12 + (this.cars.length - 1) * 8) - 22, speed: 0, lat: 0, gap: 22, pitU: null, shift: 0 }
+    this.med = this.quali ? null : { dist: -(12 + (this.cars.length - 1) * 8) - 22, speed: 0, lat: 0, gap: 22, pitU: null, shift: 0 }
     this.msg('AUTOS IN DER STARTAUFSTELLUNG - WARTEN AUF DIE EINFÜHRUNGSRUNDE')
   }
 
@@ -237,7 +259,19 @@ export class Race {
 
   // ---------- Bedienung ----------
   // 1) Einführungsrunde: das Feld fährt langsam eine Runde und stellt sich wieder auf
+  startQuali() {
+    if (!this.quali || this.state !== 'GRID') return
+    this.state = 'GREEN'
+    this.raceStart = this.t
+    this.nextAmbient = this.t + rnd(15, 30)
+    for (const c of this.cars) {
+      c.lapStart = this.t
+      c.speed = this.track.v[Math.floor(mod(c.dist, this.L) / this.track.ds) % this.track.n] * 0.85
+    }
+    this.msg('QUALIFYING GESTARTET - DREI GEZEITETE RUNDEN, DIE BESTE ZÄHLT', 'flag')
+  }
   startFormation() {
+    if (this.quali) return
     if (this.state !== 'GRID' && this.state !== 'GRIDREADY') return
     this.formations++
     this.state = 'FORMATION'
@@ -425,6 +459,7 @@ export class Race {
       if (this.wet < 0.6) A.rainOn = false
     }
     if (A.rainOn) want = Math.max(want, this.wet > 0.93 ? 4 : 3)
+    if (this.quali) want = 0 // im Qualifying nur Flaggen
 
     // Absichern und hochstufen
     if (st !== 'RED') {
@@ -505,6 +540,7 @@ export class Race {
   }
 
   callVSC() {
+    if (this.quali) return this.msg('IM QUALIFYING GIBT ES KEIN SAFETY CAR - MIT GELBEN FLAGGEN SICHERN', 'info')
     if (this.state !== 'GREEN' || this.locked()) return
     this.logAction('VSC ausgelöst')
     this.state = 'VSC'
@@ -520,6 +556,7 @@ export class Race {
     this.msg('VSC ENDET GLEICH', 'warn')
   }
   callSC() {
+    if (this.quali) return this.msg('IM QUALIFYING GIBT ES KEIN SAFETY CAR - MIT GELBEN FLAGGEN SICHERN', 'info')
     if ((this.state !== 'GREEN' && this.state !== 'VSC') || this.locked()) return
     this.logAction('Safety Car gerufen')
     const lead = this.standings().find((c) => c.status === 'run')
@@ -595,6 +632,7 @@ export class Race {
     }
   }
   callRed() {
+    if (this.quali) return this.msg('ROTE FLAGGE IM QUALIFYING NICHT NÖTIG - GELB GENÜGT', 'info')
     if (!['GREEN', 'VSC', 'SC'].includes(this.state) || this.locked()) return
     this.logAction('Rote Flagge')
     this.state = 'RED'
@@ -639,7 +677,18 @@ export class Race {
       this.msg(`${tag} - KEINE WEITERE MASSNAHME (${reason})`, 'ok')
       return
     }
+    if (key === 'grid3') {
+      car.gridDrop += 3
+      this.msg(`${tag} - 3 STARTPLÄTZE ZURÜCK (${reason})`, 'bad')
+      return
+    }
     if (key === 'lap' || key === 'lap5') {
+      if (this.quali) {
+        // die betroffene (beste) Runde fällt weg; läuft noch keine gewertete, zählt die aktuelle nicht
+        if (car.lapTimes.length) car.lapTimes.splice(car.lapTimes.indexOf(Math.min(...car.lapTimes)), 1)
+        else car.lapDirty = true
+        car.bestLap = car.lapTimes.length ? Math.min(...car.lapTimes) : null
+      }
       if (key === 'lap5') car.penaltySec += 5
       this.msg(`${tag} - RUNDENZEIT GESTRICHEN${key === 'lap5' ? ' + 5 SEKUNDEN ZEITSTRAFE' : ''} (${reason})`, key === 'lap5' ? 'bad' : 'warn')
       return
@@ -714,6 +763,7 @@ export class Race {
       delta = sev === inc.ideal.sev ? 6 : -Math.abs(sev - inc.ideal.sev) * 3.5
       verdict = inc.expert || ''
     }
+    if (delta < 0) delta *= this.diff.pen
     this.fairness = clamp(this.fairness + delta, 0, 100)
     const fb = {
       id: `${inc.id}-${this.t}`,
@@ -723,7 +773,7 @@ export class Race {
     }
     this.feedback.push(fb)
     this.logEvent(fb.text, delta)
-    const reason = { blueFlags: 'IGNORIEREN BLAUER FLAGGEN', forcingOff: 'ABDRÄNGEN', weaving: 'UNERLAUBTER SPURWECHSEL', cutChicane: 'ABKÜRZEN MIT VORTEIL', scGap: 'ABSTAND HINTER DEM SAFETY CAR', pitClosed: 'EINFAHRT BEI GESPERRTER BOXENGASSE', pitSpeed: 'ZU SCHNELL IN DER BOXENGASSE', jumpStart: 'FRÜHSTART', gridPosition: 'FALSCHE STARTPOSITION', collision: 'VERURSACHEN EINER KOLLISION', unsafeRelease: 'UNSICHERE FREIGABE', overtakeYellow: 'ÜBERHOLEN UNTER GELB' }[inc.type] || 'TRACK LIMITS'
+    const reason = { impeding: 'BEHINDERN', blueFlags: 'IGNORIEREN BLAUER FLAGGEN', forcingOff: 'ABDRÄNGEN', weaving: 'UNERLAUBTER SPURWECHSEL', cutChicane: 'ABKÜRZEN MIT VORTEIL', scGap: 'ABSTAND HINTER DEM SAFETY CAR', pitClosed: 'EINFAHRT BEI GESPERRTER BOXENGASSE', pitSpeed: 'ZU SCHNELL IN DER BOXENGASSE', jumpStart: 'FRÜHSTART', gridPosition: 'FALSCHE STARTPOSITION', collision: 'VERURSACHEN EINER KOLLISION', unsafeRelease: 'UNSICHERE FREIGABE', overtakeYellow: 'ÜBERHOLEN UNTER GELB' }[inc.type] || 'TRACK LIMITS'
     if (target) {
       this.applyPenalty(target, opt, reason)
       // Gegen harte Strafen legt das Team oft Protest ein
@@ -1069,6 +1119,7 @@ export class Race {
   // Bei gesperrter Boxengasse bleiben fast alle draußen. Beschädigte Autos kommen oft trotzdem (erlaubt),
   // andere nur selten (Regelverstoß, wird ein Fall).
   pitDecision(c) {
+    if (this.quali) return null
     if (this.pitClosed && Math.random() > (c.damage ? 0.6 : 0.07)) return null
     const dmg = !!c.damage
     const job = this.pitJob(c)
@@ -1354,9 +1405,14 @@ export class Race {
 
   onLine(c, idxInOrder) {
     c.form = rnd(0.985, 1.003)
-    const lt = this.t - c.lapStart
-    if (!c.lapDirty && c.dist > this.L * 0.5 && (c.bestLap === null || lt < c.bestLap)) c.bestLap = lt
-    c.lapStart = this.t
+    // Zeitpunkt der Linienüberfahrt zwischen zwei Rechenschritten bestimmen, sonst wären alle Zeiten auf 0,05 s gerastert
+    const now = this.t - (c.speed > 1 ? Math.min(0.05, mod(c.dist, this.L) / c.speed) : 0)
+    const lt = now - c.lapStart
+    if (!c.lapDirty && c.dist > this.L * 0.5) {
+      c.lapTimes.push(lt)
+      if (c.bestLap === null || lt < c.bestLap) c.bestLap = lt
+    }
+    c.lapStart = now
     c.lapDirty = false
     if (c.dist >= this.laps * this.L - 1 || this.chequered) {
       this.finish(c)
@@ -1384,12 +1440,13 @@ export class Race {
       this.msg('ZIELFLAGGE', 'flag')
       for (const o of this.cars) if (o.status === 'stopped') o.status = 'out'
     }
-    this.msg(`${this.tag(c)} - IM ZIEL AUF P${this.finishCount}`, 'info')
-    if (this.finishCount === 1) this.say('win', c, {}, { force: true, replyChance: 1 })
+    if (this.quali) this.msg(`${this.tag(c)} - QUALIFYING BEENDET, BESTZEIT ${c.bestLap ? lapFmt(c.bestLap) : 'KEINE'}`, 'info')
+    else this.msg(`${this.tag(c)} - IM ZIEL AUF P${this.finishCount}`, 'info')
+    if (this.quali) { /* kein Siegerfunk */ } else if (this.finishCount === 1) this.say('win', c, {}, { force: true, replyChance: 1 })
     else if (Math.random() < 0.3) this.say(this.finishCount >= this.cars.length - 4 ? 'finishLast' : 'finishMid', c, { pos: this.finishCount }, { force: true })
     if (!this.cars.some((o) => o.status === 'run' || o.status === 'stopped')) {
       this.state = 'FINISHED'
-      this.msg('RENNEN BEENDET', 'flag')
+      this.msg(this.quali ? 'QUALIFYING BEENDET' : 'RENNEN BEENDET', 'flag')
     }
   }
 
@@ -1520,9 +1577,10 @@ export class Race {
   randomEvents(dt) {
     if (!['GREEN', 'SC', 'VSC'].includes(this.state) || this.chequered) return
     const open = this.incidents.filter((i) => i.kind === 'decision').length
-    if (open >= 4) return
+    if (open >= this.diff.open) return
     const mult = this.state === 'GREEN' ? 1 : 0.25
-    if (Math.random() > (dt * mult * (1 + 2.2 * this.wet)) / 45) return
+    if (Math.random() > (dt * mult * this.diff.rate * (1 + 2.2 * this.wet)) / 45) return
+    if (this.quali) return this.spawn(pick(['trackLimits', 'trackLimits', 'trackLimits', 'impeding', 'impeding', 'impeding', 'breakdown', 'offTrack']))
     const types = ['trackLimits', 'trackLimits', 'collision', 'collision', 'breakdown', 'offTrack']
     if (this.state === 'GREEN') types.push('forcingOff', 'weaving', 'cutChicane', 'blueFlags')
     if (this.state === 'SC' && this.sc && this.sc.collected) types.push('scGap', 'scGap', 'scGap')
@@ -1552,7 +1610,7 @@ export class Race {
     }
     if (kind === 'decision') {
       inc.no = ++this.caseNo
-      inc.deadline = this.t + 110
+      inc.deadline = this.t + this.diff.deadline
     }
     return inc
   }
@@ -1561,7 +1619,8 @@ export class Race {
     c.status = 'stopped'
     // Meldung der Streckenposten: Lage des Autos, Trümmer, geschätzte Bergungszeit
     const self = why === 'DREHER'
-    const pos = self ? pick(['rand', 'teil']) : why === 'UNFALL' ? pick(['rand', 'teil', 'teil', 'linie', 'linie']) : why === 'MOTOR ABGEWÜRGT' ? 'linie' : pick(['rand', 'rand', 'rand', 'teil', 'teil', 'linie'])
+    let pos = self ? pick(['rand', 'teil']) : why === 'UNFALL' ? pick(['rand', 'teil', 'teil', 'linie', 'linie']) : why === 'MOTOR ABGEWÜRGT' ? 'linie' : pick(['rand', 'rand', 'rand', 'teil', 'teil', 'linie'])
+    if (this.quali) pos = 'rand' // im Qualifying rollen defekte Autos neben die Strecke
     const debris = why === 'UNFALL' && Math.random() < 0.6
     c.verge = (c.lat >= 0 ? 1 : -1) * { rand: 1.55, teil: 0.95, linie: 0.25 }[pos]
     c.recov = rnd(35, 60) + (debris ? 12 : 0) + (pos === 'linie' ? 8 : 0)
@@ -1638,7 +1697,7 @@ export class Race {
     if (type === 'trackLimits') {
       const c = pick(run)
       const w = this.where(c)
-      const prior = Math.floor(rnd(0, 3))
+      const prior = this.quali ? 0 : Math.floor(rnd(0, 3))
       // Maßgeblich ist der letzte Reifen auf der Streckenseite: over = Meter, die er jenseits der Linie liegt.
       // Positiv heißt, alle vier Räder sind draußen. Negativ heißt, er berührt Linie oder Strecke noch.
       let over = +rnd(-0.5, 0.9).toFixed(2)
@@ -1646,8 +1705,8 @@ export class Race {
       const gain = Math.max(0, +(over * 0.35 + rnd(0, 0.1)).toFixed(2))
       const inc = this.makeBase('decision', 'trackLimits', [c.id], w)
       const violation = over > 0.05
-      inc.ideal = { culprit: null, sev: !violation ? 0 : prior >= 1 || gain > 0.2 ? 2 : 1 }
-      inc.options = ['nfa', 'lap', 'lap5']
+      inc.ideal = { culprit: null, sev: !violation ? 0 : !this.quali && (prior >= 1 || gain > 0.2) ? 2 : 1 }
+      inc.options = this.quali ? ['nfa', 'lap'] : ['nfa', 'lap', 'lap5']
       inc.optionSev = { nfa: 0, lap: 1, lap5: 2 }
       inc.facts = [
         ['Fahrer', `${c.num} ${c.name} - ${c.team}`],
@@ -1667,6 +1726,32 @@ export class Race {
       this.incidents.push(inc)
       this.msg(`${this.tag(c)} - TRACK LIMITS IN KURVE ${w.turn} - WIRD UNTERSUCHT`, 'warn')
       if (Math.random() < 0.6) this.say('trackLimits', c)
+      return
+    }
+    if (type === 'impeding') {
+      if (run.length < 2) return
+      const A = pick(run)
+      const B = pick(run.filter((c) => c !== A))
+      const v = pick(['clear', 'clear', 'late', 'minor'])
+      const lost = v === 'clear' ? rnd(0.35, 0.9) : v === 'late' ? rnd(0.12, 0.28) : rnd(0, 0.06)
+      const inc = this.makeBase('decision', 'impeding', [A.id, B.id], this.where(A))
+      inc.options = ['nfa', 'warn', 'grid3']
+      inc.ideal = { culprit: null, sev: v === 'clear' ? 2 : v === 'late' ? 1 : 0 }
+      inc.facts = [
+        ['Langsames Auto', `${A.num} ${A.name} - ${A.team}`],
+        ['Auf schneller Runde', `${B.num} ${B.name} - ${B.team}`],
+        ['Ideallinie', v === 'clear' ? 'nicht freigemacht' : v === 'late' ? 'spät freigemacht' : 'rechtzeitig freigemacht'],
+        ['Zeitverlust ' + B.code, `${lost.toFixed(2).replace('.', ',')} s`],
+        ['Funk an ' + A.code, v === 'minor' ? 'Team hat rechtzeitig gewarnt' : 'Team hat nicht oder zu spät gewarnt'],
+      ]
+      inc.statements = [
+        { code: B.code, text: pick(['Der steht mitten auf der Linie! Meine Runde ist im Eimer!', 'Was macht der da? Der parkt in der Kurve!']) },
+        { code: A.code, text: pick(['Mir hat niemand gesagt, dass einer kommt.', 'Ich bin doch sofort zur Seite.']) },
+      ]
+      inc.replay = { kind: 'impede', v, lost }
+      inc.expert = v === 'clear' ? `Experten: Klare Behinderung, ${lost.toFixed(2).replace('.', ',')} s verloren. 3 Startplätze zurück.` : v === 'late' ? 'Experten: Zu spät Platz gemacht, geringer Zeitverlust. Verwarnung.' : 'Experten: Rechtzeitig Platz gemacht, kein messbarer Zeitverlust. Keine Strafe.'
+      this.incidents.push(inc)
+      this.msg(`${this.tag(A)} - BEHINDERN VON ${this.tag(B)} - WIRD UNTERSUCHT`, 'warn')
       return
     }
     if (type === 'blueFlags') {
@@ -1929,12 +2014,15 @@ export class Race {
 
   // ---------- Ansicht ----------
   snapshot() {
-    const st = this.standings()
+    let st = this.standings()
     const avg = this.L / this.track.lapRef
     const leader = st[0]
+    const qBest = this.quali ? Math.min(...this.cars.map((c) => c.bestLap ?? Infinity)) : 0
+    if (this.quali) st = [...this.cars].sort((a, b) => (a.bestLap ?? 1e9) - (b.bestLap ?? 1e9) || a.id - b.id)
     const rows = st.map((c, i) => {
       let gap = ''
-      if (c.status === 'fin') gap = 'ZIEL'
+      if (this.quali) gap = c.status === 'out' ? 'OUT' : c.bestLap ? (c.bestLap === qBest ? lapFmt(c.bestLap) : `+${(c.bestLap - qBest).toFixed(3)}`) : '-'
+      else if (c.status === 'fin') gap = 'ZIEL'
       else if (c.status === 'out') gap = 'OUT'
       else if (c.status === 'dsq') gap = 'DSQ'
       else if (i > 0 && this.raceStart !== null) {
@@ -1963,7 +2051,19 @@ export class Race {
       }
     })
     let results = null
-    if (this.state === 'FINISHED') {
+    let gridOut = null
+    if (this.state === 'FINISHED' && this.quali) {
+      // Startaufstellung: nach Bestzeit, danach die Rückversetzungen anwenden
+      const q = [...this.cars].sort((a, b) => (a.bestLap ?? 1e9) - (b.bestLap ?? 1e9) || a.id - b.id)
+      const fin = q.map((c, i) => ({ c, key: i + (c.gridDrop ? c.gridDrop + 0.5 : 0) })).sort((a, b) => a.key - b.key).map((x) => x.c)
+      gridOut = fin.map((c) => c.id)
+      results = fin.map((c, i) => ({
+        pos: i + 1, code: c.code, name: c.name, team: c.team, color: c.color, num: c.num,
+        penaltySec: 0, note: c.gridDrop ? `-${c.gridDrop} Plätze` : '',
+        time: c.bestLap ? lapFmt(c.bestLap) : 'keine Zeit',
+        best: c.bestLap && c.bestLap !== qBest ? `+${(c.bestLap - qBest).toFixed(3)}` : '',
+      }))
+    } else if (this.state === 'FINISHED') {
       const fin = this.cars.filter((c) => c.status === 'fin').map((c) => ({ ...c, adj: c.finishTime + c.penaltySec }))
       fin.sort((a, b) => a.adj - b.adj)
       results = fin.map((c, i) => ({
@@ -1981,6 +2081,9 @@ export class Race {
       raceTime: this.raceStart === null ? 0 : this.t - this.raceStart,
       lights: this.lightsOn(),
       stalled: this.cars.filter((c) => c.stalled).map((c) => c.name),
+      quali: this.quali,
+      grid: gridOut,
+      diff: this.diffKey,
       medNotReady: this.state === 'GRIDREADY' && this.medReadyAt > this.t,
       pitClosed: this.pitClosed,
       state: this.state,

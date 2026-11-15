@@ -384,7 +384,7 @@ function draw(ctx, s, now) {
     ctx.fillStyle = '#ff9a1f'; ctx.fillRect(W - 170, 10, 160, 18)
     ctx.fillStyle = '#10141c'; ctx.textAlign = 'center'; ctx.fillText(status.toUpperCase(), W - 90, 23); ctx.textAlign = 'left'
     label(ctx, `${carA.code} ${va} km/h · ${carB.code} ${slow ? Math.round(ref * 0.4) : ref} km/h`, 10, H - 28, '#e8edf7')
-  } else if (kind === 'blue' || kind === 'force' || kind === 'weave') {
+  } else if (kind === 'blue' || kind === 'force' || kind === 'weave' || kind === 'impede') {
     // Gerade von oben, Fahrtrichtung nach oben. Strecke von x = -6 bis 6, Randsteine außen.
     let xA, yA, xB, yB, note = '', noteCol = '#e8edf7'
     const k = (H / 30) * zoom
@@ -392,6 +392,14 @@ function draw(ctx, s, now) {
       const n = inc.replay.flags, T = (n * 14) / 0.85
       yB = -p * T; xB = lerp(0.5, 3.6, ease((p - 0.82) / 0.1))
       yA = yB + 7.5 - 17 * ease((p - 0.86) / 0.14); xA = -1.6
+    } else if (kind === 'impede') {
+      // A rollt langsam, B kommt auf schneller Runde an
+      const v = inc.replay.v
+      yA = -p * 40
+      xA = v === 'minor' ? lerp(0, 4.2, ease((p - 0.12) / 0.15)) : v === 'late' ? lerp(0, 4.2, ease((p - 0.5) / 0.15)) : 0
+      if (v === 'minor') { yB = yA + 34 - 62 * p; xB = -0.6 }
+      else if (v === 'late') { yB = yA + (p < 0.62 ? Math.max(7, 34 - 60 * p) : 7 - 30 * ease((p - 0.62) / 0.38)); xB = -0.6 * ease((p - 0.5) / 0.15) }
+      else { yB = yA + (p < 0.8 ? Math.max(7, 34 - 60 * p) : 7 - 17 * ease((p - 0.8) / 0.2)); xB = -3.6 * ease((p - 0.7) / 0.1) }
     } else if (kind === 'force') {
       const e = ease((p - 0.3) / 0.4)
       yA = 16 - 38 * p; xA = lerp(-1.5, 5 - inc.replay.room, e)
@@ -409,7 +417,7 @@ function draw(ctx, s, now) {
         yB = yA + lerp(9, 7, p)
       }
     }
-    const camY = fixed ? (kind === 'blue' ? yB : kind === 'force' ? 3 : -10) : (kind === 'blue' ? yB + 3 : (yA + yB) / 2 - 1)
+    const camY = fixed ? (kind === 'blue' ? yB : kind === 'impede' ? yA : kind === 'force' ? 3 : -10) : (kind === 'blue' ? yB + 3 : kind === 'impede' ? yA + 4 : (yA + yB) / 2 - 1)
     const S = (x, y) => [W / 2 + x * k, H / 2 + (y - camY) * k]
     ctx.fillStyle = '#1f5a2a'; ctx.fillRect(0, 0, W, H)
     const [r0] = S(-6, 0), [r1] = S(6, 0)
@@ -428,6 +436,10 @@ function draw(ctx, s, now) {
         ctx.fillRect(fx + 1, fy - 2, 14 * Math.min(1.6, zoom), 9 * Math.min(1.6, zoom))
       }
       note = `BLAUE FLAGGE: ${Math.min(n, passed)} von ${n} Posten`; noteCol = passed <= 3 ? '#2fe08a' : passed <= 5 ? '#ffd21f' : '#ff6a6a'
+    } else if (kind === 'impede') {
+      const v = inc.replay.v, stuck = v !== 'minor' && yB - yA < 8 && yB > yA
+      note = stuck ? `${carB.code} muss vom Gas · ${carA.code} auf der Ideallinie` : `ZEITVERLUST ${carB.code}: ${inc.replay.lost.toFixed(2).replace('.', ',')} s`
+      noteCol = v === 'clear' ? '#ff6a6a' : v === 'late' ? '#ffd21f' : '#2fe08a'
     } else if (kind === 'force') {
       const [ax0, apy] = S(-6, 16 - 38 * 0.3), [ax1] = S(6, 0)
       ctx.strokeStyle = '#ffd21f'; ctx.setLineDash([8, 6]); ctx.lineWidth = 2
@@ -458,8 +470,8 @@ function draw(ctx, s, now) {
     const lean = (kind === 'weave' || kind === 'force') ? 0.0 : 0
     drawCar(ctx, bx, by, lean, carB.livery, k)
     drawCar(ctx, ax, ay, lean, carA.livery, k)
-    mark(ctx, bx, by, k, carB.code + (kind === 'blue' ? ' · ÜBERRUNDET' : ''), false, now, xB < xA)
-    mark(ctx, ax, ay, k, carA.code, false, now, xA <= xB)
+    mark(ctx, bx, by, k, carB.code + (kind === 'blue' ? ' · ÜBERRUNDET' : kind === 'impede' ? ' · SCHNELLE RUNDE' : ''), false, now, xB < xA)
+    mark(ctx, ax, ay, k, carA.code + (kind === 'impede' ? ' · LANGSAM' : ''), false, now, xA <= xB)
     label(ctx, note, 10, H - 28, noteCol)
   } else if (kind === 'chicane') {
     const v = inc.replay.v, duo = v === 'kept' || v === 'back'

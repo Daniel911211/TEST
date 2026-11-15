@@ -26,6 +26,9 @@ export function CaseDialog({ race, incId, onClose }) {
     if (res) setFb(res)
   }
   const labelOf = (k) => (inc.type === 'trackLimits' && k === 'nfa' ? 'Kein Vergehen' : k === 'sg' ? 'Stop & Go 10 s' : OPTIONS[k].label)
+  // Einsteiger bekommen die Empfehlung der Stewards angezeigt
+  const hintOpt = race.diff.hint && inc.ideal ? opts.find((k) => OPTIONS[k].sev === inc.ideal.sev) : null
+  const hintWho = isCollision && inc.ideal ? (inc.ideal.culprit === 'a' ? `Schuld bei ${carA.code}, ` : inc.ideal.culprit === 'b' ? `Schuld bei ${carB.code}, ` : 'Rennunfall, ') : ''
   const needCulprit = isCollision && !culprit
 
   return (
@@ -47,6 +50,7 @@ export function CaseDialog({ race, incId, onClose }) {
               </tbody>
             </table>
             {inc.tip && <div className="tip">{inc.tip}</div>}
+            {hintOpt && !fb && <div className="tip">Empfehlung der Stewards (Einsteiger): {hintWho}{labelOf(hintOpt)}</div>}
             {inc.statements.map((s) => (
               <div key={s.code} className="quote"><b>{s.code}:</b> „{s.text}“</div>
             ))}
@@ -84,12 +88,13 @@ export function CaseDialog({ race, incId, onClose }) {
   )
 }
 
-export function ReportDialog({ snap, onClose, onNew, finished }) {
+export function ReportDialog({ snap, onClose, onNew, onRace, onSeason, finished }) {
   const r = snap.report
+  const q = snap.quali
   return (
     <div className="overlay" onClick={finished ? undefined : onClose}>
       <div className="dialog report" onClick={(e) => e.stopPropagation()}>
-        <h2>RENNBERICHT · {snap.track.gp.toUpperCase()}</h2>
+        <h2>{q ? 'QUALIFYING' : 'RENNBERICHT'} · {snap.track.gp.toUpperCase()}</h2>
         <div className="repsum">
           <div className={`grade g${r.grade}`}>{r.grade}</div>
           <div>
@@ -100,7 +105,7 @@ export function ReportDialog({ snap, onClose, onNew, finished }) {
         </div>
         <div className="repcols">
           <table className="results">
-            <thead><tr><th>POS</th><th>FAHRER</th><th>TEAM</th><th>ZEIT</th><th>STRAFEN</th><th>BESTE</th></tr></thead>
+            <thead><tr><th>POS</th><th>FAHRER</th><th>TEAM</th><th>{q ? 'BESTZEIT' : 'ZEIT'}</th><th>STRAFEN</th><th>{q ? 'ABSTAND' : 'BESTE'}</th></tr></thead>
             <tbody>
               {(snap.results || []).map((x) => (
                 <tr key={x.code}>
@@ -108,11 +113,11 @@ export function ReportDialog({ snap, onClose, onNew, finished }) {
                   <td><i className="dot" style={{ background: x.color }} />{x.num} {x.name}</td>
                   <td className="dim">{x.team}</td>
                   <td>{x.time}</td>
-                  <td>{x.penaltySec ? `+${x.penaltySec}s` : ''}</td>
+                  <td>{x.note || (x.penaltySec ? `+${x.penaltySec}s` : '')}</td>
                   <td className="dim">{x.best}</td>
                 </tr>
               ))}
-              {!snap.results && <tr><td colSpan="6" className="hint">Das Rennen läuft noch.</td></tr>}
+              {!snap.results && <tr><td colSpan="6" className="hint">{q ? 'Das Qualifying läuft noch.' : 'Das Rennen läuft noch.'}</td></tr>}
             </tbody>
           </table>
           <div className="replog">
@@ -127,7 +132,9 @@ export function ReportDialog({ snap, onClose, onNew, finished }) {
         </div>
         <div className="dfoot">
           {!finished && <button className="btn" onClick={onClose}>ZURÜCK ZUM LEITSTAND</button>}
-          <button className="btn ok" onClick={onNew}>NEUES RENNEN</button>
+          {finished && q && <button className="btn ok" onClick={onRace}>ZUM RENNEN · STARTAUFSTELLUNG ÜBERNEHMEN</button>}
+          {finished && !q && onSeason && <button className="btn ok" onClick={onSeason}>ZUR SAISONÜBERSICHT</button>}
+          <button className={`btn ${finished && (q || onSeason) ? '' : 'ok'}`} onClick={onNew}>NEUES RENNEN</button>
         </div>
       </div>
     </div>

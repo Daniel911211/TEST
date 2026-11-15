@@ -168,13 +168,13 @@ export default function TrackMap({ race, selected, onSelect, freeCam }) {
         // Namen weglassen, wenn sie eine andere Beschriftung überdecken würden
         for (const text of [`${c.n} ${c.name}`, String(c.n)]) {
           const tw = ctx.measureText(text).width
-          const x0 = align === 'left' ? lx : align === 'right' ? lx - tw : lx - tw / 2
+          const x0 = Math.max(4, Math.min(size.w - tw - 4, align === 'left' ? lx : align === 'right' ? lx - tw : lx - tw / 2))
           const box = [x0 - 3, ly - 10, x0 + tw + 3, ly + 3]
           if (boxes.some((b) => box[0] < b[2] && box[2] > b[0] && box[1] < b[3] && box[3] > b[1])) continue
           boxes.push(box)
-          ctx.textAlign = align
+          ctx.textAlign = 'left'
           ctx.fillStyle = '#6b7890'
-          ctx.fillText(text, lx, ly)
+          ctx.fillText(text, x0, ly)
           break
         }
       }
