@@ -68,6 +68,9 @@ export function ControlPanel({ snap, race, selectedRow, selectedCar, onAuto }) {
           <button className="btn red" disabled={auto || !['GREEN', 'VSC', 'SC'].includes(s)} onClick={() => race.callRed()}>ROTE FLAGGE</button>
           <button className="btn ok" disabled={auto || s !== 'RED'} onClick={() => race.restart()}>NEUSTART</button>
         </div>
+        <button className={`btn sm wide ${snap.pitClosed ? 'red' : 'gray'}`} disabled={auto || !['GREEN', 'VSC', 'SC', 'RED'].includes(s)} onClick={() => race.togglePit()}>
+          {snap.pitClosed ? 'BOXENGASSE IST GESPERRT · ÖFFNEN' : 'BOXENGASSE SPERREN'}
+        </button>
         <button className="btn sm wide gray" disabled={auto || s !== 'SC' || !snap.scCollected || !snap.lapped || snap.scEnding} onClick={() => race.letLappedPass()}>
           {snap.unlapping ? `ÜBERRUNDETE FAHREN VORBEI (${snap.unlapping})` : `ÜBERRUNDETE VORBEILASSEN${snap.lapped ? ` (${snap.lapped})` : ''}`}
         </button>
@@ -111,7 +114,7 @@ export function IncidentPanel({ incidents, t, onOpen, race }) {
           return (
             <div key={i.id} className={`inc ${i.kind}`}>
               <div className="inchead">
-                <b>{i.kind === 'decision' ? `${String(i.no).padStart(2, '0')} · ${TYPE_TITLE[i.type]}` : `⚠ ${cars[0].code} steht auf der Strecke`}</b>
+                <b>{i.kind === 'decision' ? `${String(i.no).padStart(2, '0')} · ${TYPE_TITLE[i.type]}` : i.kind === 'protest' ? `PROTEST · ${cars[0].team}` : `⚠ ${cars[0].code} steht auf der Strecke`}</b>
                 {left !== null && <span className={`timer ${left < 30 ? 'low' : ''}`}>{left}s</span>}
               </div>
               <div className="dim">
@@ -141,7 +144,16 @@ export function IncidentPanel({ incidents, t, onOpen, race }) {
                   <div className="mbar"><i style={{ width: `${Math.round((1 - i.haz.left / i.haz.total) * 100)}%`, background: '#4cd0ff' }} /></div>
                 </div>
               )}
-              {i.kind === 'decision' ? (
+              {i.kind === 'hazard' && i.haz && i.haz.nearPit && <div className="marshal"><b className="pos-teil">Auto steht im Bereich der Boxeneinfahrt</b></div>}
+              {i.kind === 'protest' ? (
+                <>
+                  <div className="marshal">Einspruch gegen die Strafe „{OPTION_LIST.find((o) => o.key === i.opt).label}“ für {cars[0].name}{i.caseNo ? ` aus Fall ${String(i.caseNo).padStart(2, '0')}` : ' (Direktstrafe ohne Fall)'}.</div>
+                  <div className="quick">
+                    <button className="btn sm" onClick={() => race.resolveProtest(i.id, 'confirm')}>ENTSCHEIDUNG BESTÄTIGEN</button>
+                    <button className="btn sm amber" onClick={() => race.resolveProtest(i.id, 'revoke')}>STRAFE ZURÜCKNEHMEN</button>
+                  </div>
+                </>
+              ) : i.kind === 'decision' ? (
                 <button className="btn sm amber" onClick={() => onOpen(i.id)}>FALL PRÜFEN</button>
               ) : (
                 race.auto ? (

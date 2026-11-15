@@ -20,6 +20,8 @@ export const OPTIONS = {
 export const OPTION_LIST = Object.values(OPTIONS)
 
 export const RULES = {
+  pitClosed:
+    'Gesperrte Boxengasse: Wer trotz roter Ampel einfährt, bekommt 10 Sekunden Stop & Go. Ausnahme: Das Auto ist beschädigt und kommt zur Reparatur, dann bleibt es straffrei.',
   pitSpeed:
     'Tempolimit in der Boxengasse: 80 km/h. Messwert bis 80,0 km/h: keine Strafe. Überschreitung bis 10 km/h: 5 Sekunden. Mehr als 10 km/h zu schnell: 10 Sekunden.',
   jumpStart:
@@ -37,6 +39,8 @@ export const RULES = {
 }
 
 export const TYPE_TITLE = {
+  pitClosed: 'Einfahrt bei gesperrter Boxengasse',
+  protest: 'Protest',
   pitSpeed: 'Tempo in der Boxengasse',
   jumpStart: 'Frühstart',
   gridPosition: 'Falsche Startposition',
@@ -88,6 +92,9 @@ export class Race {
     this.flow = 100
     // Funk
     this.radioQueue = []
+    this.pitClosed = false
+    this.protestQueue = []
+    this.medReadyAt = 0
     this.usedLines = {}
     this.nextAmbient = rnd(15, 30)
     this.dangerT = 0
@@ -235,6 +242,12 @@ export class Race {
   // 2) Startampel: fünf rote Lichter, dann gehen sie nach zufälliger Wartezeit aus
   startLights() {
     if (this.state !== 'GRIDREADY') return
+    if (this.medReadyAt && this.t < this.medReadyAt) {
+      this.safety = clamp(this.safety - 12, 0, 100)
+      this.logEvent('Start freigegeben, obwohl der Arztwagen nicht bereit war', -12)
+      this.msg('WARNUNG - START OHNE BEREITEN ARZTWAGEN', 'bad')
+      this.medReadyAt = 0
+    }
     this.state = 'LIGHTS'
     this.lightsAt = this.t
     this.lightsOutAt = this.t + 5 + rnd(0.5, 2.3)
@@ -383,6 +396,9 @@ export class Race {
       if (h.plan >= 2) want = Math.max(want, h.plan)
     }
     const seen = stopped.length - pending
+    // Boxengasse sperren, solange ein gemeldetes Auto im Bereich der Einfahrt steht
+    const wantClosed = stopped.some((c) => c.haz.nearPit && this.t >= c.haz.seenAt)
+    if (st !== 'RED' && wantClosed !== this.pitClosed && (wantClosed || A.closedPit)) { this.togglePit(); A.closedPit = wantClosed }
     // Massenunfall: drei oder mehr Autos, die geborgen werden müssen (Dreher fahren selbst weiter)
     if (stopped.filter((c) => !c.haz.self && this.t >= c.haz.seenAt).length >= 3) want = 4
     // Starkregen: erst Safety Car, bei Aquaplaning Abbruch
@@ -521,6 +537,13 @@ export class Race {
     this.msg(`ÜBERRUNDETE AUTOS DÜRFEN ÜBERHOLEN: ${cars.map((c) => c.code).join(', ')}`, 'warn')
     this.fairness = clamp(this.fairness + 2, 0, 100)
   }
+  // Boxeneinfahrt sperren oder öffnen (rote Ampel an der Einfahrt)
+  togglePit() {
+    if (!['GREEN', 'VSC', 'SC', 'RED'].includes(this.state) || this.locked()) return
+    this.pitClosed = !this.pitClosed
+    this.logAction(this.pitClosed ? 'Boxengasse gesperrt' : 'Boxengasse geöffnet')
+    this.msg(this.pitClosed ? 'BOXENGASSE GESPERRT' : 'BOXENGASSE WIEDER OFFEN', this.pitClosed ? 'warn' : 'ok')
+  }
   // Das Safety Car bleibt doch draußen, weil es eine neue Gefahr gibt
   scStayOut() {
     if (this.state !== 'SC' || !this.scEnding || !this.sc || this.sc.leaving || this.locked()) return
@@ -642,6 +665,7 @@ export class Race {
     const dl = key === 'black' ? 30 : o.sev * 4
     this.fairness = clamp(this.fairness - dl, 0, 100)
     if (dl) this.logEvent(`Posten ${c.code}: Direktstrafe (${o.label})`, -dl)
+    if (['t10', 'dt', 'sg'].includes(key)) this.protestQueue.push({ at: this.t + rnd(15, 35), car: c.id, opt: key, correct: false, no: 0 })
     if (key !== 'nfa') this.reactRadio('penalty', c, key)
   }
 
@@ -684,9 +708,11 @@ export class Race {
     }
     this.feedback.push(fb)
     this.logEvent(fb.text, delta)
-    const reason = { pitSpeed: 'ZU SCHNELL IN DER BOXENGASSE', jumpStart: 'FRÜHSTART', gridPosition: 'FALSCHE STARTPOSITION', collision: 'VERURSACHEN EINER KOLLISION', unsafeRelease: 'UNSICHERE FREIGABE', overtakeYellow: 'ÜBERHOLEN UNTER GELB' }[inc.type] || 'TRACK LIMITS'
+    const reason = { pitClosed: 'EINFAHRT BEI GESPERRTER BOXENGASSE', pitSpeed: 'ZU SCHNELL IN DER BOXENGASSE', jumpStart: 'FRÜHSTART', gridPosition: 'FALSCHE STARTPOSITION', collision: 'VERURSACHEN EINER KOLLISION', unsafeRelease: 'UNSICHERE FREIGABE', overtakeYellow: 'ÜBERHOLEN UNTER GELB' }[inc.type] || 'TRACK LIMITS'
     if (target) {
       this.applyPenalty(target, opt, reason)
+      // Gegen harte Strafen legt das Team oft Protest ein
+      if (['t10', 'dt', 'sg'].includes(opt) && Math.random() < 0.45) this.protestQueue.push({ at: this.t + rnd(15, 35), car: target.id, opt, correct: delta > 0, no: inc.no })
       if (opt !== 'nfa') this.reactRadio('penalty', target, opt)
     } else {
       this.msg(`${this.tag(a)} / ${this.tag(b)} - RENNUNFALL, KEINE WEITERE MASSNAHME`, 'ok')
@@ -699,6 +725,32 @@ export class Race {
     inc.result = opt
     this.cleanupIncidents()
     return fb
+  }
+
+  // Protest eines Teams: Entscheidung bestätigen oder Strafe zurücknehmen.
+  // Richtig ist, eine korrekte Entscheidung zu bestätigen und eine überzogene zurückzunehmen.
+  resolveProtest(incId, choice) {
+    const inc = this.incidents.find((i) => i.id === incId && i.kind === 'protest' && i.status === 'open')
+    if (!inc) return
+    const c = this.cars[inc.carIds[0]]
+    let delta
+    if (choice === 'confirm') {
+      delta = inc.correct ? 4 : -6
+      this.msg(`PROTEST VON ${c.team.toUpperCase()} ABGEWIESEN - STRAFE FÜR ${this.tag(c)} BLEIBT`, 'info')
+    } else {
+      delta = inc.correct ? -8 : 5
+      // Strafe rückgängig machen, soweit sie noch nicht abgesessen ist
+      if (inc.opt === 't10') c.penaltySec = Math.max(0, c.penaltySec - 10)
+      else if (c.pending && c.pending.type === inc.opt) c.pending = null
+      this.msg(`PROTEST VON ${c.team.toUpperCase()} STATTGEGEBEN - STRAFE FÜR ${this.tag(c)} AUFGEHOBEN`, 'ok')
+      this.say('nfaRelief', c, {}, { force: true })
+    }
+    this.fairness = clamp(this.fairness + delta, 0, 100)
+    const text = `Protest ${c.code} ${choice === 'confirm' ? 'abgewiesen' : 'stattgegeben'}: ${delta > 0 ? 'richtig' : inc.correct ? 'die Strafe war korrekt' : 'die Strafe war überzogen'}`
+    this.logEvent(text, delta)
+    this.feedback.push({ id: `p${inc.id}-${this.t}`, delta, text, verdict: '' })
+    inc.status = 'done'
+    this.incidents = this.incidents.filter((i) => i.status === 'open')
   }
 
   cleanupIncidents() {
@@ -727,6 +779,9 @@ export class Race {
       if (run.every((c) => c.onGrid)) {
         this.state = 'GRIDREADY'
         this.msg('ALLE AUTOS IN DER AUFSTELLUNG - BEREIT ZUM START', 'ok')
+        // Gelegentlich ist der Arztwagen noch nicht bereit: Dann darf der Start noch nicht freigegeben werden
+        this.medReadyAt = Math.random() < 0.12 ? this.t + rnd(12, 25) : 0
+        if (this.medReadyAt) this.msg('MEDICAL CAR NOCH NICHT BEREIT - START NOCH NICHT FREIGEBEN', 'bad')
         if (Math.random() < 0.18) {
           const c = pick(run)
           c.stalled = true
@@ -734,6 +789,10 @@ export class Race {
           this.say('stall', c, {}, { force: true })
         }
       }
+    }
+    if (this.state === 'GRIDREADY' && this.medReadyAt && this.t >= this.medReadyAt) {
+      this.medReadyAt = 0
+      this.msg('MEDICAL CAR BEREIT - START KANN FREIGEGEBEN WERDEN', 'ok')
     }
     if (this.state === 'LIGHTS') {
       const j = this.jump
@@ -992,7 +1051,16 @@ export class Race {
     return ok.find((k) => TYRES[k].life * 0.92 >= frac) || ok[ok.length - 1]
   }
   // Entscheidet an der Boxeneinfahrt, ob und wofür das Auto reinkommt
+  // Bei gesperrter Boxengasse bleiben fast alle draußen. Beschädigte Autos kommen oft trotzdem (erlaubt),
+  // andere nur selten (Regelverstoß, wird ein Fall).
   pitDecision(c) {
+    if (this.pitClosed && Math.random() > (c.damage ? 0.6 : 0.07)) return null
+    const dmg = !!c.damage
+    const job = this.pitJob(c)
+    if (job && this.pitClosed) this.spawn('pitClosed', { car: c, dmg })
+    return job
+  }
+  pitJob(c) {
     if (!['GREEN', 'SC', 'VSC'].includes(this.state) || this.chequered) return null
     if (c.pending) {
       const pen = c.pending.type
@@ -1362,6 +1430,9 @@ export class Race {
       else if (lvl < need) danger += 0.3 * (need - lvl)
       // Fahrer wartet auf den Arzt, der noch nicht losgeschickt wurde
       if (med && med.state === 'needed' && this.t - med.at > 10) danger += 0.7
+      // Steht das Auto im Bereich der Boxeneinfahrt, gehört die Boxengasse gesperrt
+      c.haz.nearPit = mod(mod(c.dist, this.L) - (this.track.pit.inS - 200), this.L) < 330
+      if (c.haz.nearPit && !this.pitClosed && (this.state === 'GREEN' || this.state === 'VSC' || this.state === 'SC')) danger += 0.3
       // active: Bergung läuft sichtbar (Stelle ist abgesichert und der Fahrer versorgt)
       c.haz.active = false
       if (c.recov != null && !med) {
@@ -1398,6 +1469,26 @@ export class Race {
   }
 
   expireIncidents() {
+    // fällige Proteste auf den Tisch der Rennleitung legen
+    for (let i = this.protestQueue.length - 1; i >= 0; i--) {
+      const q = this.protestQueue[i]
+      if (this.t < q.at) continue
+      this.protestQueue.splice(i, 1)
+      const c = this.cars[q.car]
+      if (c.status === 'dsq' || this.chequered) continue
+      const inc = this.makeBase('protest', 'protest', [c.id], { sector: 0, turn: 0, label: 'Rennleitung' })
+      Object.assign(inc, { opt: q.opt, correct: q.correct, caseNo: q.no, deadline: this.t + 90 })
+      this.incidents.push(inc)
+      this.msg(`PROTEST - ${c.team.toUpperCase()} LEGT EINSPRUCH GEGEN DIE STRAFE FÜR ${this.tag(c)} EIN`, 'warn')
+    }
+    for (const inc of this.incidents) {
+      if (inc.kind === 'protest' && inc.status === 'open' && this.t > inc.deadline) {
+        // nicht bearbeitet: die Strafe bleibt, kostet aber etwas Ablauf
+        inc.status = 'done'
+        this.flow = clamp(this.flow - 3, 0, 100)
+        this.msg(`PROTEST FÜR ${this.tag(this.cars[inc.carIds[0]])} NICHT BEARBEITET - STRAFE BLEIBT`, 'warn')
+      }
+    }
     for (const inc of this.incidents) {
       if (inc.kind === 'decision' && inc.status === 'open' && this.t > inc.deadline) {
         inc.status = 'done'
@@ -1474,6 +1565,24 @@ export class Race {
 
   spawn(type, opts = {}) {
     const run = this.runningCars()
+    if (type === 'pitClosed') {
+      const c = opts.car
+      const inc = this.makeBase('decision', 'pitClosed', [c.id], { sector: 0, turn: 0, label: 'Boxeneinfahrt' })
+      inc.ideal = { culprit: null, sev: opts.dmg ? 0 : 5 }
+      inc.options = ['nfa', 'warn', 't5', 't10', 'dt', 'sg']
+      inc.facts = [
+        ['Fahrer', `${c.num} ${c.name} - ${c.team}`],
+        ['Boxenampel', 'rot, Boxengasse gesperrt'],
+        ['Zustand des Autos', opts.dmg ? 'beschädigt, kommt zur Reparatur' : 'ohne Schaden, normaler Reifenwechsel'],
+        ['Ort', 'Boxeneinfahrt'],
+      ]
+      inc.statements = [{ code: c.code, text: opts.dmg ? 'Das Auto war kaputt, ich musste rein!' : pick(['Die Ampel war rot? Die habe ich nicht gesehen.', 'Das Team hat mich reingerufen. Ich mache nur, was die sagen.']) }]
+      inc.replay = { kind: 'pitspeed', kmh: 79.5, closed: true }
+      inc.expert = opts.dmg ? 'Experten: Beschädigtes Auto, Einfahrt zur Reparatur erlaubt. Keine Strafe.' : 'Experten: Einfahrt trotz roter Ampel ohne Schaden. 10 Sekunden Stop & Go.'
+      this.incidents.push(inc)
+      this.msg(`${this.tag(c)} - EINFAHRT BEI GESPERRTER BOXENGASSE - WIRD UNTERSUCHT`, 'warn')
+      return
+    }
     if (type === 'pitSpeed') {
       const c = opts.car, kmh = opts.kmh
       const inc = this.makeBase('decision', 'pitSpeed', [c.id], { sector: 0, turn: 0, label: 'Boxengasse' })
@@ -1736,6 +1845,8 @@ export class Race {
       raceTime: this.raceStart === null ? 0 : this.t - this.raceStart,
       lights: this.lightsOn(),
       stalled: this.cars.filter((c) => c.stalled).map((c) => c.name),
+      medNotReady: this.state === 'GRIDREADY' && this.medReadyAt > this.t,
+      pitClosed: this.pitClosed,
       state: this.state,
       lap: leader ? this.lapNo(leader) : 1,
       laps: this.laps,

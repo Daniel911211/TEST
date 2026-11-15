@@ -135,6 +135,7 @@ select {
 .inclist { overflow-y: auto; display: flex; flex-direction: column; gap: 5px; }
 .inc { border-left: 3px solid var(--amber); background: var(--panel2); padding: 6px 8px; display: flex; flex-direction: column; gap: 4px; }
 .inc.hazard { border-color: var(--red); }
+.inc.protest { border-color: var(--blue); }
 .inchead { display: flex; justify-content: space-between; }
 .timer { color: var(--dim); }
 .timer.low { color: var(--red); font-weight: 800; }

@@ -135,7 +135,8 @@ export default function TrackMap({ race, selected, onSelect, freeCam }) {
         ctx.font = '600 9px ui-monospace, monospace'
         ctx.fillStyle = '#8fa0bd'
         ctx.textAlign = 'center'
-        ctx.fillText('BOX', q.x * sc + ox - Math.sin(q.h) * 14 * P.side, q.y * sc + oy + Math.cos(q.h) * 14 * P.side + 3)
+        if (race.pitClosed) ctx.fillStyle = '#ff6a6a'
+        ctx.fillText(race.pitClosed ? 'BOX GESPERRT' : 'BOX', q.x * sc + ox - Math.sin(q.h) * 14 * P.side, q.y * sc + oy + Math.cos(q.h) * 14 * P.side + 3)
       }
       // Sektorgrenzen & Ziellinie
       ctx.font = '600 10px ui-monospace, monospace'

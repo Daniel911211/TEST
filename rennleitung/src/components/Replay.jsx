@@ -495,7 +495,7 @@ function draw(ctx, s, now) {
     if (!solo && t > t0) label(ctx, `${carB.code} bremst von 80 auf ${80 - react} km/h`, 10, H - 28, react > 30 ? '#ff6a6a' : react >= 10 ? '#ffd21f' : '#2fe08a')
     if (solo) {
       label(ctx, `${carB.code}: ${inc.replay.kmh.toFixed(1)} km/h`, W - 10, 10, inc.replay.kmh > 80 ? '#ff6a6a' : '#2fe08a', 'right')
-      label(ctx, 'LIMIT 80 km/h', W - 10, 32, '#ffd21f', 'right')
+      label(ctx, inc.replay.closed ? 'BOXENAMPEL ROT · GESPERRT' : 'LIMIT 80 km/h', W - 10, 32, inc.replay.closed ? '#ff6a6a' : '#ffd21f', 'right')
     } else label(ctx, `${carB.code}: ${Math.round(vB * 3.6)} km/h · LIMIT 80`, W - 10, 10, '#e8edf7', 'right')
   }
   label(ctx, hud, 8, 8, '#ffd21f')

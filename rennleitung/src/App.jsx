@@ -228,6 +228,7 @@ export default function App() {
             )}
             {snap.state === 'GRIDREADY' && (
               <div className="startbox">
+                {snap.medNotReady && <div className="stallwarn">⚠ Der Arztwagen ist noch nicht bereit. Start erst freigeben, wenn er sich meldet.</div>}
                 {snap.stalled.length > 0 && <div className="stallwarn">⚠ {snap.stalled.join(', ')} steht mit abgewürgtem Motor in der Aufstellung</div>}
                 <div className="startbtns">
                   <button className="btn big ok" onClick={() => race.startLights()}>STARTAMPEL STARTEN</button>

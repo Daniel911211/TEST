@@ -171,6 +171,11 @@ export default function CamView({ race, mode, selected, freeCam }) {
         ctx.strokeStyle = col; ctx.lineWidth = 0.35; ctx.strokeRect(-3.2, sd > 0 ? 4.4 : -7.4, 6.4, 3)
         ctx.restore()
       })
+      if (race.pitClosed) {
+        // rote Ampel: Balken quer über die Boxeneinfahrt
+        const q = P.at(30)
+        ctx.save(); ctx.translate(q.x, q.y); ctx.rotate(q.h); ctx.fillStyle = '#ff2a2a'; ctx.fillRect(-0.7, -4.4, 1.4, 8.8); ctx.restore()
+      }
       for (const u of [P.uA, P.uB]) {
         const q = P.at(u)
         ctx.save(); ctx.translate(q.x, q.y); ctx.rotate(q.h); ctx.fillStyle = '#ffd21f'; ctx.fillRect(-0.4, -4.2, 0.8, 8.4); ctx.restore()
