@@ -384,6 +384,156 @@ function draw(ctx, s, now) {
     ctx.fillStyle = '#ff9a1f'; ctx.fillRect(W - 170, 10, 160, 18)
     ctx.fillStyle = '#10141c'; ctx.textAlign = 'center'; ctx.fillText(status.toUpperCase(), W - 90, 23); ctx.textAlign = 'left'
     label(ctx, `${carA.code} ${va} km/h · ${carB.code} ${slow ? Math.round(ref * 0.4) : ref} km/h`, 10, H - 28, '#e8edf7')
+  } else if (kind === 'blue' || kind === 'force' || kind === 'weave') {
+    // Gerade von oben, Fahrtrichtung nach oben. Strecke von x = -6 bis 6, Randsteine außen.
+    let xA, yA, xB, yB, note = '', noteCol = '#e8edf7'
+    const k = (H / 30) * zoom
+    if (kind === 'blue') {
+      const n = inc.replay.flags, T = (n * 14) / 0.85
+      yB = -p * T; xB = lerp(0.5, 3.6, ease((p - 0.82) / 0.1))
+      yA = yB + 7.5 - 17 * ease((p - 0.86) / 0.14); xA = -1.6
+    } else if (kind === 'force') {
+      const e = ease((p - 0.3) / 0.4)
+      yA = 16 - 38 * p; xA = lerp(-1.5, 5 - inc.replay.room, e)
+      yB = yA + (inc.replay.v === 'behind' ? 3.6 + 2.5 * e : 0.3); xB = lerp(1.0, 7.6, e)
+    } else {
+      const v = inc.replay.v
+      yA = 20 - 60 * p
+      if (v === 'brake') {
+        xA = lerp(2, -1.6, ease((p - 0.64) / 0.14))
+        xB = lerp(lerp(2, -2, ease((p - 0.35) / 0.15)), -5.0, ease((p - 0.66) / 0.12))
+        yB = yA + lerp(9, 6.4, ease(p / 0.6))
+      } else {
+        xA = lerp(lerp(2, -2, ease((p - 0.2) / 0.2)), 2, v === 'two' ? ease((p - 0.52) / 0.18) : 0)
+        xB = lerp(lerp(lerp(2, -2, ease((p - 0.1) / 0.15)), 2, ease((p - 0.4) / 0.15)), -2, v === 'two' ? ease((p - 0.7) / 0.15) : 0)
+        yB = yA + lerp(9, 7, p)
+      }
+    }
+    const camY = fixed ? (kind === 'blue' ? yB : kind === 'force' ? 3 : -10) : (kind === 'blue' ? yB + 3 : (yA + yB) / 2 - 1)
+    const S = (x, y) => [W / 2 + x * k, H / 2 + (y - camY) * k]
+    ctx.fillStyle = '#1f5a2a'; ctx.fillRect(0, 0, W, H)
+    const [r0] = S(-6, 0), [r1] = S(6, 0)
+    kerbV(ctx, S, -7.5, -6, camY, k); kerbV(ctx, S, 6, 7.5, camY, k)
+    ctx.fillStyle = '#4b4c52'; ctx.fillRect(r0, 0, r1 - r0, H)
+    ctx.fillStyle = '#f4f4f4'; ctx.fillRect(r0, 0, 3, H); ctx.fillRect(r1 - 3, 0, 3, H)
+    if (kind === 'blue') {
+      const n = inc.replay.flags
+      let passed = 0
+      for (let j = 0; j < n; j++) {
+        const fyW = -(j + 0.5) * 14
+        const [fx, fy] = S(-9.5, fyW)
+        if (fyW > yB) passed++
+        ctx.fillStyle = '#c9ccd4'; ctx.fillRect(fx - 1, fy - 2, 2, 14)
+        ctx.fillStyle = Math.sin(now / 90 + j) > -0.3 ? '#2f7dff' : '#1b3f88'
+        ctx.fillRect(fx + 1, fy - 2, 14 * Math.min(1.6, zoom), 9 * Math.min(1.6, zoom))
+      }
+      note = `BLAUE FLAGGE: ${Math.min(n, passed)} von ${n} Posten`; noteCol = passed <= 3 ? '#2fe08a' : passed <= 5 ? '#ffd21f' : '#ff6a6a'
+    } else if (kind === 'force') {
+      const [ax0, apy] = S(-6, 16 - 38 * 0.3), [ax1] = S(6, 0)
+      ctx.strokeStyle = '#ffd21f'; ctx.setLineDash([8, 6]); ctx.lineWidth = 2
+      ctx.beginPath(); ctx.moveTo(ax0, apy); ctx.lineTo(ax1, apy); ctx.stroke(); ctx.setLineDash([])
+      ctx.fillStyle = '#ffd21f'; ctx.fillText('SCHEITELPUNKT', ax0 + 6, apy - 5)
+      if (p > 0.62) {
+        const [gx0, gy] = S(xA + 1, yA), [gx1] = S(6, 0)
+        const okRoom = inc.replay.room >= 2
+        ctx.strokeStyle = okRoom ? '#2fe08a' : '#ff6a6a'; ctx.lineWidth = 3
+        ctx.beginPath(); ctx.moveTo(gx0, gy); ctx.lineTo(gx1, gy); ctx.stroke()
+        note = `PLATZ NEBEN ${carA.code}: ${inc.replay.room.toFixed(1).replace('.', ',')} m`; noteCol = okRoom ? '#2fe08a' : '#ff6a6a'
+      } else note = inc.replay.v === 'behind' ? `${carB.code} am Scheitelpunkt nur am Hinterrad` : `${carB.code} am Scheitelpunkt daneben`
+    } else {
+      const [bx0, by0] = S(-6, -16), [bx1] = S(6, 0)
+      ctx.fillStyle = 'rgba(255,154,31,0.16)'; ctx.fillRect(bx0, 0, bx1 - bx0, Math.max(0, by0))
+      ctx.fillStyle = '#ff9a1f'; ctx.fillRect(bx0, by0 - 1, bx1 - bx0, 2); ctx.fillText('BREMSZONE', bx0 + 6, by0 - 6)
+      for (const [m, yy] of [[150, -16], [100, -30], [50, -44]]) {
+        const [sx, sy] = S(8.6, yy)
+        ctx.fillStyle = '#f4f4f4'; ctx.fillRect(sx, sy - 8, 30, 16)
+        ctx.fillStyle = '#10141c'; ctx.textAlign = 'center'; ctx.fillText(String(m), sx + 15, sy + 4); ctx.textAlign = 'left'
+      }
+      const v = inc.replay.v
+      const moves = v === 'two' ? (p > 0.6 ? 2 : p > 0.3 ? 1 : 0) : v === 'brake' ? (p > 0.7 ? 1 : 0) : p > 0.3 ? 1 : 0
+      note = `RICHTUNGSWECHSEL ${carA.code}: ${moves}${v === 'brake' && p > 0.7 ? ' · IN DER BREMSZONE' : ''}`
+      noteCol = v === 'brake' && p > 0.7 ? '#ff6a6a' : moves >= 2 ? '#ffd21f' : '#2fe08a'
+    }
+    const [bx, by] = S(xB, yB), [ax, ay] = S(xA, yA)
+    const lean = (kind === 'weave' || kind === 'force') ? 0.0 : 0
+    drawCar(ctx, bx, by, lean, carB.livery, k)
+    drawCar(ctx, ax, ay, lean, carA.livery, k)
+    mark(ctx, bx, by, k, carB.code + (kind === 'blue' ? ' · ÜBERRUNDET' : ''), false, now, xB < xA)
+    mark(ctx, ax, ay, k, carA.code, false, now, xA <= xB)
+    label(ctx, note, 10, H - 28, noteCol)
+  } else if (kind === 'chicane') {
+    const v = inc.replay.v, duo = v === 'kept' || v === 'back'
+    const pts = [[0, 60], [0, 14], [-10, 3], [0, -8], [0, -70]]
+    const seg = pts.slice(1).map((q, i) => Math.hypot(q[0] - pts[i][0], q[1] - pts[i][1]))
+    const along = (d) => {
+      let i = 0
+      while (i < seg.length - 1 && d > seg[i]) d -= seg[i++]
+      const t = Math.max(0, d) / seg[i]
+      return [lerp(pts[i][0], pts[i + 1][0], t), lerp(pts[i][1], pts[i + 1][1], t)]
+    }
+    const pose = (d) => { const a = along(d - 2.5), b = along(d + 2.5); return [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2, Math.atan2(b[0] - a[0], -(b[1] - a[1]))] }
+    const dB = 22 + 66 * p
+    let dA = 15 + 66 * p + (v === 'lost' ? -11 * ease((p - 0.4) / 0.3) : 10 * ease((p - 0.3) / 0.4))
+    let xA = 0
+    if (v === 'back') { dA -= 17 * ease((p - 0.78) / 0.2); xA = 3.2 * ease((p - 0.74) / 0.1) }
+    const yA = 60 - dA
+    if (v === 'lost' && yA < 14 && yA > -8) xA = 2.2 * Math.sin(((14 - yA) / 22) * Math.PI * 2)
+    const k = (H / 46) * zoom
+    const camY = fixed ? 3 : yA - 3
+    const S = (x, y) => [W / 2 + (x + 3) * k, H / 2 + (y - camY) * k]
+    ctx.fillStyle = '#1f5a2a'; ctx.fillRect(0, 0, W, H)
+    // asphaltierte Auslaufzone in der Schikane
+    ctx.fillStyle = '#3b6d7a'; ctx.beginPath()
+    for (const [x, y] of [[-5, 18], [6, 18], [6, -12], [-5, -12], [-12, 3]]) { const [sx, sy] = S(x, y); ctx.lineTo(sx, sy) }
+    ctx.closePath(); ctx.fill()
+    const path = () => { ctx.beginPath(); pts.forEach(([x, y], i) => { const [sx, sy] = S(x, y); i ? ctx.lineTo(sx, sy) : ctx.moveTo(sx, sy) }) }
+    ctx.lineJoin = 'round'
+    path(); ctx.strokeStyle = '#f4f4f4'; ctx.lineWidth = 11 * k + 5; ctx.stroke()
+    path(); ctx.strokeStyle = '#4b4c52'; ctx.lineWidth = 11 * k; ctx.stroke()
+    // Poller in der Auslaufzone
+    for (const [x, y] of [[1.8, 9], [-1.8, 3], [1.8, -3]]) { const [sx, sy] = S(x, y); ctx.fillStyle = '#ff9a1f'; ctx.fillRect(sx - 0.5 * k, sy - 0.5 * k, k, k) }
+    if (duo) { const [x, y, a] = pose(dB); const [sx, sy] = S(x, y); drawCar(ctx, sx, sy, a, carB.livery, k); mark(ctx, sx, sy, k, carB.code, false, now, true) }
+    const [sx, sy] = S(xA, yA)
+    drawCar(ctx, sx, sy, 0, carA.livery, k)
+    mark(ctx, sx, sy, k, carA.code, false, now)
+    const txt = v === 'kept' ? `${carA.code} kürzt ab und bleibt vor ${carB.code}` : v === 'back' ? (p > 0.8 ? `${carA.code} lässt ${carB.code} wieder vorbei` : `${carA.code} kürzt ab und kommt vor ${carB.code} zurück`) : v === 'time' ? `${carA.code} kürzt ab und gewinnt Zeit` : `${carA.code} verliert Zeit zwischen den Pollern`
+    label(ctx, txt, 10, H - 28, v === 'kept' ? '#ff6a6a' : v === 'time' ? '#ffd21f' : '#2fe08a')
+  } else if (kind === 'scgap') {
+    const { lens, lead } = inc.replay
+    const end = lens * 5.6
+    const gap = lerp(Math.min(end, 7 * 5.6), end, ease(p / 0.7))
+    const k = (W / (end + 46)) * zoom
+    const mid = H / 2 - 10
+    const X = (m) => W / 2 + m * k
+    ctx.fillStyle = '#1f5a2a'; ctx.fillRect(0, 0, W, H)
+    const rh = Math.max(34, 12 * k)
+    ctx.fillStyle = '#4b4c52'; ctx.fillRect(0, mid - rh / 2, W, rh)
+    ctx.fillStyle = '#f4f4f4'; ctx.fillRect(0, mid - rh / 2, W, 2); ctx.fillRect(0, mid + rh / 2 - 2, W, 2)
+    const xLead = end / 2, xA = xLead - gap
+    const scroll = (p * 260) % 12
+    ctx.fillStyle = 'rgba(244,244,244,0.5)'
+    for (let m = -end; m < end + 60; m += 12) ctx.fillRect(X(m - scroll), mid - 1, 5 * k, 2)
+    // Maßband in Wagenlängen ab dem Heck des Vordermanns
+    const y0 = mid + rh / 2 + 10
+    for (let j = 0; j <= Math.max(lens, 12); j++) {
+      const x = X(xLead - 2.8 - j * 5.6)
+      const big = j % 5 === 0
+      ctx.fillStyle = j === 10 ? '#ffd21f' : j > 10 ? '#ff6a6a' : '#9aa3b5'
+      ctx.fillRect(x - 1, y0, 2, big ? 14 : 7)
+      if (big && j) { ctx.textAlign = 'center'; ctx.fillText(String(j), x, y0 + 27); ctx.textAlign = 'left' }
+    }
+    const x10 = X(xLead - 2.8 - 56)
+    ctx.strokeStyle = '#ffd21f'; ctx.setLineDash([5, 5]); ctx.lineWidth = 2
+    ctx.beginPath(); ctx.moveTo(x10, mid - rh / 2 - 14); ctx.lineTo(x10, y0); ctx.stroke(); ctx.setLineDash([])
+    ctx.fillStyle = '#ffd21f'; ctx.textAlign = 'center'; ctx.fillText('LIMIT: 10 WAGENLÄNGEN', Math.max(80, x10), mid - rh / 2 - 20); ctx.textAlign = 'left'
+    const kc = Math.max(k, 3.2)
+    if (lead) drawSafetyCar(ctx, X(xLead), mid, Math.PI / 2, kc, false, now)
+    else drawCar(ctx, X(xLead), mid, Math.PI / 2, carB.livery, kc)
+    drawCar(ctx, X(xA), mid, Math.PI / 2, carA.livery, kc)
+    mark(ctx, X(xLead), mid, kc, lead ? 'SAFETY CAR · LICHTER AUS' : carB.code, false, now, false, 'above')
+    mark(ctx, X(xA), mid, kc, carA.code, false, now, false, 'above')
+    const cur = gap / 5.6
+    label(ctx, `ABSTAND: ${cur.toFixed(0)} Wagenlängen (${Math.round(gap)} m)`, 10, H - 28, lead ? '#e8edf7' : cur <= 10.4 ? '#2fe08a' : cur <= 20.4 ? '#ffd21f' : '#ff6a6a')
   } else if (kind === 'grid' || kind === 'jump') {
     // Startbox: weiße Linie bei y = 0, Auto zeigt nach oben. Vorderreifen-Vorderkante liegt 2,2 m vor der Fahrzeugmitte.
     let yCar, lightsOn = 0, out = false

@@ -20,6 +20,16 @@ export const OPTIONS = {
 export const OPTION_LIST = Object.values(OPTIONS)
 
 export const RULES = {
+  blueFlags:
+    'Blaue Flagge: Ein überrundetes Auto muss das schnellere bei der ersten Gelegenheit vorbeilassen. Bis 3 Posten mit blauer Flagge: kein Vergehen. 4 bis 5 Posten: Verwarnung. Mehr als 5 Posten: 5 Sekunden.',
+  forcingOff:
+    'Abdrängen: Ist der Angreifer außen am Scheitelpunkt mit der Vorderachse mindestens auf Höhe der Vorderachse des Verteidigers, muss ihm am Kurvenausgang eine Wagenbreite (2,0 m) Platz bleiben. Wird er trotzdem von der Strecke gedrängt: 5 Sekunden. War er nicht weit genug vorn oder blieb genug Platz: keine Strafe.',
+  weaving:
+    'Verteidigen: Erlaubt ist ein einziger Richtungswechsel, und zwar vor dem Bremspunkt. Zweiter Richtungswechsel: Verwarnung (schwarz-weiße Flagge). Spurwechsel in der Bremszone, der den Hintermann zum Ausweichen zwingt: 5 Sekunden.',
+  cutChicane:
+    'Abkürzen: Wer die Strecke verlässt, darf daraus keinen dauerhaften Vorteil ziehen. Position gewonnen und behalten: 5 Sekunden. Position zurückgegeben oder Zeit verloren: keine Strafe. Nur Zeit gewonnen, keine Position: Verwarnung.',
+  scGap:
+    'Hinter dem Safety Car darf der Abstand zum Vordermann höchstens 10 Wagenlängen betragen. 11 bis 20 Wagenlängen: Verwarnung. Mehr als 20: 5 Sekunden. Ausnahme: Sind die Lichter des Safety Cars aus, bestimmt der Führende das Tempo.',
   pitClosed:
     'Gesperrte Boxengasse: Wer trotz roter Ampel einfährt, bekommt 10 Sekunden Stop & Go. Ausnahme: Das Auto ist beschädigt und kommt zur Reparatur, dann bleibt es straffrei.',
   pitSpeed:
@@ -39,6 +49,11 @@ export const RULES = {
 }
 
 export const TYPE_TITLE = {
+  blueFlags: 'Blaue Flaggen ignoriert',
+  forcingOff: 'Abdrängen',
+  weaving: 'Spurwechsel beim Verteidigen',
+  cutChicane: 'Abkürzen der Strecke',
+  scGap: 'Abstand hinter dem Safety Car',
   pitClosed: 'Einfahrt bei gesperrter Boxengasse',
   protest: 'Protest',
   pitSpeed: 'Tempo in der Boxengasse',
@@ -708,7 +723,7 @@ export class Race {
     }
     this.feedback.push(fb)
     this.logEvent(fb.text, delta)
-    const reason = { pitClosed: 'EINFAHRT BEI GESPERRTER BOXENGASSE', pitSpeed: 'ZU SCHNELL IN DER BOXENGASSE', jumpStart: 'FRÜHSTART', gridPosition: 'FALSCHE STARTPOSITION', collision: 'VERURSACHEN EINER KOLLISION', unsafeRelease: 'UNSICHERE FREIGABE', overtakeYellow: 'ÜBERHOLEN UNTER GELB' }[inc.type] || 'TRACK LIMITS'
+    const reason = { blueFlags: 'IGNORIEREN BLAUER FLAGGEN', forcingOff: 'ABDRÄNGEN', weaving: 'UNERLAUBTER SPURWECHSEL', cutChicane: 'ABKÜRZEN MIT VORTEIL', scGap: 'ABSTAND HINTER DEM SAFETY CAR', pitClosed: 'EINFAHRT BEI GESPERRTER BOXENGASSE', pitSpeed: 'ZU SCHNELL IN DER BOXENGASSE', jumpStart: 'FRÜHSTART', gridPosition: 'FALSCHE STARTPOSITION', collision: 'VERURSACHEN EINER KOLLISION', unsafeRelease: 'UNSICHERE FREIGABE', overtakeYellow: 'ÜBERHOLEN UNTER GELB' }[inc.type] || 'TRACK LIMITS'
     if (target) {
       this.applyPenalty(target, opt, reason)
       // Gegen harte Strafen legt das Team oft Protest ein
@@ -1509,6 +1524,8 @@ export class Race {
     const mult = this.state === 'GREEN' ? 1 : 0.25
     if (Math.random() > (dt * mult * (1 + 2.2 * this.wet)) / 45) return
     const types = ['trackLimits', 'trackLimits', 'collision', 'collision', 'breakdown', 'offTrack']
+    if (this.state === 'GREEN') types.push('forcingOff', 'weaving', 'cutChicane', 'blueFlags')
+    if (this.state === 'SC' && this.sc && this.sc.collected) types.push('scGap', 'scGap', 'scGap')
     if (this.state !== 'GREEN' || this.sectors.some((f) => f !== 'green')) types.push('overtakeYellow', 'overtakeYellow', 'overtakeYellow')
     if (this.wet > 0.3) types.push('offTrack', 'offTrack', 'offTrack', 'collision')
     const type = pick(types)
@@ -1650,6 +1667,125 @@ export class Race {
       this.incidents.push(inc)
       this.msg(`${this.tag(c)} - TRACK LIMITS IN KURVE ${w.turn} - WIRD UNTERSUCHT`, 'warn')
       if (Math.random() < 0.6) this.say('trackLimits', c)
+      return
+    }
+    if (type === 'blueFlags') {
+      // B ist überrundet und hält den schnelleren A auf
+      let pair = null
+      for (const B of run) for (const A of run) if (!pair && A !== B && A.dist - B.dist > this.L * 0.8) pair = [B, A]
+      if (!pair) return this.spawn(pick(['forcingOff', 'weaving']))
+      const [B, A] = pair
+      const flags = pick([2, 3, 3, 4, 5, 5, 6, 7, 8, 9])
+      const lost = +(flags * rnd(0.35, 0.6)).toFixed(1)
+      const inc = this.makeBase('decision', 'blueFlags', [B.id, A.id], this.where(B))
+      inc.ideal = { culprit: null, sev: flags <= 3 ? 0 : flags <= 5 ? 1 : 2 }
+      inc.options = ['nfa', 'warn', 't5', 't10', 'dt']
+      inc.facts = [
+        ['Überrundeter', `${B.num} ${B.name} - ${B.team}`],
+        ['Schnelleres Auto', `${A.num} ${A.name} - ${A.team}`],
+        ['Blaue Flaggen passiert', `${flags} Posten`],
+        ['Zeitverlust ' + A.code, `${lost.toFixed(1).replace('.', ',')} s`],
+      ]
+      inc.statements = [
+        { code: B.code, text: pick(['Ich fahre mein eigenes Rennen, wo soll ich denn hin?', 'Ich habe ihn bei der ersten Gelegenheit vorbeigelassen!', 'Blaue Flaggen? Ich habe keine gesehen.']) },
+        { code: A.code, text: pick(['Der hat mich eine halbe Runde aufgehalten!', 'Blaue Flaggen! Blaue Flaggen! Ist der blind?']) },
+      ]
+      inc.replay = { kind: 'blue', flags }
+      inc.expert = flags <= 3 ? `Experten: ${flags} Posten, bei der ersten Gelegenheit Platz gemacht. Keine Strafe.` : flags <= 5 ? `Experten: ${flags} Posten sind zu viel. Verwarnung.` : `Experten: ${flags} blaue Flaggen ignoriert. 5 Sekunden.`
+      this.incidents.push(inc)
+      this.msg(`${this.tag(B)} - BLAUE FLAGGEN IGNORIERT - WIRD UNTERSUCHT`, 'warn')
+      this.say('blue', A, { other: B })
+      return
+    }
+    if (type === 'forcingOff' || type === 'weaving') {
+      if (run.length < 2) return
+      const i = Math.floor(rnd(1, run.length))
+      const A = run[i - 1], B = run[i] // A verteidigt vor B
+      const inc = this.makeBase('decision', type, [A.id, B.id], this.where(A))
+      inc.options = ['nfa', 'warn', 't5', 't10', 'dt']
+      if (type === 'forcingOff') {
+        const v = pick(['pushed', 'pushed', 'behind', 'room'])
+        const room = v === 'pushed' ? rnd(0.4, 1.4) : v === 'room' ? rnd(2.1, 2.8) : rnd(0.4, 1.4)
+        inc.ideal = { culprit: null, sev: v === 'pushed' ? 2 : 0 }
+        inc.facts = [
+          ['Verteidiger (innen)', `${A.num} ${A.name} - ${A.team}`],
+          ['Angreifer (außen)', `${B.num} ${B.name} - ${B.team}`],
+          ['Am Scheitelpunkt', v === 'behind' ? `Vorderachse ${B.code} nur auf Höhe des Hinterrads` : `Vorderachse ${B.code} auf Höhe der Vorderachse`],
+          ['Platz am Kurvenausgang', `${room.toFixed(1).replace('.', ',')} m (Wagenbreite 2,0 m)`],
+          ['Folge', `${B.code} mit allen vier Rädern neben der Strecke`],
+        ]
+        inc.statements = [
+          { code: B.code, text: pick(['Er hat mich einfach von der Strecke geschoben!', 'Ich war daneben! Wo soll ich denn hin, in die Wiese?']) },
+          { code: A.code, text: pick(['Das war meine Kurve, ich war vorn.', 'Ich bin nur meine Linie gefahren.']) },
+        ]
+        inc.replay = { kind: 'force', v, room }
+        inc.expert = v === 'pushed' ? `Experten: ${B.code} war am Scheitelpunkt daneben und bekam keine Wagenbreite Platz. 5 Sekunden für ${A.code}.` : v === 'behind' ? `Experten: ${B.code} war am Scheitelpunkt nicht weit genug vorn. ${A.code} darf die volle Strecke nutzen. Keine Strafe.` : `Experten: ${A.code} hat mehr als eine Wagenbreite gelassen, ${B.code} ist selbst zu weit gefahren. Keine Strafe.`
+        this.msg(`${this.tag(A)} - ABDRÄNGEN VON ${this.tag(B)} - WIRD UNTERSUCHT`, 'warn')
+      } else {
+        const v = pick(['one', 'two', 'two', 'brake', 'brake'])
+        inc.ideal = { culprit: null, sev: v === 'one' ? 0 : v === 'two' ? 1 : 2 }
+        inc.facts = [
+          ['Verteidiger', `${A.num} ${A.name} - ${A.team}`],
+          ['Angreifer', `${B.num} ${B.name} - ${B.team}`],
+          ['Richtungswechsel', v === 'two' ? '2' : '1'],
+          ['In der Bremszone', v === 'brake' ? `ja, ${B.code} muss ausweichen` : 'nein, vor dem Bremspunkt'],
+        ]
+        inc.statements = [
+          { code: B.code, text: v === 'brake' ? 'Der zieht beim Bremsen rüber! Das ist lebensgefährlich!' : pick(['Der fährt Schlangenlinien vor mir!', 'Wie oft will er denn noch die Spur wechseln?']) },
+          { code: A.code, text: pick(['Ich habe einmal verteidigt, das ist erlaubt.', 'Ich habe ihn gar nicht gesehen.']) },
+        ]
+        inc.replay = { kind: 'weave', v }
+        inc.expert = v === 'one' ? 'Experten: Ein Richtungswechsel vor dem Bremspunkt ist erlaubt. Keine Strafe.' : v === 'two' ? 'Experten: Zweiter Richtungswechsel beim Verteidigen. Verwarnung.' : 'Experten: Spurwechsel in der Bremszone, der Hintermann musste ausweichen. 5 Sekunden.'
+        this.msg(`${this.tag(A)} - ${v === 'brake' ? 'SPURWECHSEL BEIM BREMSEN' : 'MEHRFACHER SPURWECHSEL'} - WIRD UNTERSUCHT`, 'warn')
+      }
+      this.incidents.push(inc)
+      return
+    }
+    if (type === 'cutChicane') {
+      if (run.length < 2) return
+      const i = Math.floor(rnd(1, run.length))
+      const A = run[i], B = run[i - 1] // A liegt hinter B und kürzt ab
+      const ch = this.track.corners.filter((c) => /schikane|chicane|bus stop|rettifilo|roggia|ascari|combes|variante|piscine|vale|casio|triangle/i.test(c.name))
+      const k = ch.length ? pick(ch) : this.track.cornerAt(mod(A.dist, this.L))
+      const loc = { sector: sectorOf(k.idx * this.track.ds, this.L), turn: k.n, label: `Kurve ${k.n} (${k.name})` }
+      const v = pick(['kept', 'kept', 'back', 'time', 'lost'])
+      const gain = v === 'lost' ? -rnd(0.3, 0.9) : rnd(0.3, 0.8)
+      const inc = this.makeBase('decision', 'cutChicane', v === 'kept' || v === 'back' ? [A.id, B.id] : [A.id], loc)
+      inc.options = ['nfa', 'warn', 't5', 't10', 'dt']
+      inc.ideal = { culprit: null, sev: v === 'kept' ? 2 : v === 'time' ? 1 : 0 }
+      inc.facts = [
+        ['Fahrer', `${A.num} ${A.name} - ${A.team}`],
+        ['Position gewonnen', v === 'kept' || v === 'back' ? `ja, gegen ${B.code}` : 'nein'],
+        ['Position zurückgegeben', v === 'kept' ? 'nein' : v === 'back' ? 'ja, noch in derselben Runde' : 'entfällt'],
+        ['Zeit durch Abkürzen', `${gain > 0 ? '+' : '-'}${Math.abs(gain).toFixed(1).replace('.', ',')} s ${gain > 0 ? 'gewonnen' : 'verloren'}`],
+      ]
+      inc.statements = [{ code: A.code, text: pick(['Ich hatte keine Chance, die Kurve noch zu kriegen.', 'Ich musste ausweichen, sonst hätte es gekracht.', 'Ich habe doch nichts gewonnen dadurch!']) }]
+      inc.replay = { kind: 'chicane', v }
+      inc.expert = v === 'kept' ? 'Experten: Position durch Abkürzen gewonnen und behalten. 5 Sekunden.' : v === 'back' ? 'Experten: Position zurückgegeben, kein dauerhafter Vorteil. Keine Strafe.' : v === 'time' ? 'Experten: Zeit gewonnen, aber keine Position. Verwarnung.' : 'Experten: Zeit verloren, kein Vorteil. Keine Strafe.'
+      this.incidents.push(inc)
+      this.msg(`${this.tag(A)} - ABKÜRZEN IN ${loc.label.toUpperCase()} - WIRD UNTERSUCHT`, 'warn')
+      return
+    }
+    if (type === 'scGap') {
+      if (run.length < 3 || !this.sc) return
+      const lead = Math.random() < 0.25
+      const A = lead ? run[0] : run[Math.floor(rnd(1, run.length))]
+      const B = lead ? null : run[run.indexOf(A) - 1]
+      const lens = lead ? Math.round(rnd(13, 24)) : pick([6, 8, 9, 12, 14, 17, 19, 22, 26, 30])
+      const inc = this.makeBase('decision', 'scGap', B ? [A.id, B.id] : [A.id], this.where(A))
+      inc.options = ['nfa', 'warn', 't5', 't10', 'dt']
+      inc.ideal = { culprit: null, sev: lead || lens <= 10 ? 0 : lens <= 20 ? 1 : 2 }
+      inc.facts = [
+        ['Fahrer', `${A.num} ${A.name} - ${A.team}`],
+        ['Vor ihm', lead ? 'Safety Car' : `${B.num} ${B.name}`],
+        ['Abstand', `${lens} Wagenlängen (${Math.round(lens * 5.6)} m)`],
+        ['Safety Car', lead ? 'Lichter aus, kommt diese Runde rein' : 'Lichter an'],
+      ]
+      inc.statements = [{ code: A.code, text: lead ? 'Die Lichter waren aus, ich bestimme jetzt das Tempo!' : pick(['Ich habe nur die Reifen aufgewärmt.', 'Die Bremsen waren kalt, ich brauchte Platz.', 'Das waren doch keine zehn Wagenlängen!']) }]
+      inc.replay = { kind: 'scgap', lens, lead }
+      inc.expert = lead ? 'Experten: Sind die Lichter aus, bestimmt der Führende das Tempo und darf abreißen lassen. Keine Strafe.' : lens <= 10 ? `Experten: ${lens} Wagenlängen sind erlaubt. Keine Strafe.` : lens <= 20 ? `Experten: ${lens} Wagenlängen sind zu viel. Verwarnung.` : `Experten: ${lens} Wagenlängen, deutlich über dem Limit. 5 Sekunden.`
+      this.incidents.push(inc)
+      this.msg(`${this.tag(A)} - ABSTAND HINTER DEM SAFETY CAR - WIRD UNTERSUCHT`, 'warn')
       return
     }
     if (type === 'overtakeYellow') {
