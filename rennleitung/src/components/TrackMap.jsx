@@ -138,6 +138,18 @@ export default function TrackMap({ race, selected, onSelect, freeCam }) {
         if (race.pitClosed) ctx.fillStyle = '#ff6a6a'
         ctx.fillText(race.pitClosed ? 'BOX GESPERRT' : 'BOX', q.x * sc + ox - Math.sin(q.h) * 14 * P.side, q.y * sc + oy + Math.cos(q.h) * 14 * P.side + 3)
       }
+      // Flaggenposten: kleine Marken neben der Strecke, farbig, sobald eine Flagge gezeigt wird
+      for (const post of race.posts) {
+        const st = race.postFlag(post)
+        const i = Math.floor(post.s / T.ds) % T.n
+        const off = (post.lat > 0 ? 1 : -1) * 9
+        const px = X(i) - Math.sin(T.h[i]) * off, py = Y(i) + Math.cos(T.h[i]) * off
+        const col = { yellow: '#ffd21f', double: '#ffd21f', green: '#2fe08a', red: '#ff3b3b', blue: '#2f7dff', chq: '#ffffff' }[st.flag]
+        const on = col && (!st.waved || Math.sin(now / 140) > -0.2)
+        ctx.fillStyle = on ? col : '#3a4558'
+        const r = col ? (st.flag === 'double' ? 4 : 3.2) : 1.8
+        ctx.fillRect(px - r, py - r, r * 2, r * 2)
+      }
       // Sektorgrenzen & Ziellinie
       ctx.font = '600 10px ui-monospace, monospace'
       ctx.textAlign = 'center'

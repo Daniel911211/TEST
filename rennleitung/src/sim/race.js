@@ -103,6 +103,9 @@ export class Race {
     const startLat = (i) => (this.quali ? 0 : (grid ? grid.indexOf(i) : i) % 2 ? 0.9 : -0.9)
     this.track = buildTrack(trackKey)
     this.L = this.track.length
+    // Flaggenposten: etwa alle 280 m, auf der Seite gegenüber der Boxengasse
+    const nPosts = Math.round(this.L / 280)
+    this.posts = Array.from({ length: nPosts }, (_, i) => ({ no: i + 1, s: ((i + 0.5) * this.L) / nPosts, lat: -this.track.pit.side * 2.7 }))
     this.laps = laps
     this.t = 0
     this.state = 'GRID' // GRID | FORMATION | GRIDREADY | LIGHTS | GREEN | VSC | SC | RED | RESTART | FINISHED
@@ -233,6 +236,33 @@ export class Race {
     this.feedbackLog.push({ t: this.t, text, delta: 0, by: this.actor, safety: true })
   }
   // Im Automatik-Modus sind die Bedienelemente der Streckensicherung für den Spieler gesperrt
+  // Was ein Flaggenposten gerade zeigt: flag = Flagge, waved = geschwenkt, board = Tafel (SC / VSC)
+  postFlag(p) {
+    const L = this.L
+    if (this.state === 'RED' || this.state === 'RESTART') return { flag: 'red', waved: true, board: null }
+    if (this.chequered) return p.no === this.posts.length ? { flag: 'chq', waved: true, board: null } : { flag: null, waved: false, board: null }
+    if (!['GREEN', 'VSC', 'SC'].includes(this.state)) return { flag: null, waved: false, board: null }
+    const board = this.state === 'SC' ? 'SC' : this.state === 'VSC' ? 'VSC' : null
+    const sec = this.sectors[sectorOf(p.s, L)]
+    let flag = sec === 'double' ? 'double' : sec === 'yellow' || board === 'SC' ? 'yellow' : null
+    let waved = false
+    if (flag) {
+      for (const c of this.cars) {
+        if (c.status !== 'stopped') continue
+        // Der Posten direkt vor der Gefahrenstelle schwenkt, der erste dahinter zeigt Grün
+        if (mod(c.dist - p.s, L) < 300) waved = true
+        else if (mod(p.s - c.dist, L) < L / this.posts.length && !board) flag = 'green'
+      }
+    }
+    // Blaue Flagge: ein Überrundeter am Posten, der Schnellere dicht dahinter
+    if (!flag && this.state === 'GREEN') {
+      for (const b of this.order) {
+        if (b.status !== 'run' || b.pit || Math.abs(mod(b.dist - p.s + L / 2, L) - L / 2) > 140) continue
+        if (this.order.some((a) => a !== b && a.status === 'run' && !a.pit && a.dist - b.dist > L * 0.5 && mod(b.dist - a.dist, L) < 70)) { flag = 'blue'; waved = true; break }
+      }
+    }
+    return { flag, waved, board }
+  }
   locked() {
     return this.auto && this.actor !== 'auto'
   }

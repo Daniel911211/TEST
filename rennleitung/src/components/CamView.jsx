@@ -21,6 +21,43 @@ function drawMarshal(ctx, x, y, flag, now) {
 }
 
 // Bergungsfahrzeug mit Kran, Nase zeigt in Fahrtrichtung (Winkel ang)
+const FLAG_COL = { yellow: '#ffd21f', double: '#ffd21f', green: '#2fe08a', red: '#ff3b3b', blue: '#2f7dff' }
+// Flaggenposten: Podest hinter der Leitplanke, Posten mit Flagge, Leuchttafel und Nummer
+function drawPost(ctx, q, post, st, now) {
+  ctx.save(); ctx.translate(q.x, q.y); ctx.rotate(q.h)
+  ctx.fillStyle = '#2b3038'; ctx.fillRect(-1.7, -1.3, 3.4, 2.6)
+  ctx.strokeStyle = '#c9ccd4'; ctx.lineWidth = 0.14; ctx.strokeRect(-1.7, -1.3, 3.4, 2.6)
+  // Leuchttafel
+  const blink = Math.sin(now / 140) > -0.2
+  const col = st.flag === 'chq' ? '#f4f4f4' : FLAG_COL[st.flag]
+  ctx.fillStyle = '#0b0d11'; ctx.fillRect(1.9, -1.0, 2.0, 2.0)
+  if (st.flag === 'chq') { ctx.fillStyle = '#f4f4f4'; for (let i = 0; i < 4; i++) for (let j = 0; j < 4; j++) if ((i + j) % 2) ctx.fillRect(2.1 + i * 0.4, -0.8 + j * 0.4, 0.4, 0.4) }
+  else if (col && (blink || !st.waved)) { ctx.fillStyle = col; ctx.fillRect(2.1, -0.8, 1.6, 1.6) }
+  ctx.restore()
+  ctx.save(); ctx.translate(q.x, q.y)
+  ctx.font = '700 1.1px ui-monospace, monospace'; ctx.textAlign = 'center'
+  ctx.fillStyle = 'rgba(8,10,14,0.8)'; ctx.fillRect(-2.2, 2.0, 4.4, 1.5)
+  ctx.fillStyle = st.board ? '#ffd21f' : '#c9ccd4'
+  ctx.fillText(st.board ? `${st.board} · P${post.no}` : `POSTEN ${post.no}`, 0, 3.1)
+  ctx.restore()
+  // Posten mit Flagge(n)
+  const flags = st.flag === 'double' ? [-0.7, 0.7] : [0]
+  for (const dx of flags) {
+    const x = q.x + Math.cos(q.h) * dx, y = q.y + Math.sin(q.h) * dx
+    if (col) {
+      const a = st.waved ? Math.sin(now / 170 + dx * 3) * 0.7 : -0.25
+      ctx.save(); ctx.translate(x, y); ctx.rotate(a)
+      ctx.strokeStyle = '#3a3a3a'; ctx.lineWidth = 0.12
+      ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(0, -1.7); ctx.stroke()
+      ctx.fillStyle = col; ctx.fillRect(0, -1.7, 1.2, 0.8)
+      if (st.flag === 'chq') { ctx.fillStyle = '#10141c'; ctx.fillRect(0, -1.7, 0.6, 0.4); ctx.fillRect(0.6, -1.3, 0.6, 0.4) }
+      ctx.restore()
+    }
+    ctx.fillStyle = '#ff7a1a'; ctx.beginPath(); ctx.arc(x, y, 0.48, 0, Math.PI * 2); ctx.fill()
+    ctx.fillStyle = '#f1d9b5'; ctx.beginPath(); ctx.arc(x, y, 0.22, 0, Math.PI * 2); ctx.fill()
+  }
+}
+
 function drawRecoveryTruck(ctx, x, y, ang, now) {
   ctx.save(); ctx.translate(x, y); ctx.rotate(ang)
   ctx.fillStyle = '#14161b'
@@ -263,6 +300,7 @@ export default function CamView({ race, mode, selected, freeCam }) {
           }
         }
       }
+      for (const post of race.posts) drawPost(ctx, race.pose({ dist: post.s, lat: post.lat }, 3.6), post, race.postFlag(post), now)
       const drawOne = (c, color, stopped) => {
         const p = race.pose(c, 3.6)
         if (Math.abs(p.x - cam.x) > w / S || Math.abs(p.y - cam.y) > h / S) return

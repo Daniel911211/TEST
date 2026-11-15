@@ -19,6 +19,7 @@ npm run sim-test # Simulation ohne Oberfläche testen
 - Saison über sechs Rennen mit Fahrerwertung und Gesamtnote (`src/season.js`, gespeichert im Browser)
 - Einführung in sechs Schritten mit Übungsrennen (Knopf HILFE)
 - Weitere Fälle: Blaue Flaggen, Abdrängen, Spurwechsel beim Verteidigen, Abkürzen, Abstand hinter dem Safety Car, Einfahrt bei gesperrter Boxengasse
+- Flaggenposten etwa alle 280 m: zeigen Gelb, Doppelgelb, Grün hinter der Gefahrenstelle, Blau, Rot, Zielflagge und die SC/VSC-Tafel, auf der Karte und in den Kameras
 - Boxengasse sperren, Proteste der Teams gegen harte Strafen, Startverzögerung, wenn der Arztwagen nicht bereit ist
 - 22 Autos (Feld 2026) mit Zeitnahme, Überholen, Rennende mit Zielflagge
 - Zwei Kameraansichten: eine folgt einem Auto, eine zeigt den Ort des letzten Vorfalls
