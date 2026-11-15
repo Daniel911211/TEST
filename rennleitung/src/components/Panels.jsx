@@ -1,0 +1,208 @@
+import { OPTION_LIST, TYPE_TITLE, TYRES, clockStr } from '../sim/race.js'
+
+export function TimingTower({ rows, selected, onSelect, state, quali }) {
+  return (
+    <div className="panel tower">
+      <div className="ptitle">ZEITNAHME <span className="dim right">{quali ? 'BESTZEIT' : 'ABSTAND'}</span></div>
+      <div className="towerrows">
+        {rows.map((r) => (
+          <div key={r.id} className={`trow ${selected === r.id ? 'sel' : ''} ${r.status}`} onClick={() => onSelect(r.id === selected ? null : r.id)}>
+            <span className="pos">{r.pos}</span>
+            <span className="bar" style={{ background: r.color }} />
+            <span className="code" title={r.name}>{r.name}</span>
+            <span className="badges">
+              {r.status === 'stopped' && <i className="b red">STOP</i>}
+              {r.inPit && <i className="b blue">BOX</i>}
+              {r.damage && !r.inPit && <i className="b amber">SCHADEN</i>}
+              {r.serving && <i className="b amber">STRAFE</i>}
+              {r.penaltySec > 0 && <i className="b amber">+{r.penaltySec}s</i>}
+              {r.warnings > 0 && <i className="b gray">{'▲'.repeat(Math.min(3, r.warnings))}</i>}
+            </span>
+            <span className="gap">{state === 'GRID' ? '' : r.gap}</span>
+            <span className="tyre" style={{ borderColor: TYRES[r.tyre].color, color: TYRES[r.tyre].color }} title={`${TYRES[r.tyre].name}, ${r.wear} % abgefahren, ${r.stops} Stopps`}>{r.tyre}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+const FLAG_LABEL = { green: 'grün', yellow: 'gelb', double: 'doppelgelb' }
+
+export function ControlPanel({ snap, race, selectedRow, selectedCar, onAuto }) {
+  const s = snap.state
+  const live = ['GREEN', 'VSC', 'SC', 'RED', 'RESTART'].includes(s)
+  const auto = snap.auto // Automatik sperrt Flaggen und Neutralisierung für den Spieler
+  return (
+    <div className="controls">
+      <div className="panel">
+        <div className="ptitle">
+          STRECKENSICHERUNG
+          <span className="seg push" role="group" aria-label="Streckensicherung">
+            <button className={`btn sm ${auto ? '' : 'on'}`} aria-pressed={!auto} onClick={() => onAuto(false)}>MANUELL</button>
+            <button className={`btn sm ${auto ? 'on' : ''}`} aria-pressed={auto} onClick={() => onAuto(true)}>AUTO</button>
+          </span>
+        </div>
+        <div className="sectors">
+          {snap.sectors.map((f, i) => (
+            <button key={i} disabled={!live || auto} className={`sector ${f}`} onClick={() => race.cycleSector(i)}>
+              S{i + 1}<small>{FLAG_LABEL[f]}</small>
+            </button>
+          ))}
+        </div>
+        {auto ? (
+          <div className="autonote"><b>AUTOMATIK</b> {snap.autoNote || 'wartet auf den Start'}</div>
+        ) : (
+          <div className="hint">Klick oder Taste 1, 2, 3: Grün → Gelb → Doppelgelb</div>
+        )}
+        <button className="btn wide ok" disabled={!live || auto || snap.sectors.every((f) => f === 'green')} onClick={() => race.allGreen()}>ALLES GRÜN</button>
+      </div>
+
+      <div className="panel">
+        <div className="ptitle">RENNEN BREMSEN{auto && <span className="push autotag">AUTOMATIK</span>}</div>
+        {snap.quali && <div className="hint">Im Qualifying sicherst du nur mit gelben Flaggen.</div>}
+        <div className="neutral">
+          <button className="btn amber" title="Virtuelles Safety Car: Alle fahren langsam und halten ihre Abstände" disabled={auto || snap.quali || s !== 'GREEN'} onClick={() => race.callVSC()}>VIRTUELLES SC</button>
+          <button className="btn gray" disabled={auto || s !== 'VSC' || snap.vscEnding} onClick={() => race.endVSC()}>{snap.vscEnding ? 'VSC ENDET …' : 'VSC BEENDEN'}</button>
+          <button className="btn orange" title="Das Safety Car sammelt das Feld ein" disabled={auto || snap.quali || (s !== 'GREEN' && s !== 'VSC')} onClick={() => race.callSC()}>SAFETY CAR</button>
+          <button className="btn gray" disabled={auto || s !== 'SC' || snap.scEnding} onClick={() => race.scInThisLap()}>{snap.scEnding ? 'SC KOMMT REIN …' : snap.scWaiting ? 'SC ZURÜCKRUFEN' : 'SC REINHOLEN'}</button>
+          <button className="btn red" title="Rennen unterbrechen" disabled={auto || snap.quali || !['GREEN', 'VSC', 'SC'].includes(s)} onClick={() => race.callRed()}>ROTE FLAGGE</button>
+          <button className="btn ok" disabled={auto || s !== 'RED'} onClick={() => race.restart()}>NEUSTART</button>
+        </div>
+        <button className={`btn sm wide ${snap.pitClosed ? 'red' : 'gray'}`} disabled={auto || !['GREEN', 'VSC', 'SC', 'RED'].includes(s)} onClick={() => race.togglePit()}>
+          {snap.pitClosed ? 'BOXENGASSE GESPERRT · WIEDER ÖFFNEN' : 'BOXENGASSE SPERREN'}
+        </button>
+        <button className="btn sm wide gray" disabled={auto || s !== 'SC' || !snap.scCollected || !snap.lapped || snap.scEnding} onClick={() => race.letLappedPass()}>
+          {snap.unlapping ? `ÜBERRUNDETE FAHREN VORBEI (${snap.unlapping})` : `ÜBERRUNDETE VORBEILASSEN${snap.lapped ? ` (${snap.lapped})` : ''}`}
+        </button>
+      </div>
+
+      <div className="panel">
+        <div className="ptitle">STRAFE OHNE FALL</div>
+        {selectedCar ? (
+          <>
+            <div className="carinfo">
+              <b style={{ color: selectedCar.color }}>#{selectedCar.num} {selectedCar.name}</b>
+              <span className="dim">{selectedCar.team} · Platz {selectedRow.pos}</span>
+              <span className="dim">{selectedCar.penaltySec} s Strafe · {selectedCar.warnings} {selectedCar.warnings === 1 ? 'Verwarnung' : 'Verwarnungen'}</span>
+              <span className="dim">Reifen <b style={{ color: TYRES[selectedRow.tyre].color }}>{TYRES[selectedRow.tyre].name}</b>, {selectedRow.wear} % abgefahren · {selectedRow.stops} {selectedRow.stops === 1 ? 'Boxenstopp' : 'Boxenstopps'}</span>
+            </div>
+            <div className="penalties">
+              {OPTION_LIST.filter((o) => (snap.quali ? ['warn', 'grid3', 'black'] : ['warn', 't5', 't10', 'dt', 'sg', 'black']).includes(o.key)).map((o) => (
+                <button key={o.key} className={`btn sm ${o.tone || ''}`} disabled={!live || selectedCar.status === 'dsq' || selectedCar.status === 'fin'} onClick={() => race.penalizeCar(selectedCar.id, o.key)}>
+                  {o.key === 'black' ? 'SCHWARZE FLAGGE' : o.label.toUpperCase()}
+                </button>
+              ))}
+            </div>
+          </>
+        ) : (
+          <div className="hint">Wähle einen Fahrer in der Zeitnahme oder auf der Karte. Strafen ohne Fall ziehen oft einen Protest nach sich.</div>
+        )}
+      </div>
+    </div>
+  )
+}
+
+export function IncidentPanel({ incidents, t, onOpen, race }) {
+  const sorted = [...incidents].sort((a, b) => a.id - b.id)
+  return (
+    <div className="panel incidents">
+      <div className="ptitle">VORFÄLLE <span className="dim right">{incidents.length} OFFEN</span></div>
+      <div className="inclist">
+        {sorted.length === 0 && <div className="hint pad">Nichts offen. Hier erscheinen Gefahrenstellen, Fälle und Proteste.</div>}
+        {sorted.map((i) => {
+          const cars = i.carIds.map((id) => race.cars[id])
+          const left = i.deadline ? Math.max(0, Math.ceil(i.deadline - t)) : null
+          return (
+            <div key={i.id} className={`inc ${i.kind}`}>
+              <div className="inchead">
+                <b>{i.kind === 'decision' ? `${String(i.no).padStart(2, '0')} · ${TYPE_TITLE[i.type]}` : i.kind === 'protest' ? `PROTEST · ${cars[0].team}` : `⚠ ${cars[0].last} steht auf der Strecke`}</b>
+                {left !== null && <span className={`timer ${left < 30 ? 'low' : ''}`}>{left}s</span>}
+              </div>
+              <div className="dim">
+                {i.kind === 'hazard' ? '' : `${cars.map((c) => c.last).join(' / ')} · `}{i.kind === 'protest' ? '' : `${i.place} · `}Runde {i.lap}
+              </div>
+              {i.kind === 'hazard' && i.haz && (
+                <div className="marshal">
+                  <div><span className="dim">GRUND</span> {{ DEFEKT: 'Defekt', UNFALL: 'Unfall', DREHER: 'Dreher', 'MOTOR ABGEWÜRGT': 'Motor abgewürgt' }[i.haz.cause] || i.haz.cause}{i.haz.debris ? ' · Trümmer auf der Strecke' : ''}</div>
+                  <div><span className="dim">LAGE</span> <b className={`pos-${i.haz.pos}`}>{{ rand: 'am Streckenrand', teil: 'teilweise auf der Fahrbahn', linie: 'auf der Ideallinie' }[i.haz.pos]}</b></div>
+                  {i.haz.medical && (
+                    <div>
+                      <span className="dim">ARZT</span>{' '}
+                      <b className={i.haz.medical.state === 'done' ? 'pos-rand' : i.haz.medical.state === 'needed' ? 'pos-linie' : 'pos-teil'}>
+                        {{
+                          needed: i.haz.medical.heavy ? 'angefordert · Rettung braucht die ganze Strecke (Rote Flagge)' : 'angefordert · Fahrer meldet sich nicht',
+                          enroute: 'Arztwagen ist unterwegs',
+                          onscene: `Arzt am Unfallort, noch ca. ${Math.ceil(i.haz.medical.left)} s`,
+                          done: 'Fahrer versorgt',
+                        }[i.haz.medical.state]}
+                      </b>
+                    </div>
+                  )}
+                  <div><span className="dim">BERGUNG</span> {i.haz.self ? `fährt gleich selbst weiter (ca. ${Math.ceil(i.haz.left)} s)` : i.haz.medical && i.haz.medical.state !== 'done' ? 'beginnt, sobald der Fahrer versorgt ist' : `dauert ca. ${Math.round(i.haz.total / 5) * 5} s`}</div>
+                  {race.diff.hint && !race.auto && (
+                    <div><span className="dim">NÖTIG</span> <b>{i.haz.medical && i.haz.medical.heavy && i.haz.medical.state !== 'done' ? 'Rote Flagge' : race.quali || i.haz.pos === 'rand' ? 'Gelb im Sektor' : i.haz.pos === 'teil' && !i.haz.debris ? 'Doppelgelb und VSC' : 'Doppelgelb und Safety Car'}</b></div>
+                  )}
+                  {i.haz.medical && i.haz.medical.state === 'needed' && !race.auto && (
+                    <button className="btn sm red" onClick={() => race.sendMedical(cars[0].id)}>ARZTWAGEN SCHICKEN</button>
+                  )}
+                  <div className="mbar"><i style={{ width: `${Math.round((1 - i.haz.left / i.haz.total) * 100)}%`, background: '#4cd0ff' }} /></div>
+                </div>
+              )}
+              {i.kind === 'hazard' && i.haz && i.haz.nearPit && <div className="marshal"><b className="pos-teil">Steht an der Boxeneinfahrt: Boxengasse sperren</b></div>}
+              {i.kind === 'protest' ? (
+                <>
+                  <div className="marshal">Das Team hält „{OPTION_LIST.find((o) => o.key === i.opt).label}“ für {cars[0].name} für zu hart ({i.caseNo ? `Fall ${String(i.caseNo).padStart(2, '0')}` : 'Strafe ohne Fall'}). War die Strafe richtig, bleib dabei.</div>
+                  <div className="quick">
+                    <button className="btn sm" onClick={() => race.resolveProtest(i.id, 'confirm')}>STRAFE BLEIBT</button>
+                    <button className="btn sm amber" onClick={() => race.resolveProtest(i.id, 'revoke')}>STRAFE ZURÜCKNEHMEN</button>
+                  </div>
+                </>
+              ) : i.kind === 'decision' ? (
+                <button className="btn sm amber" onClick={() => onOpen(i.id)}>FALL PRÜFEN</button>
+              ) : (
+                race.auto ? (
+                  <div className="autonote"><b>AUTOMATIK</b> sichert diese Stelle ab</div>
+                ) : (
+                  <div className="quick">
+                    <button className="btn sm" onClick={() => race.setSector(i.sector, 'yellow')}>GELB S{i.sector + 1}</button>
+                    <button className="btn sm" onClick={() => race.setSector(i.sector, 'double')}>DOPPELGELB</button>
+                    <button className="btn sm amber" disabled={race.quali || race.state !== 'GREEN'} onClick={() => race.callVSC()}>VSC</button>
+                    <button className="btn sm orange" disabled={race.quali || (race.state !== 'GREEN' && race.state !== 'VSC')} onClick={() => race.callSC()}>SAFETY CAR</button>
+                  </div>
+                )
+              )}
+            </div>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
+export function MessageLog({ messages }) {
+  return (
+    <div className="panel logbox">
+      <div className="ptitle">MELDUNGEN DER RENNLEITUNG</div>
+      <div className="loglist">
+        {[...messages].reverse().map((m) => (
+          <div key={m.id} className={`msg ${m.level}`}><span className="dim">{clockStr(m.t).slice(0, 5)}</span> {m.text}</div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+export function RadioLog({ radio }) {
+  return (
+    <div className="panel radiobox">
+      <div className="ptitle">FUNK</div>
+      <div className="loglist">
+        {radio.length === 0 && <div className="hint">Noch still. Die Fahrer melden sich, sobald es losgeht.</div>}
+        {[...radio].reverse().map((m) => (
+          <div key={m.id} className={`msg radio ${m.box ? 'box' : ''}`}><b style={{ color: m.color }}>{m.box ? `Box an ${m.name.split(' ').pop()}` : m.name}</b> {m.text}</div>
+        ))}
+      </div>
+    </div>
+  )
+}
