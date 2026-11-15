@@ -1069,9 +1069,10 @@ export class Race {
     return true
   }
 
-  // Parkplatz des Safety Cars: neben der Boxengasse, kurz hinter dem Ende des Tempolimits
+  // Parkplätze neben der Boxengasse, auf dem geraden Stück zwischen der letzten Teambox und dem Ende des
+  // Tempolimits: erst der Arztwagen, dann das Safety Car direkt vor der Ausfahrt
   parkU(which = 'sc') {
-    return this.track.pit.uB + (which === 'med' ? 21 : 8)
+    return this.track.pit.uB - (which === 'med' ? 30 : 17)
   }
   parkPose(shift = 1, which = 'sc') {
     const P = this.track.pit

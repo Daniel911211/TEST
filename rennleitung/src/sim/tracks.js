@@ -231,7 +231,8 @@ export function buildTrack(key) {
     inS: def.length - P.in, // Einfahrt, Position auf der Strecke
     span: P.in + P.out, // Streckenmeter, die die Boxengasse überbrückt
     uA, uB,
-    boxU: (i, count) => uA + 25 + ((uB - uA - 50) * i) / Math.max(1, count - 1),
+    // Teamboxen enden 50 m vor dem Ende des Tempolimits: dahinter liegen die Parkplätze von Safety Car und Arztwagen
+    boxU: (i, count) => uA + 25 + ((uB - uA - 75) * i) / Math.max(1, count - 1),
     at(u) {
       const f = Math.max(0, Math.min(PN - 0.001, u / (pLen / PN)))
       const i = Math.floor(f), t = f - i
