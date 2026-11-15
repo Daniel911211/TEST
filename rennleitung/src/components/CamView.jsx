@@ -145,12 +145,12 @@ export default function CamView({ race, mode, selected, freeCam }) {
         const q = P.at(u)
         ctx.save(); ctx.translate(q.x, q.y); ctx.rotate(q.h); ctx.fillStyle = '#ffd21f'; ctx.fillRect(-0.4, -4.2, 0.8, 8.4); ctx.restore()
       }
-      // Parkplatz des Safety Cars
-      {
-        const q = race.parkPose()
+      // Parkplätze von Safety Car und Arztwagen
+      for (const [which, col] of [['sc', '#ffb020'], ['med', '#ff6a6a']]) {
+        const q = race.parkPose(1, which)
         ctx.save(); ctx.translate(q.x, q.y); ctx.rotate(q.h)
         ctx.fillStyle = '#44464d'; ctx.fillRect(-5, -2.6, 10, 5.2)
-        ctx.strokeStyle = '#ffb020'; ctx.lineWidth = 0.3; ctx.strokeRect(-5, -2.6, 10, 5.2)
+        ctx.strokeStyle = col; ctx.lineWidth = 0.3; ctx.strokeRect(-5, -2.6, 10, 5.2)
         ctx.restore()
       }
       ctx.strokeStyle = '#f1f1f1'; ctx.lineWidth = 17; ctx.stroke(cache.kerb)
@@ -195,6 +195,8 @@ export default function CamView({ race, mode, selected, freeCam }) {
       {
         const p = race.scPose()
         drawSafetyCar(ctx, p.x, p.y, p.h + Math.PI / 2, 1.3, !!race.sc && race.sc.lights, now)
+        const m = race.medPose()
+        drawSafetyCar(ctx, m.x, m.y, m.h + Math.PI / 2, 1.3, race.med && race.med.speed > 1 ? 'orange' : false, now, true)
       }
       ctx.restore()
 

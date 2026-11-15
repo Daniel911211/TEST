@@ -143,6 +143,9 @@ export class Race {
       lapDirty: false,
     }))
     this.teams = [...new Set(this.cars.map((c) => c.team))]
+    // Arztwagen (Medical Car): steht beim Start hinter dem Feld, folgt ihm in der Einführungsrunde und in
+    // Runde 1 und fährt danach auf seinen Parkplatz neben dem Safety Car. null = geparkt.
+    this.med = { dist: -(12 + (this.cars.length - 1) * 8) - 22, speed: 0, lat: 0, gap: 22, pitU: null, shift: 0 }
     this.msg('AUTOS IN DER STARTAUFSTELLUNG - WARTEN AUF DIE EINFÜHRUNGSRUNDE')
   }
 
@@ -224,6 +227,8 @@ export class Race {
       c.speed = 0
       c.gridOver = c === fault ? +rnd(0.1, 1.3).toFixed(2) : 0
     }
+    // Der Arztwagen fährt die Einführungsrunde hinter dem Feld mit
+    if (this.med && this.med.pitU == null) this.med.dist -= this.L
     this.msg(this.formations > 1 ? 'ZUSÄTZLICHE EINFÜHRUNGSRUNDE GESTARTET' : 'EINFÜHRUNGSRUNDE GESTARTET', 'flag')
     this.radioQueue.push({ at: this.t + 12, key: 'formation' }, { at: this.t + 30, key: 'formation' })
   }
@@ -264,6 +269,7 @@ export class Race {
     if (this.rainPlan) this.rainPlan.start += this.t
     this.nextAmbient = this.t + rnd(15, 30)
     this.msg('LICHTER AUS - DAS RENNEN LÄUFT', 'flag')
+    if (this.med) this.msg('MEDICAL CAR FOLGT DEM FELD IN DER ERSTEN RUNDE', 'info')
     this.radioQueue.push({ at: this.t + 6, key: 'start' }, { at: this.t + 11, key: 'start' })
     for (const c of this.cars) {
       c.lapStart = this.t
@@ -761,6 +767,7 @@ export class Race {
     const running = order.filter((c) => c.status === 'run')
     for (let i = 0; i < running.length; i++) this.stepCar(running[i], dt, running, i)
     for (const c of order) if (c.status === 'stopped') this.stepStopped(c, dt)
+    this.stepMed(dt)
 
     this.weather(dt)
     this.hazards(dt)
@@ -1044,12 +1051,12 @@ export class Race {
   }
 
   // Parkplatz des Safety Cars: neben der Boxengasse, kurz hinter dem Ende des Tempolimits
-  parkU() {
-    return this.track.pit.uB + 8
+  parkU(which = 'sc') {
+    return this.track.pit.uB + (which === 'med' ? 21 : 8)
   }
-  parkPose(shift = 1) {
+  parkPose(shift = 1, which = 'sc') {
     const P = this.track.pit
-    const q = P.at(this.parkU())
+    const q = P.at(this.parkU(which))
     const o = 8.5 * shift * P.side
     return { x: q.x - Math.sin(q.h) * o, y: q.y + Math.cos(q.h) * o, h: q.h }
   }
@@ -1065,6 +1072,50 @@ export class Race {
     }
     return this.pose({ dist: sc.dist, lat: sc.lat || 0 }, latM)
   }
+  // Arztwagen: hinter dem Feld, in der Boxengasse oder geparkt
+  medPose(latM = 3.6) {
+    const m = this.med
+    if (!m) return this.parkPose(1, 'med')
+    if (m.pitU != null) {
+      const P = this.track.pit
+      const q = P.at(m.pitU)
+      const o = 8.5 * m.shift * P.side
+      return { x: q.x - Math.sin(q.h) * o, y: q.y + Math.cos(q.h) * o, h: q.h }
+    }
+    return this.pose({ dist: m.dist, lat: m.lat }, latM)
+  }
+  stepMed(dt) {
+    const m = this.med
+    if (!m) return
+    const P = this.track.pit, L = this.L, T = this.track
+    if (m.pitU != null) {
+      // durch die Boxengasse auf den Parkplatz
+      const bay = this.parkU('med')
+      const rem = bay - m.pitU
+      m.speed += clamp(Math.min(22, Math.sqrt(2 * 8 * Math.max(0, rem)) + 0.5) - m.speed, -34 * dt, 12 * dt)
+      m.pitU = Math.min(bay, m.pitU + m.speed * dt)
+      if (rem < 0.5) {
+        m.shift = Math.min(1, m.shift + 1.5 * dt)
+        if (m.shift >= 1) this.med = null
+      }
+      return
+    }
+    // hält Abstand zum letzten Auto des Feldes
+    const field = this.cars.filter((c) => c.status === 'run' && !c.pit)
+    const idx = Math.floor(mod(m.dist, L) / T.ds) % T.n
+    let v = T.v[idx] * 0.6
+    if (field.length) {
+      const tail = field.reduce((a, c) => (c.dist < a.dist ? c : a))
+      const room = tail.dist - m.gap - m.dist
+      v = room > 0 ? Math.min(v, tail.speed + room * 0.8) : 0
+    }
+    m.speed += clamp(v - m.speed, -30 * dt, 9 * dt)
+    const prev = m.dist
+    m.dist += m.speed * dt
+    // nach der ersten Rennrunde an der Boxeneinfahrt abbiegen
+    if (this.raceStart !== null && mod(prev, L) < P.inS && mod(m.dist, L) >= P.inS) { m.pitU = 0; m.shift = 0 }
+  }
+
   // Position eines Autos in Metern (Strecke oder Boxengasse); latM = Meter pro Einheit Querversatz
   pose(c, latM) {
     const T = this.track

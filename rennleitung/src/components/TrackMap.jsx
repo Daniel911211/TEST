@@ -230,6 +230,18 @@ export default function TrackMap({ race, selected, onSelect, freeCam }) {
         }
       }
       {
+        const m = race.medPose(5 / sc)
+        const mx = m.x * sc + ox, my = m.y * sc + oy
+        drawSafetyCar(ctx, mx, my, m.h + Math.PI / 2, race.med ? 3.2 : 2.4, race.med && race.med.speed > 1 ? 'orange' : false, now, true)
+        if (race.med && race.med.pitU == null && race.raceStart !== null) {
+          ctx.fillStyle = '#ff8a8a'
+          ctx.font = '700 10px ui-monospace, monospace'
+          ctx.textAlign = 'left'
+          ctx.fillText('MEDICAL CAR', mx + 12, my + 14)
+          ctx.textAlign = 'center'
+        }
+      }
+      {
         const p = race.scPose(5 / sc)
         const x = p.x * sc + ox, y = p.y * sc + oy
         drawSafetyCar(ctx, x, y, p.h + Math.PI / 2, race.sc ? 3.4 : 2.4, !!race.sc && race.sc.lights, now)

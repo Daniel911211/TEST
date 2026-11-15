@@ -78,7 +78,8 @@ export function drawCar(ctx, x, y, ang, paint, k) {
 }
 
 // Safety Car: silberner Straßensportwagen von oben, Nase zeigt nach oben (-y)
-export function drawSafetyCar(ctx, x, y, ang, k, lights, now) {
+// med = true zeichnet den roten Arztwagen (Medical Car) mit weißem Kreuz auf dem Dach
+export function drawSafetyCar(ctx, x, y, ang, k, lights, now, med = false) {
   ctx.save()
   ctx.translate(x, y)
   ctx.rotate(ang)
@@ -86,7 +87,7 @@ export function drawSafetyCar(ctx, x, y, ang, k, lights, now) {
   ctx.fillStyle = '#14161b'
   for (const [wx, wy] of [[-1.1, -1.75], [0.85, -1.75], [-1.1, 0.95], [0.85, 0.95]]) ctx.fillRect(wx, wy, 0.25, 0.85)
   // Karosserie
-  ctx.fillStyle = '#c9ced6'
+  ctx.fillStyle = med ? '#d0312d' : '#c9ced6'
   ctx.beginPath()
   ctx.moveTo(-0.7, -2.4); ctx.quadraticCurveTo(0, -2.65, 0.7, -2.4)
   ctx.quadraticCurveTo(1.0, -2.2, 1.0, -1.4); ctx.lineTo(1.0, 1.9)
@@ -98,8 +99,13 @@ export function drawSafetyCar(ctx, x, y, ang, k, lights, now) {
   ctx.fillStyle = '#1d2630'
   ctx.beginPath(); ctx.moveTo(-0.78, -0.75); ctx.lineTo(0.78, -0.75); ctx.lineTo(0.66, -0.1); ctx.lineTo(-0.66, -0.1); ctx.closePath(); ctx.fill()
   ctx.beginPath(); ctx.moveTo(-0.66, 1.0); ctx.lineTo(0.66, 1.0); ctx.lineTo(0.76, 1.5); ctx.lineTo(-0.76, 1.5); ctx.closePath(); ctx.fill()
-  ctx.fillStyle = '#9aa1ab'
+  ctx.fillStyle = med ? '#a3211e' : '#9aa1ab'
   ctx.fillRect(-0.66, -0.1, 1.32, 1.1)
+  if (med) {
+    ctx.fillStyle = '#ffffff'
+    ctx.fillRect(-0.1, 0.62, 0.2, 0.34)
+    ctx.fillRect(-0.24, 0.72, 0.48, 0.14)
+  }
   // Scheinwerfer und Rücklichter
   ctx.fillStyle = '#fff7c2'; ctx.fillRect(-0.85, -2.38, 0.35, 0.16); ctx.fillRect(0.5, -2.38, 0.35, 0.16)
   ctx.fillStyle = '#d93a3a'; ctx.fillRect(-0.85, 2.22, 0.4, 0.14); ctx.fillRect(0.45, 2.22, 0.4, 0.14)
