@@ -225,8 +225,10 @@ function draw(ctx, s, now) {
   let hud = `REPLAY · ${tempo}× · F ${frame}/${FRAMES}`
 
   if (kind === 'limits') {
+    // Weiße Linie: Außenkante bei x = 6. Der linke Hinterreifen reicht bis 1,3 m links der Fahrzeugmitte.
+    // Er ist der letzte Reifen auf der Strecke: liegt seine linke Kante jenseits von x = 6, sind alle vier Räder draußen.
     const over = inc.replay.over
-    const xmax = 5.4 + over
+    const xmax = 7.3 + over
     const bump = Math.sin(Math.PI * p) ** 2
     const cx0 = lerp(-1.5, xmax, bump)
     const cy0 = 15 - 30 * p
@@ -235,11 +237,11 @@ function draw(ctx, s, now) {
     const camY = fixed ? 0 : cy0
     const S = (x, y) => [W / 2 + (x - camX) * k, H / 2 + (y - camY) * k]
     ctx.fillStyle = '#1f5a2a'; ctx.fillRect(0, 0, W, H)
-    let [a] = S(-10, 0); let [b] = S(6, 0); let [c] = S(7.6, 0)
+    let [a] = S(-10, 0); let [b] = S(6, 0); let [c] = S(7.5, 0); const [l0] = S(5.8, 0)
     ctx.fillStyle = '#4b4c52'; ctx.fillRect(a, 0, b - a, H)
     ctx.fillStyle = '#3b6d7a'; ctx.fillRect(c, 0, W - c, H)
-    kerbV(ctx, S, 6.15, 7.6, camY, k)
-    ctx.fillStyle = '#f4f4f4'; ctx.fillRect(b - 2, 0, 4, H)
+    kerbV(ctx, S, 6.0, 7.5, camY, k)
+    ctx.fillStyle = '#ffffff'; ctx.fillRect(Math.min(l0, b - 2), 0, Math.max(2, b - l0), H)
     const [sx, sy] = S(cx0, cy0)
     drawCar(ctx, sx, sy, 0, carA.livery, k)
     label(ctx, `${carA.code} · ${Math.round(150 + 120 * (1 - bump))} km/h`, W - 10, 10, '#e8edf7', 'right')

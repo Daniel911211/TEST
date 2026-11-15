@@ -29,11 +29,11 @@ export const RULES = {
   overtakeYellow:
     'Unter Gelb, VSC und Safety Car darf nicht überholt werden. Ausnahme: Das überholte Auto ist offensichtlich langsam oder defekt. Gelb/VSC: 5 Sek. Doppelgelb/Safety Car: 10 Sek.',
   collision:
-    'Überholrichtlinie innen: Der Angreifer hat Anspruch auf Platz, wenn seine Vorderachse am Einlenkpunkt mindestens auf Höhe der Spiegel des Verteidigers ist. Lenkt der Verteidiger trotzdem ein und verursacht die Kollision, trägt er die Schuld. Liegt der Angreifer dahinter, trägt er die Schuld. Nur knapp auf Höhe: Rennunfall. Richtwert 5 Sek., bei Ausfall 10 Sek.',
+    'Überholrichtlinie innen: Der Angreifer hat Anspruch auf Platz, wenn seine Vorderachse am Einlenkpunkt mindestens auf Höhe der Spiegel des Verteidigers ist. Lenkt der Verteidiger trotzdem ein und verursacht die Kollision, trägt er die Schuld. Liegt der Angreifer dahinter, trägt er die Schuld. Nur knapp auf Höhe: Rennunfall, keine Strafe. Strafe für den Schuldigen: 5 Sek., wenn beide weiterfahren. 10 Sek., wenn ein oder beide Autos ausfallen.',
   unsafeRelease:
-    'Unsichere Freigabe: Muss ein anderes Auto deutlich bremsen oder ausweichen, gibt es 5 Sekunden. Leichtes Lupfen ohne Gefahr: Verwarnung. Kein Einfluss: keine Strafe.',
+    'Unsichere Freigabe: Muss ein anderes Auto deutlich bremsen (mehr als 30 km/h), gibt es 5 Sekunden. Leichtes Lupfen ohne Gefahr (10 bis 30 km/h): Verwarnung. Kein Einfluss (unter 10 km/h): keine Strafe.',
   trackLimits:
-    'Track Limits: Alle vier Räder jenseits der weißen Linie. Ohne Vorteil: keine Strafe. Kleiner Vorteil: Verwarnung. Klarer Zeitgewinn: 5 Sekunden.',
+    'Track Limits: Ein Verstoß liegt nur vor, wenn alle vier Räder jenseits der weißen Linie sind. Die Linie gehört zur Strecke: Berührt ein Reifen sie noch, ist es kein Vergehen. Erster Verstoß ohne klaren Vorteil: Rundenzeit streichen. Wiederholung oder Zeitgewinn über 0,2 s: Streichen + 5 Sekunden.',
 }
 
 export const TYPE_TITLE = {
@@ -624,9 +624,13 @@ export class Race {
       if (opt === 'nfa') delta = ic === null ? 6 : -(6 + inc.ideal.sev * 2)
       else delta = culpritOk && sev === inc.ideal.sev ? 6 : -((culpritOk ? 0 : 18) + Math.abs(sev - inc.ideal.sev) * 3)
       const who = ic === 'a' ? a.code : ic === 'b' ? b.code : null
+      // Begründung in Worten, damit nachvollziehbar ist, wie die Experten auf Schuld und Strafmaß kommen
+      const why = inc.axle === 'ahead'
+        ? `${a.code} war am Einlenkpunkt mit der Vorderachse auf Höhe der Spiegel und hatte Anspruch auf Platz, ${b.code} hat trotzdem eingelenkt`
+        : `${a.code} lag am Einlenkpunkt mit der Vorderachse hinter den Spiegeln und hatte keinen Anspruch auf Platz`
       verdict = who
-        ? `Experten: Schuld bei ${who}${inc.ideal.sev ? `, Richtwert ${inc.ideal.sev <= 2 ? '5' : inc.ideal.sev === 3 ? '10' : 'Durchfahrt'}` : ''}.`
-        : 'Experten: Rennunfall, keine Strafe.'
+        ? `Experten: Schuld bei ${who}. ${why}. ${inc.outcome === 'none' ? 'Kein Ausfall: 5 Sek.' : 'Mit Ausfall: 10 Sek.'}`
+        : 'Experten: Rennunfall, keine Strafe. Die Vorderachse war nur knapp auf Höhe der Spiegel.'
     } else {
       target = a
       delta = sev === inc.ideal.sev ? 6 : -Math.abs(sev - inc.ideal.sev) * 3.5
@@ -1277,7 +1281,10 @@ export class Race {
       const c = pick(run)
       const w = this.where(c)
       const prior = Math.floor(rnd(0, 3))
-      const over = +rnd(-0.5, 0.9).toFixed(2) // Meter, die Reifen über der Linie (negativ: Linie noch berührt)
+      // Maßgeblich ist der letzte Reifen auf der Streckenseite: over = Meter, die er jenseits der Linie liegt.
+      // Positiv heißt, alle vier Räder sind draußen. Negativ heißt, er berührt Linie oder Strecke noch.
+      let over = +rnd(-0.5, 0.9).toFixed(2)
+      if (Math.abs(over) < 0.12) over = over < 0 ? -0.12 : 0.12 // nichts, was im Bild nicht zu entscheiden wäre
       const gain = Math.max(0, +(over * 0.35 + rnd(0, 0.1)).toFixed(2))
       const inc = this.makeBase('decision', 'trackLimits', [c.id], w)
       const violation = over > 0.05
@@ -1292,12 +1299,12 @@ export class Race {
         ['Bisherige Verstöße', String(prior)],
         ['Sender', 'Track-Limit-Schleife ausgelöst'],
       ]
-      inc.tip = 'Tipp: Zum Moment der größten Abweichung scrubben, hineinzoomen und den inneren Reifen gegen die Linie prüfen.'
+      inc.tip = 'Tipp: Zum Moment der größten Abweichung scrubben, hineinzoomen und prüfen, ob der Reifen auf der Streckenseite die weiße Linie noch berührt.'
       inc.statements = [{ code: c.code, text: pick(['Ich hatte noch einen halben Reifen auf der Linie.', 'Da war eine Rutscherei, kein Vorteil.', 'Die Linie ist dort unmöglich zu sehen.']) }]
       inc.replay = { kind: 'limits', over, gain }
       inc.expert = violation
-        ? `Experten: Verstoß. Der Reifen lag ${over.toFixed(2)} m jenseits der Linie${inc.ideal.sev === 2 ? ' - bei Wiederholung oder Vorteil Streichen + 5 Sek.' : ' - Rundenzeit streichen genügt.'}`
-        : `Experten: Kein Vergehen. Der innere Reifen berührte noch ${Math.abs(over).toFixed(2)} m die weiße Linie.`
+        ? `Experten: Verstoß. Alle vier Räder waren draußen, der letzte Reifen lag ${over.toFixed(2)} m jenseits der Linie. ${inc.ideal.sev === 2 ? 'Wiederholung oder klarer Vorteil: Streichen + 5 Sek.' : 'Rundenzeit streichen genügt.'}`
+        : `Experten: Kein Vergehen. Der Reifen auf der Streckenseite war noch ${Math.abs(over).toFixed(2)} m diesseits der Linienkante.`
       inc.consequence = 'Kein Einfluss auf andere Fahrer.'
       this.incidents.push(inc)
       this.msg(`${this.tag(c)} - TRACK LIMITS IN KURVE ${w.turn} - WIRD UNTERSUCHT`, 'warn')
@@ -1309,7 +1316,7 @@ export class Race {
       const A = run[i - 1], B = run[i] // A hat B überholt
       const w = this.where(A)
       const dbl = this.state === 'SC' || this.sectors[w.sector] === 'double'
-      const status = this.state === 'VSC' ? 'Virtual Safety Car' : this.state === 'SC' ? 'Safety Car' : this.sectors[w.sector] === 'double' ? 'Doppelgelb' : 'Gelb'
+      const status = this.state === 'VSC' ? (this.sectors[w.sector] === 'double' ? 'VSC mit Doppelgelb' : 'Virtual Safety Car') : this.state === 'SC' ? 'Safety Car' : this.sectors[w.sector] === 'double' ? 'Doppelgelb' : 'Gelb'
       const slow = Math.random() < 0.2
       const ref = Math.round(rnd(150, 230))
       const va = ref + Math.round(rnd(4, 14))
@@ -1376,8 +1383,10 @@ export class Race {
       const outcome = roll < 0.45 ? 'none' : roll < 0.8 ? 'one' : 'both'
       const w = this.where(A)
       const inc = this.makeBase('decision', 'collision', [A.id, B.id], w)
-      const base = outcome === 'none' ? 2 : 3
-      inc.ideal = { culprit, sev: culprit ? (outcome === 'both' ? 4 : base) : 0 }
+      // Erwartete Strafe genau nach Regeltext: 5 Sek., bei Ausfall eines oder beider Autos 10 Sek.
+      inc.ideal = { culprit, sev: culprit ? (outcome === 'none' ? 2 : 3) : 0 }
+      inc.axle = axle
+      inc.outcome = outcome
       const axleTxt = axle === 'ahead' ? 'Vorderachse auf Höhe der Spiegel' : axle === 'level' ? 'Vorderachse knapp auf Höhe' : 'Vorderachse hinter den Spiegeln'
       let consequence = 'beide fahren weiter'
       const stopped = []
