@@ -196,7 +196,7 @@ export default function CamView({ race, mode, selected, freeCam }) {
         const p = race.scPose()
         drawSafetyCar(ctx, p.x, p.y, p.h + Math.PI / 2, 1.3, !!race.sc && race.sc.lights, now)
         const m = race.medPose()
-        drawSafetyCar(ctx, m.x, m.y, m.h + Math.PI / 2, 1.3, race.med && race.med.speed > 1 ? 'orange' : false, now, true)
+        drawSafetyCar(ctx, m.x, m.y, m.h + Math.PI / 2, 1.3, race.med && (race.med.speed > 1 || race.med.mode === 'mission') ? 'orange' : false, now, true)
       }
       ctx.restore()
 

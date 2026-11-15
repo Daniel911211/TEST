@@ -232,12 +232,12 @@ export default function TrackMap({ race, selected, onSelect, freeCam }) {
       {
         const m = race.medPose(5 / sc)
         const mx = m.x * sc + ox, my = m.y * sc + oy
-        drawSafetyCar(ctx, mx, my, m.h + Math.PI / 2, race.med ? 3.2 : 2.4, race.med && race.med.speed > 1 ? 'orange' : false, now, true)
-        if (race.med && race.med.pitU == null && race.raceStart !== null) {
+        drawSafetyCar(ctx, mx, my, m.h + Math.PI / 2, race.med ? 3.2 : 2.4, race.med && (race.med.speed > 1 || race.med.mode === 'mission') ? 'orange' : false, now, true)
+        if (race.med && (race.med.mode === 'mission' || (race.med.pitU == null && race.raceStart !== null))) {
           ctx.fillStyle = '#ff8a8a'
           ctx.font = '700 10px ui-monospace, monospace'
           ctx.textAlign = 'left'
-          ctx.fillText('MEDICAL CAR', mx + 12, my + 14)
+          ctx.fillText(race.med.mode === 'mission' ? (race.med.phase === 'scene' ? 'ARZT AM UNFALLORT' : race.med.phase === 'return' ? 'ARZTWAGEN FÄHRT ZURÜCK' : 'ARZTWAGEN IM EINSATZ') : 'MEDICAL CAR', mx + 12, my + 14)
           ctx.textAlign = 'center'
         }
       }

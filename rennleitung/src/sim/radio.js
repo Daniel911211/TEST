@@ -36,6 +36,23 @@ export const LINES = {
     'Der Unterboden schleift. Das Auto ist unfahrbar, ich komme rein.',
     'Da flattert was am Seitenkasten. Ich brauche einen neuen Flügel.',
   ],
+  medWorry: [
+    'Das sah übel aus. Ist er okay?',
+    'Sagt mir bitte, dass er aussteigt.',
+    'Das war ein heftiger Einschlag da hinten. Geht es ihm gut?',
+    'Ich will erst wissen, ob er okay ist. Alles andere ist mir gerade egal.',
+  ],
+  medOk: [
+    'Gott sei Dank. Okay, weiter geht es.',
+    'Gut zu hören. Danke für die Info.',
+    'Sehr gut. Das ist das Wichtigste heute.',
+  ],
+  crashOk: [
+    'Ich bin okay. Aua. Aber okay.',
+    'Alles dran. Am Auto leider nicht mehr.',
+    'Mir geht es gut. Entschuldigung, Jungs. Das Auto ist hinüber.',
+    'Ich bin okay. Das war der härteste Einschlag meines Lebens.',
+  ],
   pitIn: [
     'Die Reifen sind am Ende. Ich komme rein.',
     'Box, Box. Verstanden.',
@@ -271,6 +288,7 @@ export const LINES = {
 // Antworten vom Kommandostand
 export const REPLIES = {
   damage: ['Verstanden. Box diese Runde, neuer Frontflügel.', 'Wir sehen es in den Daten. Komm rein.'],
+  medWorry: ['Wir haben noch keine Info. Der Arztwagen ist angefordert.', 'Wir sagen dir sofort Bescheid.'],
   pitIn: ['Verstanden, Box diese Runde.', 'Wir sind bereit.'],
   slowStop: ['Entschuldigung. Problem hinten links.', 'Tut uns leid. Das klären wir intern.'],
   collisionAttacker: ['Verstanden. Kopf runter, weiterfahren.', 'Wir schauen uns das an. Konzentrier dich.'],

@@ -369,6 +369,13 @@ export class Race {
         h.reviewAt = h.seenAt + rnd(14, 28)
       }
       if (this.t < h.seenAt) { pending++; continue }
+      // Arzt angefordert: Arztwagen losschicken und die Stelle entsprechend hoch absichern
+      const med = h.medical && h.medical.state !== 'done' ? h.medical : null
+      if (med) {
+        if (med.state === 'needed' && this.t >= h.seenAt + 1.5) this.sendMedical(c.id)
+        h.plan = Math.max(h.plan, 3)
+        if (med.heavy) want = 4
+      }
       // Zu schwach abgesichert: nach einer Weile wird nachgebessert
       if (this.t >= h.reviewAt && h.plan < need) h.plan = need
       const sec = sectorOf(mod(c.dist, L), L)
@@ -408,7 +415,7 @@ export class Race {
     // Freigeben, wenn nichts mehr zu sichern ist (manchmal trödelt die Automatik dabei)
     // Unter Rot zählen nur Autos, die geborgen werden müssen: gedrehte Autos fahren erst nach dem Neustart weiter
     const toRecover = stopped.filter((c) => !c.haz.self).length
-    const calm = this.state === 'RED' ? toRecover === 0 && !A.rainOn : stopped.length === 0 && want === 0
+    const calm = !this.medOnTrack() && (this.state === 'RED' ? toRecover === 0 && !A.rainOn : stopped.length === 0 && want === 0)
     if (calm && this.state !== 'GREEN') {
       if (A.clearAt == null) A.clearAt = this.t + rnd(2, 5) + (Math.random() < 0.15 ? rnd(8, 15) : 0)
       if (this.t >= A.clearAt) {
@@ -764,6 +771,9 @@ export class Race {
       }
     }
 
+    // Hindernisse auf der Fahrbahn: stehende Autos und der Arztwagen im Einsatz. Wer auf die Ideallinie ragt, wird umfahren.
+    this.obstacles = order.filter((c) => c.status === 'stopped' && c.speed < 5).map((c) => ({ dist: c.dist, lat: c.lat }))
+    if (this.med && this.med.mode === 'mission' && this.med.pitU == null && this.med.speed < 15) this.obstacles.push({ dist: this.med.dist, lat: this.med.lat })
     const running = order.filter((c) => c.status === 'run')
     for (let i = 0; i < running.length; i++) this.stepCar(running[i], dt, running, i)
     for (const c of order) if (c.status === 'stopped') this.stepStopped(c, dt)
@@ -875,7 +885,16 @@ export class Race {
         v *= 1.05
       }
     } else if (Math.abs(c.latTarget) > 0.4 && c.latTarget === c.passing) c.latTarget = 0
-    if (scPass) c.latTarget = -T.pit.side * 0.85 // seitlich am Safety Car vorbei
+    // Ausweichen: liegt voraus ein Hindernis nahe der Ideallinie, auf die freie Seite ziehen
+    let dodge = null
+    if (!pre) {
+      for (const o of this.obstacles) {
+        const g = mod(o.dist - c.dist, L)
+        if ((g < 80 || g > L - 9) && Math.abs(o.lat) < 0.75) { dodge = o.lat >= 0 ? o.lat - 1.0 : o.lat + 1.0; break }
+      }
+    }
+    if (dodge !== null) c.latTarget = dodge
+    else if (scPass) c.latTarget = -T.pit.side * 0.85 // seitlich am Safety Car vorbei
     else if (!c.passing && !pre && Math.abs(c.latTarget) > 0.4 && this.state !== 'RESTART' && this.state !== 'RED') c.latTarget = 0
 
     const a = v > c.speed ? 14 : st === 'RED' ? 42 : 38
@@ -1084,9 +1103,92 @@ export class Race {
     }
     return this.pose({ dist: m.dist, lat: m.lat }, latM)
   }
+  medOnTrack() {
+    return !!(this.med && this.med.mode === 'mission')
+  }
+  // Schickt den Arztwagen zu einem verunfallten Auto. Er fährt sofort aus der Boxengasse los.
+  sendMedical(carId) {
+    if (this.locked()) return
+    const c = this.cars[carId]
+    if (!c || c.status !== 'stopped' || !c.haz || !c.haz.medical || c.haz.medical.state !== 'needed') return
+    c.haz.medical.state = 'enroute'
+    this.logAction(`Arztwagen geschickt (${c.code})`)
+    this.msg(`MEDICAL CAR IM EINSATZ - UNTERWEGS ZU ${this.tag(c)}`, 'warn')
+    let m = this.med
+    if (m && m.mode === 'mission') return // schon im Einsatz: fährt danach direkt weiter
+    if (!m) m = this.med = { dist: 0, speed: 0, lat: 0, gap: 22, pitU: this.parkU('med'), shift: 1 }
+    m.mode = 'mission'
+    m.target = carId
+    if (m.pitU != null) m.phase = 'out'
+    else { m.phase = 'drive'; this.medGoal(m) }
+  }
+  // Zielpunkt: 9 m vor dem verunfallten Auto, in Fahrtrichtung gerechnet
+  medGoal(m) {
+    const tc = this.cars[m.target]
+    m.goal = m.dist + mod(mod(tc.dist, this.L) - 9 - mod(m.dist, this.L), this.L)
+  }
+  stepMission(m, dt) {
+    const P = this.track.pit, L = this.L, T = this.track
+    const tc = this.cars[m.target]
+    if (m.phase === 'out') {
+      // vom Parkplatz durch die Boxengasse und über die Ausfahrt auf die Strecke
+      m.speed += clamp(30 - m.speed, -30 * dt, 12 * dt)
+      m.shift = Math.max(0, m.shift - 1.5 * dt)
+      m.pitU += m.speed * dt
+      if (m.pitU >= P.len) {
+        m.pitU = null
+        m.dist = mod(P.inS + P.span, L)
+        m.lat = 0
+        m.phase = 'drive'
+        this.medGoal(m)
+      }
+      return
+    }
+    const idx = Math.floor(mod(m.dist, L) / T.ds) % T.n
+    // Das Auto wurde inzwischen anders erledigt (z. B. Rennende): Einsatz abbrechen
+    if (m.phase !== 'return' && tc.status !== 'stopped') m.phase = 'return'
+    if (m.phase === 'drive') {
+      const rem = m.goal - m.dist
+      const v = Math.min(T.v[idx] * 0.55, Math.sqrt(2 * 6 * Math.max(0, rem)) + 0.5)
+      m.speed += clamp(v - m.speed, -30 * dt, 9 * dt)
+      m.dist = Math.min(m.goal, m.dist + m.speed * dt)
+      // fährt abseits der Ideallinie und stellt sich am Ende hinter das Unfallauto
+      const side = tc.lat >= 0 ? 1 : -1
+      m.lat += clamp((rem < 60 ? tc.lat : side * 0.9) - m.lat, -0.8 * dt, 0.8 * dt)
+      if (rem < 0.6) {
+        m.phase = 'scene'
+        m.speed = 0
+        m.timer = rnd(14, 24)
+        tc.haz.medical.state = 'onscene'
+        this.msg(`MEDICAL CAR AM UNFALLORT BEI ${this.tag(tc)}`, 'warn')
+      }
+    } else if (m.phase === 'scene') {
+      m.timer -= dt
+      tc.haz.medical.left = Math.max(0, m.timer)
+      if (m.timer <= 0) {
+        tc.haz.medical.state = 'done'
+        if (Math.random() < 0.88) {
+          this.msg(`${this.tag(tc)} - FAHRER IST OKAY UND AUSGESTIEGEN`, 'ok')
+          this.radio(tc, pick(LINES.crashOk))
+          this.radioQueue.push({ at: this.t + rnd(3, 6), key: 'medOk' })
+        } else this.msg(`${this.tag(tc)} - FAHRER WIRD ZUR UNTERSUCHUNG INS MEDICAL CENTER GEBRACHT`, 'warn')
+        // wartet noch jemand auf den Arzt, fährt der Wagen direkt weiter
+        const next = this.cars.find((x) => x.status === 'stopped' && x.haz && x.haz.medical && x.haz.medical.state === 'enroute')
+        if (next) { m.target = next.id; m.phase = 'drive'; this.medGoal(m) }
+        else m.phase = 'return'
+      }
+    } else {
+      // zurück: die Runde zu Ende fahren und an der Boxeneinfahrt abbiegen
+      m.speed += clamp(T.v[idx] * 0.55 - m.speed, -30 * dt, 9 * dt)
+      const prev = m.dist
+      m.dist += m.speed * dt
+      if (mod(prev, L) < P.inS && mod(m.dist, L) >= P.inS) { m.pitU = 0; m.shift = 0; m.mode = null; m.target = null }
+    }
+  }
   stepMed(dt) {
     const m = this.med
     if (!m) return
+    if (m.mode === 'mission') return this.stepMission(m, dt)
     const P = this.track.pit, L = this.L, T = this.track
     if (m.pitU != null) {
       // durch die Boxengasse auf den Parkplatz
@@ -1204,7 +1306,7 @@ export class Race {
       if (this.t < q[i].at) continue
       const e = q.splice(i, 1)[0]
       if (e.dmg) { if (e.car.status === 'run') this.say('damage', e.car, {}, { force: true, replyChance: 0.8 }) }
-      else if (e.key) this.sayRandom(e.key, 1)
+      else if (e.key) this.sayRandom(e.key, 1, e.vars || {})
       else this.radio(e.car, e.text, true)
     }
     if (this.state === 'GREEN' && !this.chequered && this.t > this.nextAmbient) {
@@ -1219,11 +1321,15 @@ export class Race {
       if (c.status !== 'stopped') continue
       const sec = sectorOf(mod(c.dist, this.L), this.L)
       // Wie gut ist die Stelle abgesichert? 0 = gar nicht, 1 = Gelb, 2 = VSC, 3 = Safety Car oder Rot
-      const lvl = Math.max(this.state === 'GREEN' ? 0 : this.state === 'VSC' ? 2 : 3, this.sectors[sec] !== 'green' ? 1 : 0)
-      const need = { rand: 1, teil: 2, linie: 3 }[c.haz.pos]
+      // Stufe 4 = Rot. Solange der Arzt gebraucht wird, braucht die Stelle Safety Car, bei schwerem Einschlag Rot.
+      const lvl = Math.max(this.state === 'GREEN' ? 0 : this.state === 'VSC' ? 2 : this.state === 'RED' ? 4 : 3, this.sectors[sec] !== 'green' ? 1 : 0)
+      const med = c.haz.medical && c.haz.medical.state !== 'done' ? c.haz.medical : null
+      const need = med ? (med.heavy ? 4 : 3) : { rand: 1, teil: 2, linie: 3 }[c.haz.pos]
       if (lvl === 0) { danger++; uncovered++ }
       else if (lvl < need) danger += 0.3 * (need - lvl)
-      if (c.recov != null) {
+      // Fahrer wartet auf den Arzt, der noch nicht losgeschickt wurde
+      if (med && med.state === 'needed' && this.t - med.at > 10) danger += 0.7
+      if (c.recov != null && !med) {
         const rate = this.state === 'RED' ? 1.5 : this.state === 'SC' ? 1 : this.state === 'VSC' ? 0.7 : this.sectors[sec] !== 'green' ? (c.haz.pos === 'rand' ? 0.6 : 0.3) : 0.1
         c.recov -= dt * rate
         if (c.recov <= 0) {
@@ -1233,12 +1339,14 @@ export class Race {
         }
       }
     }
+    // Arztwagen im Einsatz auf freier Strecke
+    if (this.medOnTrack() && this.state === 'GREEN') danger += 0.6
     const flood = this.wet > 0.78 && (this.state === 'GREEN' || this.state === 'VSC')
     this.safety = clamp(this.safety + (danger ? -0.7 * danger * dt : flood ? -0.45 * dt : 0.04 * dt), 0, 100)
     this.dangerT = uncovered ? this.dangerT + dt : 0
     if (this.dangerT > 7) { this.dangerT = -18; this.sayRandom('danger', 1) }
     const stoppedSecs = new Set(this.cars.filter((c) => c.status === 'stopped').map((c) => sectorOf(mod(c.dist, this.L), this.L)))
-    const idle = (this.state === 'SC' || this.state === 'VSC') && !stoppedSecs.size && this.wet < 0.6 && !this.scEnding && !this.vscEndAt
+    const idle = (this.state === 'SC' || this.state === 'VSC') && !stoppedSecs.size && this.wet < 0.6 && !this.scEnding && !this.vscEndAt && !this.medOnTrack()
     // Schonfrist: das Safety Car braucht nach der Bergung noch gut eine Runde, erst danach kostet es Ablauf
     this.idleT = idle ? (this.idleT || 0) + dt : 0
     const grace = 45 // Sekunden, um nach der Bergung das Ende einzuleiten; die Einfahrrunde selbst kostet nichts
@@ -1314,6 +1422,13 @@ export class Race {
     c.verge = (c.lat >= 0 ? 1 : -1) * { rand: 1.55, teil: 0.95, linie: 0.25 }[pos]
     c.recov = rnd(35, 60) + (debris ? 12 : 0) + (pos === 'linie' ? 8 : 0)
     c.haz = { cause: why, pos, debris, self, total: c.recov }
+    // Schwerer Einschlag: Der Fahrer braucht den Arzt. Die Bergung beginnt erst, wenn er versorgt ist.
+    // heavy: Die Rettung braucht die ganze Strecke, also Rote Flagge.
+    if (why === 'UNFALL' && Math.random() < 0.25) {
+      c.haz.medical = { state: 'needed', at: this.t, heavy: Math.random() < 0.3, left: 0 }
+      this.radioQueue.push({ at: this.t + rnd(5, 9), key: 'medWorry' })
+      this.msg(`${this.tag(c)} - SCHWERER EINSCHLAG, ARZT ANGEFORDERT`, 'bad')
+    }
     c.passing = null
     c.latTarget = c.verge
     const w = this.where(c)

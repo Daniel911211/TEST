@@ -118,7 +118,23 @@ export function IncidentPanel({ incidents, t, onOpen, race }) {
                 <div className="marshal">
                   <div><span className="dim">GRUND</span> {i.haz.cause}{i.haz.debris ? ' · Trümmer auf der Strecke' : ''}</div>
                   <div><span className="dim">LAGE</span> <b className={`pos-${i.haz.pos}`}>{{ rand: 'am Streckenrand', teil: 'teilweise auf der Fahrbahn', linie: 'auf der Ideallinie' }[i.haz.pos]}</b></div>
-                  <div><span className="dim">BERGUNG</span> {i.haz.self ? `fährt selbst weiter, noch ca. ${Math.ceil(i.haz.left)} s` : `ca. ${Math.round(i.haz.total / 5) * 5} s unter Safety Car`}</div>
+                  {i.haz.medical && (
+                    <div>
+                      <span className="dim">ARZT</span>{' '}
+                      <b className={i.haz.medical.state === 'done' ? 'pos-rand' : i.haz.medical.state === 'needed' ? 'pos-linie' : 'pos-teil'}>
+                        {{
+                          needed: i.haz.medical.heavy ? 'angefordert · Fahrer muss geborgen werden, die Rettung braucht die ganze Strecke' : 'angefordert · Fahrer meldet sich nicht',
+                          enroute: 'Arztwagen ist unterwegs',
+                          onscene: `Arzt am Unfallort, noch ca. ${Math.ceil(i.haz.medical.left)} s`,
+                          done: 'Fahrer versorgt',
+                        }[i.haz.medical.state]}
+                      </b>
+                    </div>
+                  )}
+                  <div><span className="dim">BERGUNG</span> {i.haz.self ? `fährt selbst weiter, noch ca. ${Math.ceil(i.haz.left)} s` : i.haz.medical && i.haz.medical.state !== 'done' ? 'beginnt, sobald der Fahrer versorgt ist' : `ca. ${Math.round(i.haz.total / 5) * 5} s unter Safety Car`}</div>
+                  {i.haz.medical && i.haz.medical.state === 'needed' && !race.auto && (
+                    <button className="btn sm red" onClick={() => race.sendMedical(cars[0].id)}>ARZTWAGEN SCHICKEN</button>
+                  )}
                   <div className="mbar"><i style={{ width: `${Math.round((1 - i.haz.left / i.haz.total) * 100)}%`, background: '#4cd0ff' }} /></div>
                 </div>
               )}
