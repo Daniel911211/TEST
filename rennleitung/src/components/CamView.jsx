@@ -1,7 +1,37 @@
 import { useEffect, useRef, useState } from 'react'
 import { drawCar, drawSafetyCar } from './Replay.jsx'
+import { sectorOf } from '../sim/race.js'
 
 const SCALE = 3.6 // Pixel pro Meter
+
+// Streckenposten von oben: orange Weste, optional mit geschwenkter gelber Flagge
+function drawMarshal(ctx, x, y, flag, now) {
+  if (flag) {
+    const a = Math.sin(now / 170 + x) * 0.7
+    ctx.save(); ctx.translate(x, y); ctx.rotate(a)
+    ctx.strokeStyle = '#3a3a3a'; ctx.lineWidth = 0.12
+    ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(0, -1.5); ctx.stroke()
+    ctx.fillStyle = '#ffd21f'; ctx.fillRect(0, -1.5, 1.0, 0.7)
+    ctx.restore()
+  }
+  ctx.fillStyle = '#ff7a1a'
+  ctx.beginPath(); ctx.arc(x, y, 0.48, 0, Math.PI * 2); ctx.fill()
+  ctx.fillStyle = '#f1d9b5'
+  ctx.beginPath(); ctx.arc(x, y, 0.22, 0, Math.PI * 2); ctx.fill()
+}
+
+// Bergungsfahrzeug mit Kran, Nase zeigt in Fahrtrichtung (Winkel ang)
+function drawRecoveryTruck(ctx, x, y, ang, now) {
+  ctx.save(); ctx.translate(x, y); ctx.rotate(ang)
+  ctx.fillStyle = '#14161b'
+  for (const [wx, wy] of [[-2.1, -1.35], [1.3, -1.35], [-2.1, 1.05], [1.3, 1.05]]) ctx.fillRect(wx, wy, 0.9, 0.3)
+  ctx.fillStyle = '#f2c11a'; ctx.fillRect(-2.9, -1.15, 5.8, 2.3)
+  ctx.fillStyle = '#2a2d34'; ctx.fillRect(1.5, -0.95, 1.1, 1.9)
+  ctx.fillStyle = '#c99a0c'; ctx.fillRect(-2.6, -0.8, 3.6, 1.6)
+  ctx.fillStyle = Math.floor(now / 250) % 2 ? '#ff9a1f' : '#6b4a12'
+  ctx.beginPath(); ctx.arc(1.0, 0, 0.3, 0, Math.PI * 2); ctx.fill()
+  ctx.restore()
+}
 
 function posAt(T, L, dist) {
   const s = ((dist % L) + L) % L
@@ -181,14 +211,69 @@ export default function CamView({ race, mode, selected, freeCam }) {
         }
       }
 
+      // Unfallstellen: Trümmer, Streckenposten mit gelber Flagge und das Bergungsfahrzeug
+      const liftOf = (c) => {
+        const hz = c.haz
+        if (!hz || hz.self || c.recov == null) return 0
+        const prog = 1 - c.recov / hz.total
+        return Math.max(0, Math.min(1, (prog - 0.72) / 0.28)) // im letzten Viertel wird das Auto weggehoben
+      }
+      for (const c of race.cars) {
+        if (c.status !== 'stopped' || !c.haz) continue
+        const q0 = race.pose(c, 3.6)
+        if (Math.abs(q0.x - cam.x) > w / S + 30 || Math.abs(q0.y - cam.y) > h / S + 30) continue
+        const hz = c.haz
+        const side = c.lat >= 0 ? 1 : -1
+        const prog = hz.self || c.recov == null ? 0 : 1 - c.recov / hz.total
+        if (hz.debris) {
+          // Trümmer werden in der ersten Hälfte der Bergung weggeräumt
+          const n = Math.ceil(8 * (1 - Math.min(1, prog / 0.5)))
+          for (let i = 0; i < n; i++) {
+            const dd = ((c.id * 37 + i * 53) % 23) - 8
+            const dl = (((c.id * 17 + i * 29) % 19) / 19 - 0.5) * 1.5
+            const q = race.pose({ dist: c.dist + dd, lat: c.lat - side * 0.35 + dl }, 3.6)
+            ctx.save(); ctx.translate(q.x, q.y); ctx.rotate(i * 1.3 + c.id)
+            ctx.fillStyle = i % 3 ? '#16181d' : c.livery.body
+            ctx.beginPath(); ctx.moveTo(-0.45, -0.15); ctx.lineTo(0.4, -0.3); ctx.lineTo(0.2, 0.3); ctx.closePath(); ctx.fill()
+            ctx.restore()
+          }
+        }
+        const sec = sectorOf(((c.dist % L) + L) % L, L)
+        const covered = race.state !== 'GREEN' || race.sectors[sec] !== 'green'
+        if (covered) {
+          // Posten vor der Unfallstelle schwenkt Gelb
+          const q = race.pose({ dist: c.dist - 22, lat: side * 2.05 }, 3.6)
+          drawMarshal(ctx, q.x, q.y, true, now)
+        }
+        if (hz.active && !hz.self) {
+          const lift = liftOf(c)
+          const t = race.pose({ dist: c.dist + 0.5, lat: c.lat + side * (1.25 + lift * 0.5) }, 3.6)
+          // Kranarm zum Auto
+          ctx.strokeStyle = '#2a2d34'; ctx.lineWidth = 0.28
+          ctx.beginPath(); ctx.moveTo(t.x, t.y); ctx.lineTo(q0.x - Math.sin(q0.h) * side * lift * 4.5, q0.y + Math.cos(q0.h) * side * lift * 4.5); ctx.stroke()
+          drawRecoveryTruck(ctx, t.x, t.y, t.h, now)
+          for (const [dd, dl] of [[-4.5, 0.35], [4.2, -0.3]]) {
+            const m = race.pose({ dist: c.dist + dd, lat: c.lat + side * dl }, 3.6)
+            drawMarshal(ctx, m.x, m.y, false, now)
+          }
+        }
+      }
       const drawOne = (c, color, stopped) => {
         const p = race.pose(c, 3.6)
         if (Math.abs(p.x - cam.x) > w / S || Math.abs(p.y - cam.y) > h / S) return
-        const x = p.x, y = p.y
-        drawCar(ctx, x, y, p.h + Math.PI / 2 + (stopped ? 0.9 : 0), color, 1)
-        if (stopped) {
-          ctx.fillStyle = `rgba(255,210,31,${0.5 + 0.5 * Math.sin(now / 150)})`
-          ctx.beginPath(); ctx.arc(x, y - 5, 1.2, 0, Math.PI * 2); ctx.fill()
+        let x = p.x, y = p.y
+        // am Kranhaken: das Auto wird zur Seite von der Strecke gehoben
+        const lift = stopped ? liftOf(c) : 0
+        if (lift) {
+          const side = c.lat >= 0 ? 1 : -1
+          x -= Math.sin(p.h) * side * lift * 4.5
+          y += Math.cos(p.h) * side * lift * 4.5
+        }
+        drawCar(ctx, x, y, p.h + Math.PI / 2 + (stopped ? 0.9 : 0), color, 1 - lift * 0.12)
+        // Warnblinken nur, solange die Stelle noch nicht abgesichert ist
+        if (stopped && race.state === 'GREEN' && race.sectors[sectorOf(((c.dist % L) + L) % L, L)] === 'green') {
+          ctx.fillStyle = `rgba(255,70,70,${0.4 + 0.6 * Math.abs(Math.sin(now / 150))})`
+          ctx.beginPath(); ctx.arc(x, y, 3.4, 0, Math.PI * 2); ctx.lineWidth = 0.35; ctx.strokeStyle = ctx.fillStyle; ctx.stroke()
         }
       }
       for (const c of race.cars) if (c.status === 'run' || c.status === 'stopped') drawOne(c, c.livery, c.status === 'stopped')

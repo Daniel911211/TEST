@@ -168,7 +168,7 @@ function label(ctx, text, x, y, color = '#ffd21f', align = 'left') {
   ctx.fillText(text, bx + 6, y + 13)
 }
 
-export default function Replay({ inc, carA, carB, highlight = null }) {
+export default function Replay({ inc, carA, carB, highlight = null, track = null }) {
   const cv = useRef(null)
   const [p, setP] = useState(0)
   const [playing, setPlaying] = useState(true)
@@ -177,7 +177,7 @@ export default function Replay({ inc, carA, carB, highlight = null }) {
   const [fixed, setFixed] = useState(false)
   const [overlay, setOverlay] = useState(false)
   const st = useRef({})
-  st.current = { p, playing, tempo, zoom, fixed, overlay, inc, carA, carB, highlight }
+  st.current = { p, playing, tempo, zoom, fixed, overlay, inc, carA, carB, highlight, track }
   const kind = inc.replay.kind
 
   useEffect(() => {
@@ -261,63 +261,104 @@ function draw(ctx, s, now) {
     label(ctx, `${carA.code} · ${Math.round(150 + 120 * (1 - bump))} km/h`, W - 10, 10, '#e8edf7', 'right')
     hud += over > 0.05 ? '' : ''
   } else if (kind === 'collision') {
+    // Kollision in der echten Kurve: Streckenverlauf und Randsteine stammen von der Strecke. B (Verteidiger) fährt
+    // von außen auf den Scheitelpunkt zu, A (Angreifer) sticht innen hinein. Nach dem Kontakt landen ausgefallene
+    // Autos dort, wo sie im Rennen wirklich stehen geblieben sind.
+    const T = s.track
     const { axle, outcome } = inc.replay
-    const T = 40
-    const q = p - 0.55
-    const contact = p >= 0.55
-    const dyAxle = axle === 'ahead' ? 0.4 : axle === 'level' ? 1.6 : 4.0
-    // B vorne, A hinten innen
-    const yB0 = -T * Math.min(p, 0.55)
+    const N = T.n, ds = T.ds, L = T.length
+    const angd = (h0, h1) => { let d = h1 - h0; while (d > Math.PI) d -= 2 * Math.PI; while (d < -Math.PI) d += 2 * Math.PI; return d }
+    const ia = T.cornerAt(inc.s ?? 0).idx
+    const sa = ia * ds
+    const hA = T.h[ia]
+    const inside = angd(T.h[(ia - 8 + N) % N], T.h[(ia + 8) % N]) >= 0 ? 1 : -1 // +1: Kurveninnenseite liegt rechts
+    const at = (sm, latM) => {
+      const f = (((sm % L) + L) % L) / ds
+      const i = Math.floor(f) % N, j = (i + 1) % N, u = f - Math.floor(f)
+      const h = T.h[i] + angd(T.h[i], T.h[j]) * u
+      return { x: T.xs[i] + (T.xs[j] - T.xs[i]) * u - Math.sin(h) * latM, y: T.ys[i] + (T.ys[j] - T.ys[i]) * u + Math.cos(h) * latM, h }
+    }
+    const pc = 0.55, q = Math.max(0, p - pc), contact = p >= pc
+    const TR = 150 // Meter, die das Replay abdeckt
+    const dyAxle = axle === 'ahead' ? 0.4 : axle === 'level' ? 1.6 : 4.0 // so weit liegt A am Kontaktpunkt hinter B
     const stopA = outcome === 'both' || (outcome === 'one' && inc.stopId === carA.id)
     const stopB = outcome === 'both' || (outcome === 'one' && inc.stopId === carB.id)
-    const slide = (stop, base) => (contact ? (stop ? -T * 0.2 * (1 - Math.exp(-q / 0.1)) : -T * q) + base : base)
-    const dyBefore = lerp(14, dyAxle, ease(p / 0.55))
-    const yB = slide(stopB, yB0)
-    const yAbase = yB0 + (contact ? dyAxle : dyBefore)
-    const yA = contact ? slide(stopA, yB0 + dyAxle) : yAbase
-    const xB = p < 0.4 ? 0.6 : lerp(0.6, -0.2, ease((Math.min(p, 0.55) - 0.4) / 0.15)) + (contact && !stopB ? q * 2 : 0)
-    const xA = lerp(-4.5, -1.9, ease(Math.min(p, 0.55) / 0.55)) + (contact && !stopA ? -q * 3 : 0)
-    const angA = contact && stopA ? ((axle === 'behind' ? 1 : -1) * 2.2 * (1 - Math.exp(-q / 0.08))) : 0
-    const angB = contact && stopB ? ((axle === 'behind' ? -1 : 1) * 2.4 * (1 - Math.exp(-q / 0.08))) : 0
-    const k = (H / 22) * zoom * (fixed ? 0.55 : 1)
-    const camY = fixed ? -12 : (yA + yB) / 2
-    const S = (x, y) => [W / 2 + (x + 1) * k, H / 2 + (y - camY) * k]
+    const k1 = 1 - Math.exp(-q / 0.12)
+    const after = (stop) => (stop ? TR * 0.2 * (1 - Math.exp(-q / 0.1)) : TR * q)
+    const s0 = sa - 78
+    const sB = s0 + TR * Math.min(p, pc) + (contact ? after(stopB) : 0)
+    const sA = contact ? s0 + TR * pc - dyAxle + after(stopA) : s0 + TR * p - lerp(14, dyAxle, ease(p / pc))
+    // Querlage in Metern, positiv = Kurveninnenseite
+    const endA = stopA ? carA.lat * 3.6 * inside : 2.4
+    const endB = stopB ? carB.lat * 3.6 * inside : -1.8
+    let lA = lerp(0.4, 3.6, ease(p / 0.35))
+    let lB = p < 0.4 ? -3.0 : lerp(-3.0, 1.7, ease((Math.min(p, pc) - 0.4) / 0.15))
+    if (contact) {
+      lA = lerp(3.6, endA, stopA ? k1 : ease(q / 0.2))
+      lB = lerp(1.7, endB, stopB ? k1 : ease(q / 0.2))
+    }
+    const PA = at(sA, lA * inside), PB = at(sB, lB * inside)
+    const spin = 1 - Math.exp(-q / 0.08)
+    const angA = contact && stopA ? (axle === 'behind' ? 1 : -1) * 2.2 * spin : 0
+    const angB = contact && stopB ? (axle === 'behind' ? -1 : 1) * 2.4 * spin : 0
+    // Ansicht: Fahrtrichtung am Scheitelpunkt zeigt nach oben
+    const theta = -(hA + Math.PI / 2)
+    const cs = Math.cos(theta), sn = Math.sin(theta)
+    const k = (H / 30) * zoom
+    const mid = fixed ? at(sa, 0) : { x: (PA.x + PB.x) / 2, y: (PA.y + PB.y) / 2 }
+    const S = (x, y) => {
+      const dx = x - mid.x, dy = y - mid.y
+      return [W / 2 + (dx * cs - dy * sn) * k, H / 2 + (dx * sn + dy * cs) * k]
+    }
     ctx.fillStyle = '#1f5a2a'; ctx.fillRect(0, 0, W, H)
-    const [r0] = S(-9, 0), [r1] = S(8, 0), [kk0] = S(-10.4, 0), [kk1] = S(9.4, 0)
-    ctx.fillStyle = '#3b6d7a'; ctx.fillRect(kk0, 0, kk1 - kk0, H)
-    ctx.fillStyle = '#4b4c52'; ctx.fillRect(r0, 0, r1 - r0, H)
-    kerbV(ctx, S, -9.0, -7.7, camY, k)
-    kerbV(ctx, S, 6.7, 8.0, camY, k)
+    const road = new Path2D(), kerb = new Path2D()
+    let open = false
+    for (let d = -55; d <= 55; d++) {
+      const i = (((ia + d) % N) + N) % N
+      const [x, y] = S(T.xs[i], T.ys[i])
+      if (d === -55) road.moveTo(x, y); else road.lineTo(x, y)
+      if (T.kerb[i]) { if (open) kerb.lineTo(x, y); else { kerb.moveTo(x, y); open = true } } else open = false
+    }
+    ctx.lineJoin = 'round'; ctx.lineCap = 'butt'
+    ctx.strokeStyle = '#3b6d7a'; ctx.lineWidth = 44 * k; ctx.stroke(road)
+    ctx.strokeStyle = '#f1f1f1'; ctx.lineWidth = 17 * k; ctx.stroke(kerb)
+    ctx.setLineDash([3 * k, 3 * k]); ctx.strokeStyle = '#d93a3a'; ctx.stroke(kerb); ctx.setLineDash([])
+    ctx.strokeStyle = '#f4f4f4'; ctx.lineWidth = 13.4 * k; ctx.stroke(road)
+    ctx.strokeStyle = '#4b4c52'; ctx.lineWidth = 12.6 * k; ctx.stroke(road)
+    const [bx, by] = S(PB.x, PB.y), [ax, ay] = S(PA.x, PA.y)
     if (contact && q < 0.08) {
-      const [fx, fy] = S((xA + xB) / 2, (yA + yB) / 2 - 0.5)
       ctx.fillStyle = 'rgba(255,230,120,0.9)'
-      ctx.beginPath(); ctx.arc(fx, fy, 14 * (1 - q / 0.08) + 4, 0, Math.PI * 2); ctx.fill()
+      ctx.beginPath(); ctx.arc((ax + bx) / 2, (ay + by) / 2, 14 * (1 - q / 0.08) + 4, 0, Math.PI * 2); ctx.fill()
     }
     if (contact) {
-      ctx.fillStyle = 'rgba(210,210,215,0.18)'
-      for (const [stop, y, x] of [[stopA, yA, xA], [stopB, yB, xB]]) {
+      // Reifenrauch der ausgefallenen Autos
+      ctx.fillStyle = 'rgba(210,210,215,0.16)'
+      for (const [stop, x, y] of [[stopA, ax, ay], [stopB, bx, by]]) {
         if (!stop) continue
-        for (let i = 0; i < 6; i++) { const [sx, sy] = S(x + Math.sin(i) * 0.6, y + i * 1.6 * Math.min(1, q * 4)); ctx.beginPath(); ctx.arc(sx, sy, 8 * zoom, 0, Math.PI * 2); ctx.fill() }
+        for (let i = 0; i < 5; i++) { ctx.beginPath(); ctx.arc(x + Math.sin(i * 2.1) * 9 * zoom, y + (i * 9 + 6) * zoom * Math.min(1, q * 4), 7 * zoom, 0, Math.PI * 2); ctx.fill() }
       }
     }
-    const [bx, by] = S(xB, yB), [ax, ay] = S(xA, yA)
-    drawCar(ctx, bx, by, angB, carB.livery, k)
-    drawCar(ctx, ax, ay, angA, carA.livery, k)
+    drawCar(ctx, bx, by, PB.h + Math.PI / 2 + theta + angB, carB.livery, k)
+    drawCar(ctx, ax, ay, PA.h + Math.PI / 2 + theta + angA, carA.livery, k)
     mark(ctx, bx, by, k, carB.code, highlight === 'b', now)
     mark(ctx, ax, ay, k, carA.code, highlight === 'a', now, true)
-    if (overlay) {
-      const mirrorY = yB - 1.0
-      const frontY = yA - 3.0
+    if (overlay && p <= pc + 0.03) {
+      // Hilfslinien quer über die Fahrbahn: Spiegel von B und Vorderachse von A (nur bis zum Kontakt sinnvoll)
       ctx.setLineDash([6, 4]); ctx.lineWidth = 1.5
-      for (const [yy, col, txt] of [[mirrorY, '#ffd21f', 'Spiegel B'], [frontY, '#4cd0ff', 'Vorderachse A']]) {
-        const [, sy] = S(0, yy)
-        ctx.strokeStyle = col; ctx.beginPath(); ctx.moveTo(0, sy); ctx.lineTo(W, sy); ctx.stroke()
-        label(ctx, txt, 8, sy - 20, col)
+      for (const [sm, col, txt, right] of [[sB + 1.0, '#ffd21f', 'Spiegel ' + carB.code, true], [sA + 1.85, '#4cd0ff', 'Vorderachse ' + carA.code, false]]) {
+        const e0 = at(sm, -7), e1 = at(sm, 7)
+        const [x0, y0] = S(e0.x, e0.y), [x1, y1] = S(e1.x, e1.y)
+        ctx.strokeStyle = col; ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(x1, y1); ctx.stroke()
+        // Beschriftung an den beiden Enden der Linien, damit sie sich nicht überdecken
+        const lx = right ? Math.max(x0, x1) : Math.min(x0, x1), ly = right ? (x0 > x1 ? y0 : y1) : (x0 < x1 ? y0 : y1)
+        label(ctx, txt, right ? Math.min(W - 8, lx + 6) : Math.max(8 + ctx.measureText(txt).width + 12, lx - 6), ly - 9, col, right ? 'left' : 'right')
       }
       ctx.setLineDash([])
     }
     label(ctx, 'EINLENKEN', 10, H - 40, p >= 0.4 ? '#4cd0ff' : '#7d8aa3')
     label(ctx, 'KONTAKT', 100, H - 40, contact ? '#ff6a6a' : '#7d8aa3')
+    const cn = T.cornerAt(inc.s ?? 0)
+    label(ctx, `KURVE ${cn.n} · ${cn.name.toUpperCase()}`, W - 10, 10, '#e8edf7', 'right')
   } else if (kind === 'yellow') {
     const { ref, va, status, slow } = inc.replay
     const T = 24

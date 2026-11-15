@@ -420,7 +420,11 @@ export class Race {
       if (A.clearAt == null) A.clearAt = this.t + rnd(2, 5) + (Math.random() < 0.15 ? rnd(8, 15) : 0)
       if (this.t >= A.clearAt) {
         if (this.state === 'VSC') this.endVSC()
-        else if (this.state === 'SC') this.scInThisLap()
+        else if (this.state === 'SC') {
+          // erst die Überrundeten vorbeilassen, dann das Safety Car reinholen
+          if (this.sc && this.sc.collected && !this.unlapUsed && this.lappedCars().length) this.letLappedPass()
+          else if (!this.cars.some((c) => c.unlap)) this.scInThisLap()
+        }
         else if (this.state === 'RED') this.restart()
       }
     } else A.clearAt = null
@@ -495,8 +499,27 @@ export class Race {
     // Das Safety Car fährt sofort vom Parkplatz los, egal wo das Feld gerade ist. Grüne Lichter heißen:
     // Es sammelt noch ein und winkt alle außer dem Führenden vorbei. Orange heißt: Überholverbot.
     this.sc = { dist: 0, speed: 0, lat: 0, lights: 'green', collected: false, leaving: false, pitU: this.parkU(), shift: 1 }
+    this.unlapUsed = false
     this.msg('SAFETY CAR IM EINSATZ', 'warn')
     this.reactRadio('sc')
+  }
+  // Überrundete Autos im Feld hinter dem Safety Car: mindestens eine Runde hinter dem Führenden
+  lappedCars() {
+    const lead = this.order.find((c) => c.status === 'run')
+    if (!lead) return []
+    return this.order.filter((c) => c.status === 'run' && !c.pit && c !== lead && lead.dist - c.dist >= this.L * 0.99)
+  }
+  // Zurückrunden: Überrundete dürfen das Feld und das Safety Car überholen, fahren eine Runde herum
+  // und reihen sich hinten ein. Danach stehen beim Neustart keine Überrundeten mehr zwischen den Führenden.
+  letLappedPass() {
+    if (this.state !== 'SC' || !this.sc || !this.sc.collected || this.sc.leaving || this.unlapUsed || this.locked()) return
+    const cars = this.lappedCars()
+    if (!cars.length) return
+    this.unlapUsed = true
+    for (const c of cars) c.unlap = true
+    this.logAction(`Überrundete vorbeigelassen (${cars.length})`)
+    this.msg(`ÜBERRUNDETE AUTOS DÜRFEN ÜBERHOLEN: ${cars.map((c) => c.code).join(', ')}`, 'warn')
+    this.fairness = clamp(this.fairness + 2, 0, 100)
   }
   // Das Safety Car bleibt doch draußen, weil es eine neue Gefahr gibt
   scStayOut() {
@@ -824,8 +847,9 @@ export class Race {
     }
     else if (st === 'VSC') v *= 0.6
     else if (st === 'SC') {
-      // Alle schließen zügig zum Zug hinter dem Safety Car auf; gebremst wird über den Vordermann
-      v *= 0.7
+      // Alle schließen zügig zum Zug hinter dem Safety Car auf; gebremst wird über den Vordermann.
+      // Wer sich zurückgerundet hat, fährt schnell herum, bis er hinten wieder anschließt.
+      v *= c.unlapped ? 0.92 : 0.7
     } else {
       const f = this.sectors[sec]
       if (f === 'yellow') v *= 0.8
@@ -849,12 +873,17 @@ export class Race {
     }
     // Unter Safety Car wird hintereinander gefahren, niemand bleibt neben einem anderen
     const file = st === 'FORMATION' || st === 'SC'
-    for (const o of running) if (o !== c && !o.pit) consider(o, false, file)
+    for (const o of running) if (o !== c && !o.pit && !!o.unlap === !!c.unlap) consider(o, false, file)
     // Safety Car: Solange es mit grünen Lichtern einsammelt, winkt es alle außer dem Führenden vorbei
     let scPass = false
     if (this.sc && this.sc.pitU == null) {
       const sc = this.sc
-      if (sc.lights === 'green' && !sc.collected && idxInOrder !== 0) {
+      if (c.unlap) {
+        // am Feld und am Safety Car vorbei; ist das Safety Car passiert, geht es mit Tempo um die Runde
+        const g = mod(c.dist - sc.dist, L)
+        if (g > 15 && g < 250) { c.unlap = false; c.unlapped = true }
+        else scPass = true
+      } else if (sc.lights === 'green' && !sc.collected && idxInOrder !== 0) {
         const g = mod(sc.dist - c.dist, L)
         if (g < 60 || g > L - 12) scPass = true
         // Vorbei darf nur, wer schon seitlich versetzt ist; sonst bleibt er kurz dahinter
@@ -862,6 +891,8 @@ export class Race {
       } else consider(sc, true, true)
     }
     const free = st === 'GREEN'
+    // hinten am Feld angekommen: wieder ganz normal einreihen
+    if (c.unlapped && (blocker || st !== 'SC')) c.unlapped = false
     if (blocker) {
       const sp = st === 'FORMATION' ? 9 : st === 'SC' || st === 'VSC' ? 14 : 11
       if (bgap < sp + 2) v = Math.min(v, blocker.speed * 0.99)
@@ -1252,6 +1283,7 @@ export class Race {
       this.state = 'GREEN'
       this.sc = null
       this.scEnding = false
+      for (const o of this.cars) { o.unlap = false; o.unlapped = false }
       this.allGreen(true)
       this.msg('SAFETY CAR IN DER BOX - STRECKE FREI, GRÜNE FLAGGE', 'ok')
     }
@@ -1330,8 +1362,11 @@ export class Race {
       else if (lvl < need) danger += 0.3 * (need - lvl)
       // Fahrer wartet auf den Arzt, der noch nicht losgeschickt wurde
       if (med && med.state === 'needed' && this.t - med.at > 10) danger += 0.7
+      // active: Bergung läuft sichtbar (Stelle ist abgesichert und der Fahrer versorgt)
+      c.haz.active = false
       if (c.recov != null && !med) {
         const rate = this.state === 'RED' ? 1.5 : this.state === 'SC' ? 1 : this.state === 'VSC' ? 0.7 : this.sectors[sec] !== 'green' ? (c.haz.pos === 'rand' ? 0.6 : 0.3) : 0.1
+        c.haz.active = rate >= 0.3
         c.recov -= dt * rate
         if (c.recov <= 0) {
           c.status = 'out'
@@ -1719,6 +1754,9 @@ export class Race {
       autoNote: this.ad.note,
       scEnding: this.scEnding,
       scWaiting: this.scExiting(),
+      scCollected: !!(this.sc && this.sc.collected && !this.sc.leaving),
+      lapped: this.state === 'SC' && !this.unlapUsed ? this.lappedCars().length : 0,
+      unlapping: this.cars.filter((c) => c.unlap || c.unlapped).length,
       vscEnding: !!this.vscEndAt,
       restartIn: this.state === 'RESTART' ? Math.max(0, Math.ceil(this.restartAt - this.t)) : 0,
       results,

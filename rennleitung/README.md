@@ -24,6 +24,9 @@ npm run sim-test # Simulation ohne Oberfläche testen
 - Streckensicherung umschaltbar zwischen MANUELL und AUTO: Die Automatik übernimmt Flaggen, VSC, Safety Car, Rote Flagge und den Neustart, mit menschlicher Reaktionszeit und gelegentlichen Fehleinschätzungen. Start und Fälle bleiben beim Spieler
 - Safety Car fährt beim Ruf sofort aus, sammelt mit grünen Lichtern das Feld ein und schaltet auf Orange, sobald der Führende dahinter ist. Der Arztwagen (Medical Car) folgt dem Feld in der Einführungsrunde und in Runde 1
 - Startboxen in der Startaufstellung
+- Zurückrunden: Überrundete dürfen auf Kommando das Feld und das Safety Car überholen und reihen sich hinten ein
+- Bergung sichtbar: Bergungsfahrzeug mit Kran, Streckenposten mit gelber Flagge, Trümmer, die weggeräumt werden
+- Kollisions-Replay in der echten Kurve mit dem echten Streckenverlauf
 - Einsätze des Arztwagens: Nach schweren Unfällen wird der Arzt angefordert; die Bergung beginnt erst, wenn der Fahrer versorgt ist. Fahrende Autos weichen stehenden Autos und dem Arztwagen aus
 - Sektorflaggen (Grün/Gelb/Doppelgelb, Tasten 1 2 3), VSC, Safety Car, Rote Flagge, Neustart
 - Zufallsfälle mit Fall-Dialog, Replay, Regelauszug und Fahreraussagen:

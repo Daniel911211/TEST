@@ -68,6 +68,9 @@ export function ControlPanel({ snap, race, selectedRow, selectedCar, onAuto }) {
           <button className="btn red" disabled={auto || !['GREEN', 'VSC', 'SC'].includes(s)} onClick={() => race.callRed()}>ROTE FLAGGE</button>
           <button className="btn ok" disabled={auto || s !== 'RED'} onClick={() => race.restart()}>NEUSTART</button>
         </div>
+        <button className="btn sm wide gray" disabled={auto || s !== 'SC' || !snap.scCollected || !snap.lapped || snap.scEnding} onClick={() => race.letLappedPass()}>
+          {snap.unlapping ? `ÜBERRUNDETE FAHREN VORBEI (${snap.unlapping})` : `ÜBERRUNDETE VORBEILASSEN${snap.lapped ? ` (${snap.lapped})` : ''}`}
+        </button>
       </div>
 
       <div className="panel">
