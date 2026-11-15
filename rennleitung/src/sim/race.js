@@ -845,7 +845,7 @@ export class Race {
       this.say('nfaRelief', c, {}, { force: true })
     }
     this.fairness = clamp(this.fairness + delta, 0, 100)
-    const text = `Protest ${c.code} ${choice === 'confirm' ? 'abgewiesen' : 'stattgegeben'}: ${delta > 0 ? 'richtig' : inc.correct ? 'die Strafe war korrekt' : 'die Strafe war überzogen'}`
+    const text = `Protest ${c.last} ${choice === 'confirm' ? 'abgewiesen' : 'stattgegeben'}: ${delta > 0 ? 'richtig' : inc.correct ? 'die Strafe war korrekt' : 'die Strafe war überzogen'}`
     this.logEvent(text, delta)
     this.feedback.push({ id: `p${inc.id}-${this.t}`, delta, text, verdict: '' })
     inc.status = 'done'
@@ -2029,7 +2029,8 @@ export class Race {
       D: 'Mangelhaft. Der Weltverband kündigt eine Untersuchung an.',
       F: 'Katastrophal. Der Rennleiter wird mit sofortiger Wirkung abgesetzt.',
     }[grade]
-    const cases = this.feedbackLog.filter((e) => e.text.startsWith('Fall'))
+    const allCases = this.feedbackLog.filter((e) => e.text.startsWith('Fall'))
+    const cases = allCases.filter((e) => !e.text.endsWith('nicht entschieden'))
     const open = this.incidents.filter((i) => i.kind === 'decision').length
     return {
       grade,
@@ -2039,6 +2040,7 @@ export class Race {
       flow: Math.round(this.flow),
       decided: cases.length,
       good: cases.filter((e) => e.delta > 0).length,
+      missed: allCases.length - cases.length,
       open,
       // Eingriffe der Streckensicherung, getrennt nach Spieler und Automatik
       actsYou: this.feedbackLog.filter((e) => e.safety && e.by === 'du').length,

@@ -100,7 +100,7 @@ export function ReportDialog({ snap, onClose, onNew, onRace, onSeason, finished 
           <div>
             <b>{r.summary}</b>
             <div className="dim">Sicherheit {r.safety} · Fairness {r.fairness} · Ablauf {r.flow}</div>
-            <div className="dim">{r.decided} {r.decided === 1 ? 'Fall' : 'Fälle'} entschieden, davon {r.good} richtig{r.open ? ` · ${r.open} noch offen` : ''} · Streckensicherung: {r.actsYou}-mal du, {r.actsAuto}-mal die Automatik</div>
+            <div className="dim">{r.decided} {r.decided === 1 ? 'Fall' : 'Fälle'} entschieden, davon {r.good} richtig{r.missed ? ` · ${r.missed} Frist verpasst` : ''}{r.open ? ` · ${r.open} noch offen` : ''} · Streckensicherung: {r.actsYou}-mal du, {r.actsAuto}-mal die Automatik</div>
           </div>
         </div>
         <div className="repcols">
