@@ -21,34 +21,36 @@ export const OPTIONS = {
 export const OPTION_LIST = Object.values(OPTIONS)
 
 export const RULES = {
-  impeding:
-    'Behindern im Qualifying: Wer langsam fährt, muss die Ideallinie für Autos auf schneller Runde freimachen. Klare Behinderung (Zeitverlust über 0,3 s): 3 Startplätze zurück. Zu spät Platz gemacht, geringer Zeitverlust (0,1 bis 0,3 s): Verwarnung. Kein messbarer Zeitverlust: keine Strafe.',
-  blueFlags:
-    'Blaue Flagge: Ein überrundetes Auto muss das schnellere bei der ersten Gelegenheit vorbeilassen. Bis 3 Posten mit blauer Flagge: kein Vergehen. 4 bis 5 Posten: Verwarnung. Mehr als 5 Posten: 5 Sekunden.',
-  forcingOff:
-    'Abdrängen: Ist der Angreifer außen am Scheitelpunkt mit der Vorderachse mindestens auf Höhe der Vorderachse des Verteidigers, muss ihm am Kurvenausgang eine Wagenbreite (2,0 m) Platz bleiben. Wird er trotzdem von der Strecke gedrängt: 5 Sekunden. War er nicht weit genug vorn oder blieb genug Platz: keine Strafe.',
-  weaving:
-    'Verteidigen: Erlaubt ist ein einziger Richtungswechsel, und zwar vor dem Bremspunkt. Zweiter Richtungswechsel: Verwarnung (schwarz-weiße Flagge). Spurwechsel in der Bremszone, der den Hintermann zum Ausweichen zwingt: 5 Sekunden.',
-  cutChicane:
-    'Abkürzen: Wer die Strecke verlässt, darf daraus keinen dauerhaften Vorteil ziehen. Position gewonnen und behalten: 5 Sekunden. Position zurückgegeben oder Zeit verloren: keine Strafe. Nur Zeit gewonnen, keine Position: Verwarnung.',
-  scGap:
-    'Hinter dem Safety Car darf der Abstand zum Vordermann höchstens 10 Wagenlängen betragen. 11 bis 20 Wagenlängen: Verwarnung. Mehr als 20: 5 Sekunden. Ausnahme: Sind die Lichter des Safety Cars aus, bestimmt der Führende das Tempo.',
-  pitClosed:
-    'Gesperrte Boxengasse: Wer trotz roter Ampel einfährt, bekommt 10 Sekunden Stop & Go. Ausnahme: Das Auto ist beschädigt und kommt zur Reparatur, dann bleibt es straffrei.',
-  pitSpeed:
-    'Tempolimit in der Boxengasse: 80 km/h. Messwert bis 80,0 km/h: keine Strafe. Überschreitung bis 10 km/h: 5 Sekunden. Mehr als 10 km/h zu schnell: 10 Sekunden.',
-  jumpStart:
-    'Frühstart: Bewegt sich ein Auto, bevor die Lichter ausgehen, und löst den Sensor aus, gibt es 5 Sekunden. Wer klar vor dem Signal losfährt, bekommt eine Durchfahrtsstrafe. Ein Zucken ohne Sensorauslösung bleibt straffrei.',
-  gridPosition:
-    'Startposition: Die Aufstandsfläche der Vorderreifen muss hinter der weißen Linie der Startbox stehen. Steht ein Reifen darüber, gibt es 5 Sekunden. Berührt der Reifen die Linie nur, bleibt es straffrei.',
-  overtakeYellow:
-    'Unter Gelb, VSC und Safety Car darf nicht überholt werden. Ausnahme: Das überholte Auto ist offensichtlich langsam oder defekt. Gelb/VSC: 5 Sek. Doppelgelb/Safety Car: 10 Sek.',
-  collision:
-    'Überholrichtlinie innen: Der Angreifer hat Anspruch auf Platz, wenn seine Vorderachse am Einlenkpunkt mindestens auf Höhe der Spiegel des Verteidigers ist. Lenkt der Verteidiger trotzdem ein und verursacht die Kollision, trägt er die Schuld. Liegt der Angreifer dahinter, trägt er die Schuld. Nur knapp auf Höhe: Rennunfall, keine Strafe. Strafe für den Schuldigen: 5 Sek., wenn beide weiterfahren. 10 Sek., wenn ein oder beide Autos ausfallen.',
-  unsafeRelease:
-    'Unsichere Freigabe: Muss ein anderes Auto deutlich bremsen (mehr als 30 km/h), gibt es 5 Sekunden. Leichtes Lupfen ohne Gefahr (10 bis 30 km/h): Verwarnung. Kein Einfluss (unter 10 km/h): keine Strafe.',
   trackLimits:
-    'Track Limits: Ein Verstoß liegt nur vor, wenn alle vier Räder jenseits der weißen Linie sind. Die Linie gehört zur Strecke: Berührt ein Reifen sie noch, ist es kein Vergehen. Erster Verstoß ohne klaren Vorteil: Rundenzeit streichen. Wiederholung oder Zeitgewinn über 0,2 s: Streichen + 5 Sekunden.',
+    'Die weiße Linie gehört zur Strecke. Ein Verstoß liegt erst vor, wenn alle vier Räder jenseits der Linie sind.\n• Ein Reifen berührt die Linie noch: kein Vergehen\n• Erster Verstoß ohne klaren Vorteil: Rundenzeit streichen\n• Wiederholung oder mehr als 0,2 s Zeitgewinn: Streichen + 5 Sekunden',
+  trackLimitsQuali:
+    'Die weiße Linie gehört zur Strecke. Ein Verstoß liegt erst vor, wenn alle vier Räder jenseits der Linie sind.\n• Ein Reifen berührt die Linie noch: kein Vergehen\n• Verstoß: Die Rundenzeit wird gestrichen',
+  collision:
+    'Entscheidend ist der Einlenkpunkt: Wo ist die Vorderachse des Angreifers (innen)?\n• Auf Höhe der Spiegel des Verteidigers oder weiter vorn: Der Angreifer hat Anspruch auf Platz. Lenkt der Verteidiger trotzdem ein, ist er schuld\n• Hinter den Spiegeln: Der Angreifer ist schuld\n• Nur knapp auf Höhe: Rennunfall, keine Strafe\nStrafe für den Schuldigen: 5 Sekunden, wenn beide weiterfahren. 10 Sekunden, wenn ein Auto ausfällt.',
+  unsafeRelease:
+    'Ein Auto darf nicht in den Weg eines anderen freigegeben werden. Maßstab ist, wie stark das andere Auto bremsen muss.\n• Weniger als 10 km/h: keine Strafe\n• 10 bis 30 km/h: Verwarnung\n• Mehr als 30 km/h: 5 Sekunden',
+  overtakeYellow:
+    'Unter Gelb, VSC und Safety Car ist Überholen verboten.\n• Gelb oder VSC: 5 Sekunden\n• Doppelgelb oder Safety Car: 10 Sekunden\n• Ausnahme: Das überholte Auto ist offensichtlich langsam oder defekt. Dann keine Strafe',
+  gridPosition:
+    'Die Vorderreifen müssen hinter der weißen Linie der Startbox stehen.\n• Reifen berührt die Linie nur: keine Strafe\n• Reifen steht über der Linie: 5 Sekunden',
+  jumpStart:
+    'Kein Auto darf sich bewegen, bevor die Lichter ausgehen.\n• Zucken, ohne den Sensor auszulösen: keine Strafe\n• Sensor ausgelöst: 5 Sekunden\n• Klar vor dem Signal losgefahren: Durchfahrtsstrafe',
+  pitSpeed:
+    'In der Boxengasse gilt Tempo 80.\n• Bis 80,0 km/h: keine Strafe\n• Bis 10 km/h zu schnell: 5 Sekunden\n• Mehr als 10 km/h zu schnell: 10 Sekunden',
+  pitClosed:
+    'Bei roter Boxenampel darf niemand einfahren.\n• Einfahrt ohne Schaden: 10 Sekunden Stop & Go\n• Ausnahme: Ein beschädigtes Auto kommt zur Reparatur. Dann keine Strafe',
+  blueFlags:
+    'Überrundete müssen das schnellere Auto bei der ersten Gelegenheit vorbeilassen.\n• Bis 3 Posten mit blauer Flagge: keine Strafe\n• 4 bis 5 Posten: Verwarnung\n• Mehr als 5 Posten: 5 Sekunden',
+  forcingOff:
+    'Wer außen am Scheitelpunkt mit der Vorderachse gleichauf ist, hat am Kurvenausgang Anspruch auf eine Wagenbreite (2,0 m) Platz.\n• Gleichauf und weniger als 2,0 m Platz: 5 Sekunden\n• Nicht gleichauf: keine Strafe, der Verteidiger darf die ganze Strecke nutzen\n• Genug Platz gelassen: keine Strafe',
+  weaving:
+    'Beim Verteidigen ist ein einziger Richtungswechsel erlaubt, und nur vor dem Bremspunkt.\n• Ein Wechsel vor dem Bremspunkt: keine Strafe\n• Zweiter Wechsel: Verwarnung\n• Wechsel in der Bremszone, der Hintermann muss ausweichen: 5 Sekunden',
+  cutChicane:
+    'Wer abkürzt, darf daraus keinen dauerhaften Vorteil ziehen.\n• Position gewonnen und behalten: 5 Sekunden\n• Position zurückgegeben: keine Strafe\n• Nur Zeit gewonnen: Verwarnung\n• Zeit verloren: keine Strafe',
+  scGap:
+    'Hinter dem Safety Car sind höchstens 10 Wagenlängen Abstand zum Vordermann erlaubt.\n• Bis 10 Wagenlängen: keine Strafe\n• 11 bis 20 Wagenlängen: Verwarnung\n• Mehr als 20 Wagenlängen: 5 Sekunden\n• Ausnahme: Sind die Lichter des Safety Cars aus, bestimmt der Führende das Tempo',
+  impeding:
+    'Wer langsam fährt, muss die Ideallinie für Autos auf schneller Runde freimachen. Maßstab ist der Zeitverlust.\n• Weniger als 0,1 s: keine Strafe\n• 0,1 bis 0,3 s: Verwarnung\n• Mehr als 0,3 s: 3 Startplätze zurück',
 }
 
 export const TYPE_TITLE = {
@@ -193,11 +195,13 @@ export class Race {
     // Arztwagen (Medical Car): steht beim Start hinter dem Feld, folgt ihm in der Einführungsrunde und in
     // Runde 1 und fährt danach auf seinen Parkplatz neben dem Safety Car. null = geparkt.
     this.med = this.quali ? null : { dist: -(12 + (this.cars.length - 1) * 8) - 22, speed: 0, lat: 0, gap: 22, pitU: null, shift: 0 }
-    this.msg('AUTOS IN DER STARTAUFSTELLUNG - WARTEN AUF DIE EINFÜHRUNGSRUNDE')
+    this.msg('FELD STEHT IN DER STARTAUFSTELLUNG')
   }
 
   // ---------- Hilfsfunktionen ----------
   msg(text, level = 'info') {
+    // einheitliche Schreibweise: Punkt als Trenner, neue Fälle mit ihrer Nummer
+    text = text.replace(' - WIRD UNTERSUCHT', ` - FALL ${String(this.caseNo).padStart(2, '0')}`).replace(/ - /g, ' · ')
     this.messages.push({ t: this.t, text, level, id: (this.msgSeq = (this.msgSeq || 0) + 1) })
     if (this.messages.length > 200) this.messages.shift()
   }
@@ -267,7 +271,7 @@ export class Race {
     return this.auto && this.actor !== 'auto'
   }
   tag(c) {
-    return `AUTO ${c.num} (${c.code})`
+    return c.last.toUpperCase()
   }
   where(c) {
     const s = mod(c.dist, this.L)
@@ -298,7 +302,7 @@ export class Race {
       c.lapStart = this.t
       c.speed = this.track.v[Math.floor(mod(c.dist, this.L) / this.track.ds) % this.track.n] * 0.85
     }
-    this.msg('QUALIFYING GESTARTET - DREI GEZEITETE RUNDEN, DIE BESTE ZÄHLT', 'flag')
+    this.msg('QUALIFYING LÄUFT - DREI GEZEITETE RUNDEN, DIE BESTE ZÄHLT', 'flag')
   }
   startFormation() {
     if (this.quali) return
@@ -323,23 +327,23 @@ export class Race {
     if (this.state !== 'GRIDREADY') return
     if (this.medReadyAt && this.t < this.medReadyAt) {
       this.safety = clamp(this.safety - 12, 0, 100)
-      this.logEvent('Start freigegeben, obwohl der Arztwagen nicht bereit war', -12)
-      this.msg('WARNUNG - START OHNE BEREITEN ARZTWAGEN', 'bad')
+      this.logEvent('Start ohne bereiten Arztwagen', -12)
+      this.msg('START OHNE BEREITEN ARZTWAGEN', 'bad')
       this.medReadyAt = 0
     }
     this.state = 'LIGHTS'
     this.lightsAt = this.t
     this.lightsOutAt = this.t + 5 + rnd(0.5, 2.3)
     this.jump = Math.random() < 0.3 ? { car: pick(this.cars.filter((c) => c.status === 'run' && !c.stalled)), kind: pick(['twitch', 'roll', 'roll', 'clear']), done: false } : null
-    this.msg('STARTPROZEDUR - AMPEL LÄUFT', 'warn')
+    this.msg('STARTAMPEL LÄUFT', 'warn')
   }
   // Start abbrechen: zusätzliche Einführungsrunde, Renndistanz minus eine Runde
   abortStart() {
     if (this.state !== 'GRIDREADY') return
     const stalled = this.cars.filter((c) => c.stalled)
     if (!stalled.length) this.flow = clamp(this.flow - 8, 0, 100)
-    else this.logEvent('Start abgebrochen: Auto stand in der Aufstellung', 0)
-    this.msg('START ABGEBROCHEN - ZUSÄTZLICHE EINFÜHRUNGSRUNDE, RENNDISTANZ UM EINE RUNDE VERKÜRZT', 'bad')
+    else this.logEvent('Start abgebrochen, weil ein Auto stehen blieb', 0)
+    this.msg('START ABGEBROCHEN - NEUE EINFÜHRUNGSRUNDE, RENNEN EINE RUNDE KÜRZER', 'bad')
     this.laps = Math.max(1, this.laps - 1)
     let back = Math.min(...this.cars.filter((c) => c.status === 'run').map((c) => c.slot))
     for (const c of stalled) {
@@ -361,7 +365,7 @@ export class Race {
     if (this.rainPlan) this.rainPlan.start += this.t
     this.nextAmbient = this.t + rnd(15, 30)
     this.msg('LICHTER AUS - DAS RENNEN LÄUFT', 'flag')
-    if (this.med) this.msg('MEDICAL CAR FOLGT DEM FELD IN DER ERSTEN RUNDE', 'info')
+    if (this.med) this.msg('ARZTWAGEN FOLGT DEM FELD IN RUNDE 1', 'info')
     this.radioQueue.push({ at: this.t + 6, key: 'start' }, { at: this.t + 11, key: 'start' })
     for (const c of this.cars) {
       c.lapStart = this.t
@@ -370,7 +374,7 @@ export class Race {
         c.stalled = false
         this.stopCar(c, 'MOTOR ABGEWÜRGT')
         this.safety = clamp(this.safety - 15, 0, 100)
-        this.logEvent(`Start trotz stehendem Auto (${c.code})`, -15)
+        this.logEvent(`Start trotz stehendem Auto (${c.last})`, -15)
         this.radioQueue.push({ at: this.t + 3, key: 'danger' })
       }
     }
@@ -409,7 +413,7 @@ export class Race {
         ['Startplatz', `P${this.cars.filter((o) => o.slot > c.slot).length + 1}`],
         ['Meldung', 'Startbox-Kamera: Auto steht weit vorn'],
       ]
-      inc.tip = 'Tipp: Ans Ende scrubben, hineinzoomen und die Vorderreifen gegen die weiße Linie prüfen.'
+      inc.tip = 'Tipp: Spule ans Ende, zoome hinein und prüfe, ob ein Vorderreifen über der weißen Linie steht.'
       inc.statements = [{ code: c.code, text: pick(['Ich sehe die Linie aus dem Cockpit nicht. Niemand sieht die.', 'Ich stand perfekt. Glaube ich.']) }]
       inc.replay = { kind: 'grid', over }
       inc.expert = over > 0.03 ? `Experten: Vorderreifen ${over.toFixed(2)} m über der Linie. 5 Sekunden.` : `Experten: Reifen noch ${Math.abs(over).toFixed(2)} m hinter der Linie, keine Strafe.`
@@ -428,7 +432,7 @@ export class Race {
     this.auto = !!on
     this.ad = { clearAt: null, secClearAt: [null, null, null], rainAt: null, rainOn: false, note: '' }
     for (const c of this.cars) if (c.haz) c.haz.seenAt = null
-    this.msg(on ? 'STRECKENSICHERUNG - AUTOMATIK ÜBERNIMMT' : 'STRECKENSICHERUNG - WIEDER MANUELL', 'info')
+    this.msg(on ? 'AUTOMATIK ÜBERNIMMT DIE STRECKENSICHERUNG' : 'STRECKENSICHERUNG WIEDER MANUELL', 'info')
   }
   autoDirector() {
     if (!this.auto) return
@@ -570,13 +574,13 @@ export class Race {
   }
 
   callVSC() {
-    if (this.quali) return this.msg('IM QUALIFYING GIBT ES KEIN SAFETY CAR - MIT GELBEN FLAGGEN SICHERN', 'info')
+    if (this.quali) return this.msg('KEIN SAFETY CAR IM QUALIFYING - MIT GELB SICHERN', 'info')
     if (this.state !== 'GREEN' || this.locked()) return
     this.logAction('VSC ausgelöst')
     this.state = 'VSC'
     this.vscEndAt = null
     if (!this.cars.some((c) => c.status === 'stopped') && this.wet < 0.6) this.flow = clamp(this.flow - 2, 0, 100)
-    this.msg('VIRTUELLES SAFETY CAR AKTIV', 'warn')
+    this.msg('VIRTUELLES SAFETY CAR (VSC) AKTIV', 'warn')
     this.reactRadio('vsc')
   }
   endVSC() {
@@ -586,7 +590,7 @@ export class Race {
     this.msg('VSC ENDET GLEICH', 'warn')
   }
   callSC() {
-    if (this.quali) return this.msg('IM QUALIFYING GIBT ES KEIN SAFETY CAR - MIT GELBEN FLAGGEN SICHERN', 'info')
+    if (this.quali) return this.msg('KEIN SAFETY CAR IM QUALIFYING - MIT GELB SICHERN', 'info')
     if ((this.state !== 'GREEN' && this.state !== 'VSC') || this.locked()) return
     this.logAction('Safety Car gerufen')
     const lead = this.standings().find((c) => c.status === 'run')
@@ -616,7 +620,7 @@ export class Race {
     this.unlapUsed = true
     for (const c of cars) c.unlap = true
     this.logAction(`Überrundete vorbeigelassen (${cars.length})`)
-    this.msg(`ÜBERRUNDETE AUTOS DÜRFEN ÜBERHOLEN: ${cars.map((c) => c.code).join(', ')}`, 'warn')
+    this.msg(`ÜBERRUNDETE DÜRFEN VORBEI: ${cars.map((c) => c.code).join(', ')}`, 'warn')
     this.fairness = clamp(this.fairness + 2, 0, 100)
   }
   // Boxeneinfahrt sperren oder öffnen (rote Ampel an der Einfahrt)
@@ -646,23 +650,23 @@ export class Race {
       this.sc = null
       this.scEnding = false
       this.state = 'GREEN'
-      this.msg('SAFETY CAR ZURÜCKGERUFEN - STRECKE FREI, GRÜNE FLAGGE', 'ok')
+      this.msg('SAFETY CAR ZURÜCKGERUFEN - GRÜNE FLAGGE', 'ok')
       if (this.cars.some((c) => c.status === 'stopped')) {
         this.safety = clamp(this.safety - 12, 0, 100)
-        this.msg('WARNUNG - ES STEHT NOCH EIN AUTO AUF DER STRECKE', 'bad')
+        this.msg('ACHTUNG - ES STEHT NOCH EIN AUTO AUF DER STRECKE', 'bad')
       } else this.allGreen(true)
       return
     }
     this.scEnding = true
     if (this.sc) this.sc.lights = false
-    this.msg('SAFETY CAR KOMMT IN DIESER RUNDE REIN - LICHTER AUS', 'warn')
+    this.msg('SAFETY CAR KOMMT DIESE RUNDE REIN - LICHTER AUS', 'warn')
     if (this.cars.some((c) => c.status === 'stopped')) {
       this.safety = clamp(this.safety - 12, 0, 100)
-      this.msg('WARNUNG - ES STEHT NOCH EIN AUTO AUF DER STRECKE', 'bad')
+      this.msg('ACHTUNG - ES STEHT NOCH EIN AUTO AUF DER STRECKE', 'bad')
     }
   }
   callRed() {
-    if (this.quali) return this.msg('ROTE FLAGGE IM QUALIFYING NICHT NÖTIG - GELB GENÜGT', 'info')
+    if (this.quali) return this.msg('KEINE ROTE FLAGGE IM QUALIFYING - GELB GENÜGT', 'info')
     if (!['GREEN', 'VSC', 'SC'].includes(this.state) || this.locked()) return
     this.logAction('Rote Flagge')
     this.state = 'RED'
@@ -704,7 +708,7 @@ export class Race {
     const o = OPTIONS[key]
     const tag = this.tag(car)
     if (key === 'nfa') {
-      this.msg(`${tag} - KEINE WEITERE MASSNAHME (${reason})`, 'ok')
+      this.msg(`${tag} - KEINE STRAFE (${reason})`, 'ok')
       return
     }
     if (key === 'grid3') {
@@ -731,34 +735,34 @@ export class Race {
     if (key === 't5' || key === 't10') {
       const s = key === 't5' ? 5 : 10
       car.penaltySec += s
-      this.msg(`${s} SEKUNDEN ZEITSTRAFE FÜR ${tag} (${reason})`, 'bad')
+      this.msg(`${tag} - ${s} SEKUNDEN STRAFE (${reason})`, 'bad')
       return
     }
     if (key === 'black') {
       car.status = 'dsq'
       car.speed = 0
-      this.msg(`${tag} - DISQUALIFIZIERT, SCHWARZE FLAGGE (${reason})`, 'bad')
+      this.msg(`${tag} - SCHWARZE FLAGGE, DISQUALIFIZIERT (${reason})`, 'bad')
       return
     }
     // Durchfahrt / Stop&Go: nur sinnvoll für fahrende Autos
     if (car.status !== 'run') {
       const s = key === 'dt' ? 20 : 30
       car.penaltySec += s
-      this.msg(`${s} SEKUNDEN ZEITSTRAFE FÜR ${tag} - STRAFE NICHT ABGESESSEN (${reason})`, 'bad')
+      this.msg(`${tag} - ${s} SEKUNDEN STRAFE STATT ${key === 'dt' ? 'DURCHFAHRT' : 'STOP & GO'} (${reason})`, 'bad')
       return
     }
     car.pending = key === 'dt' ? { type: 'dt', rem: 20 } : { type: 'sg', rem: 10 }
-    this.msg(`${key === 'dt' ? 'DURCHFAHRTSSTRAFE' : '10 SEKUNDEN STOP & GO'} FÜR ${tag} (${reason})`, 'bad')
+    this.msg(`${tag} - ${key === 'dt' ? 'DURCHFAHRTSSTRAFE' : '10 SEKUNDEN STOP & GO'} (${reason})`, 'bad')
   }
 
   penalizeCar(carId, key) {
     const c = this.cars[carId]
     if (!c || c.status === 'dsq' || c.status === 'fin') return
-    this.applyPenalty(c, key, 'DIREKTE MASSNAHME DER RENNLEITUNG')
+    this.applyPenalty(c, key, 'OHNE FALL')
     const o = OPTIONS[key]
     const dl = key === 'black' ? 30 : o.sev * 4
     this.fairness = clamp(this.fairness - dl, 0, 100)
-    if (dl) this.logEvent(`Posten ${c.code}: Direktstrafe (${o.label})`, -dl)
+    if (dl) this.logEvent(`Strafe ohne Fall für ${c.last} (${o.label})`, -dl)
     if (['t10', 'dt', 'sg'].includes(key)) this.protestQueue.push({ at: this.t + rnd(15, 35), car: c.id, opt: key, correct: false, no: 0 })
     if (key !== 'nfa') this.reactRadio('penalty', c, key)
   }
@@ -798,7 +802,7 @@ export class Race {
     const fb = {
       id: `${inc.id}-${this.t}`,
       delta: Math.round(delta),
-      text: `Fall ${String(inc.no).padStart(2, '0')} (${TYPE_TITLE[inc.type]}) ${delta > 0 ? 'korrekt' : 'fragwürdig'}`,
+      text: `Fall ${String(inc.no).padStart(2, '0')} (${TYPE_TITLE[inc.type]}) ${delta > 0 ? 'richtig' : 'anders als die Experten'}`,
       verdict,
     }
     this.feedback.push(fb)
@@ -810,7 +814,7 @@ export class Race {
       if (['t10', 'dt', 'sg'].includes(opt) && Math.random() < 0.45) this.protestQueue.push({ at: this.t + rnd(15, 35), car: target.id, opt, correct: delta > 0, no: inc.no })
       if (opt !== 'nfa') this.reactRadio('penalty', target, opt)
     } else {
-      this.msg(`${this.tag(a)} / ${this.tag(b)} - RENNUNFALL, KEINE WEITERE MASSNAHME`, 'ok')
+      this.msg(`${this.tag(a)} / ${this.tag(b)} - RENNUNFALL, KEINE STRAFE`, 'ok')
       if (inc.type === 'collision') {
         this.say('nfaVictim', b, { other: a }, { force: true })
         this.say('nfaRelief', a, {}, { force: true })
@@ -831,13 +835,13 @@ export class Race {
     let delta
     if (choice === 'confirm') {
       delta = inc.correct ? 4 : -6
-      this.msg(`PROTEST VON ${c.team.toUpperCase()} ABGEWIESEN - STRAFE FÜR ${this.tag(c)} BLEIBT`, 'info')
+      this.msg(`PROTEST ABGEWIESEN - STRAFE FÜR ${this.tag(c)} BLEIBT`, 'info')
     } else {
       delta = inc.correct ? -8 : 5
       // Strafe rückgängig machen, soweit sie noch nicht abgesessen ist
       if (inc.opt === 't10') c.penaltySec = Math.max(0, c.penaltySec - 10)
       else if (c.pending && c.pending.type === inc.opt) c.pending = null
-      this.msg(`PROTEST VON ${c.team.toUpperCase()} STATTGEGEBEN - STRAFE FÜR ${this.tag(c)} AUFGEHOBEN`, 'ok')
+      this.msg(`PROTEST STATTGEGEBEN - STRAFE FÜR ${this.tag(c)} AUFGEHOBEN`, 'ok')
       this.say('nfaRelief', c, {}, { force: true })
     }
     this.fairness = clamp(this.fairness + delta, 0, 100)
@@ -873,10 +877,10 @@ export class Race {
       const run = this.cars.filter((c) => c.status === 'run')
       if (run.every((c) => c.onGrid)) {
         this.state = 'GRIDREADY'
-        this.msg('ALLE AUTOS IN DER AUFSTELLUNG - BEREIT ZUM START', 'ok')
+        this.msg('FELD STEHT - BEREIT ZUM START', 'ok')
         // Gelegentlich ist der Arztwagen noch nicht bereit: Dann darf der Start noch nicht freigegeben werden
         this.medReadyAt = Math.random() < 0.12 ? this.t + rnd(12, 25) : 0
-        if (this.medReadyAt) this.msg('MEDICAL CAR NOCH NICHT BEREIT - START NOCH NICHT FREIGEBEN', 'bad')
+        if (this.medReadyAt) this.msg('ARZTWAGEN NOCH NICHT BEREIT - MIT DEM START WARTEN', 'bad')
         if (Math.random() < 0.18) {
           const c = pick(run)
           c.stalled = true
@@ -887,7 +891,7 @@ export class Race {
     }
     if (this.state === 'GRIDREADY' && this.medReadyAt && this.t >= this.medReadyAt) {
       this.medReadyAt = 0
-      this.msg('MEDICAL CAR BEREIT - START KANN FREIGEGEBEN WERDEN', 'ok')
+      this.msg('ARZTWAGEN BEREIT - START FREI', 'ok')
     }
     if (this.state === 'LIGHTS') {
       const j = this.jump
@@ -936,7 +940,7 @@ export class Race {
         if (!sc.collected && lead && !lead.pit && mod(sc.dist - lead.dist, this.L) < 20) {
           sc.collected = true
           if (sc.lights) sc.lights = 'orange'
-          this.msg('FÜHRENDER HINTER DEM SAFETY CAR - ÜBERHOLVERBOT', 'warn')
+          this.msg('FELD HINTER DEM SAFETY CAR - ÜBERHOLVERBOT', 'warn')
         }
         const idx = Math.floor(mod(sc.dist, this.L) / this.track.ds) % this.track.n
         sc.speed += clamp(this.track.v[idx] * (sc.collected ? 0.42 : 0.2) - sc.speed, -30 * dt, 12 * dt)
@@ -1161,7 +1165,7 @@ export class Race {
     if (c.pending) {
       const pen = c.pending.type
       c.pending = null
-      this.msg(`${this.tag(c)} - IN DER BOXENGASSE, SITZT ${pen === 'dt' ? 'DURCHFAHRTSSTRAFE' : 'STOP & GO'} AB`, 'info')
+      this.msg(`${this.tag(c)} - SITZT ${pen === 'dt' ? 'DURCHFAHRTSSTRAFE' : 'STOP & GO'} AB`, 'info')
       return pen === 'dt' ? { stop: 0, pen } : { stop: 10, pen }
     }
     const remaining = this.laps * this.L - c.dist
@@ -1185,7 +1189,7 @@ export class Race {
     // Beschädigtes Auto: Reparaturstopp mit frischen Reifen
     if (c.damage) {
       const tyre = next || (isWetTyre(c.tyre) ? c.tyre : sprint ? c.tyre : this.chooseDry(c, frac))
-      this.msg(`${this.tag(c)} - ZUR REPARATUR IN DER BOXENGASSE`, 'info')
+      this.msg(`${this.tag(c)} - ZUR REPARATUR AN DER BOX`, 'info')
       return { stop: rnd(7, 12) + c.penaltySec, tyre, repair: true, served: c.penaltySec }
     }
     if (!next) return null
@@ -1217,7 +1221,7 @@ export class Race {
         const j = pit.job
         if (j.tyre) { this.fitTyre(c, j.tyre); c.stops++ }
         if (j.repair) c.damage = false
-        if (j.served) { c.penaltySec = Math.max(0, c.penaltySec - j.served); this.msg(`${this.tag(c)} - ${j.served} SEKUNDEN ZEITSTRAFE ABGESESSEN`, 'info') }
+        if (j.served) { c.penaltySec = Math.max(0, c.penaltySec - j.served); this.msg(`${this.tag(c)} - ${j.served} SEKUNDEN STRAFE ABGESESSEN`, 'info') }
         if (j.pen) this.msg(`${this.tag(c)} - STOP & GO ABGESESSEN`, 'info')
         if (j.slow) this.say('slowStop', c, {}, { force: true })
         pit.phase = 'out'
@@ -1309,7 +1313,7 @@ export class Race {
     if (!c || c.status !== 'stopped' || !c.haz || !c.haz.medical || c.haz.medical.state !== 'needed') return
     c.haz.medical.state = 'enroute'
     this.logAction(`Arztwagen geschickt (${c.code})`)
-    this.msg(`MEDICAL CAR IM EINSATZ - UNTERWEGS ZU ${this.tag(c)}`, 'warn')
+    this.msg(`ARZTWAGEN UNTERWEGS ZU ${this.tag(c)}`, 'warn')
     let m = this.med
     if (m && m.mode === 'mission') return // schon im Einsatz: fährt danach direkt weiter
     if (!m) m = this.med = { dist: 0, speed: 0, lat: 0, gap: 22, pitU: this.parkU('med'), shift: 1 }
@@ -1356,7 +1360,7 @@ export class Race {
         m.speed = 0
         m.timer = rnd(14, 24)
         tc.haz.medical.state = 'onscene'
-        this.msg(`MEDICAL CAR AM UNFALLORT BEI ${this.tag(tc)}`, 'warn')
+        this.msg(`ARZTWAGEN BEI ${this.tag(tc)} EINGETROFFEN`, 'warn')
       }
     } else if (m.phase === 'scene') {
       m.timer -= dt
@@ -1364,10 +1368,10 @@ export class Race {
       if (m.timer <= 0) {
         tc.haz.medical.state = 'done'
         if (Math.random() < 0.88) {
-          this.msg(`${this.tag(tc)} - FAHRER IST OKAY UND AUSGESTIEGEN`, 'ok')
+          this.msg(`${this.tag(tc)} - FAHRER IST OKAY`, 'ok')
           this.radio(tc, pick(LINES.crashOk))
           this.radioQueue.push({ at: this.t + rnd(3, 6), key: 'medOk' })
-        } else this.msg(`${this.tag(tc)} - FAHRER WIRD ZUR UNTERSUCHUNG INS MEDICAL CENTER GEBRACHT`, 'warn')
+        } else this.msg(`${this.tag(tc)} - FAHRER KOMMT ZUR UNTERSUCHUNG INS STRECKENKLINIKUM`, 'warn')
         // wartet noch jemand auf den Arzt, fährt der Wagen direkt weiter
         const next = this.cars.find((x) => x.status === 'stopped' && x.haz && x.haz.medical && x.haz.medical.state === 'enroute')
         if (next) { m.target = next.id; m.phase = 'drive'; this.medGoal(m) }
@@ -1454,7 +1458,7 @@ export class Race {
       this.scEnding = false
       for (const o of this.cars) { o.unlap = false; o.unlapped = false }
       this.allGreen(true)
-      this.msg('SAFETY CAR IN DER BOX - STRECKE FREI, GRÜNE FLAGGE', 'ok')
+      this.msg('SAFETY CAR IN DER BOX - GRÜNE FLAGGE', 'ok')
     }
   }
 
@@ -1492,8 +1496,8 @@ export class Race {
     else this.wet = Math.max(this.rain, this.wet - dt / 110)
     const phase = this.rain > 0.02 ? (this.wet > 0.7 ? 'heavy' : 'rain') : this.wet > 0.08 ? 'drying' : 'dry'
     if (phase !== this.rainPhase) {
-      if (phase === 'rain' && this.rainPhase !== 'heavy') { this.msg('REGEN GEMELDET - WENIG GRIP', 'warn'); this.sayRandom('rainStart', 2) }
-      if (phase === 'heavy') { this.msg('STARKREGEN - AQUAPLANING-GEFAHR', 'bad'); this.sayRandom('rainHeavy', 2) }
+      if (phase === 'rain' && this.rainPhase !== 'heavy') { this.msg('REGEN - DIE STRECKE WIRD RUTSCHIG', 'warn'); this.sayRandom('rainStart', 2) }
+      if (phase === 'heavy') { this.msg('STARKREGEN - GEFAHR VON AQUAPLANING', 'bad'); this.sayRandom('rainHeavy', 2) }
       if (phase === 'drying') { this.msg('REGEN VORBEI - STRECKE TROCKNET AB', 'ok'); this.sayRandom('rainEnd', 1) }
       this.rainPhase = phase
     }
@@ -1544,7 +1548,7 @@ export class Race {
         if (c.recov <= 0) {
           c.status = 'out'
           c.speed = 0
-          this.msg(`${this.tag(c)} - GEBORGEN, STRECKE DORT FREI`, 'ok')
+          this.msg(`${this.tag(c)} - GEBORGEN, STELLE FREI`, 'ok')
         }
       }
     }
@@ -1581,14 +1585,14 @@ export class Race {
       const inc = this.makeBase('protest', 'protest', [c.id], { sector: 0, turn: 0, label: 'Rennleitung' })
       Object.assign(inc, { opt: q.opt, correct: q.correct, caseNo: q.no, deadline: this.t + 90 })
       this.incidents.push(inc)
-      this.msg(`PROTEST - ${c.team.toUpperCase()} LEGT EINSPRUCH GEGEN DIE STRAFE FÜR ${this.tag(c)} EIN`, 'warn')
+      this.msg(`PROTEST - ${c.team.toUpperCase()} GEGEN DIE STRAFE FÜR ${this.tag(c)}`, 'warn')
     }
     for (const inc of this.incidents) {
       if (inc.kind === 'protest' && inc.status === 'open' && this.t > inc.deadline) {
         // nicht bearbeitet: die Strafe bleibt, kostet aber etwas Ablauf
         inc.status = 'done'
         this.flow = clamp(this.flow - 3, 0, 100)
-        this.msg(`PROTEST FÜR ${this.tag(this.cars[inc.carIds[0]])} NICHT BEARBEITET - STRAFE BLEIBT`, 'warn')
+        this.msg(`PROTEST NICHT BEARBEITET - STRAFE FÜR ${this.tag(this.cars[inc.carIds[0]])} BLEIBT`, 'warn')
       }
     }
     for (const inc of this.incidents) {
@@ -1597,7 +1601,7 @@ export class Race {
         const miss = inc.ideal.sev >= 2 ? 10 : 3
         this.fairness = clamp(this.fairness - miss, 0, 100)
         this.logEvent(`Fall ${String(inc.no).padStart(2, '0')} (${TYPE_TITLE[inc.type]}): nicht entschieden`, -miss)
-        this.msg(`FALL ${inc.no} - KEINE ENTSCHEIDUNG IN DER FRIST, FALL GESCHLOSSEN`, 'warn')
+        this.msg(`FALL ${String(inc.no).padStart(2, '0')} - FRIST ABGELAUFEN, NICHT ENTSCHIEDEN`, 'warn')
       }
     }
     this.incidents = this.incidents.filter((i) => i.status === 'open')
@@ -1665,7 +1669,7 @@ export class Race {
     c.passing = null
     c.latTarget = c.verge
     const w = this.where(c)
-    this.msg(`${this.tag(c)} - STEHT AUF DER STRECKE IN KURVE ${w.turn} ${w.name.toUpperCase()} (${why})`, 'bad')
+    this.msg(`${this.tag(c)} - STEHT IN KURVE ${w.turn} ${w.name.toUpperCase()} (${why})`, 'bad')
     this.incidents.push({ ...this.makeBase('hazard', 'hazard', [c.id], w), why })
   }
 
@@ -1686,7 +1690,7 @@ export class Race {
       inc.replay = { kind: 'pitspeed', kmh: 79.5, closed: true }
       inc.expert = opts.dmg ? 'Experten: Beschädigtes Auto, Einfahrt zur Reparatur erlaubt. Keine Strafe.' : 'Experten: Einfahrt trotz roter Ampel ohne Schaden. 10 Sekunden Stop & Go.'
       this.incidents.push(inc)
-      this.msg(`${this.tag(c)} - EINFAHRT BEI GESPERRTER BOXENGASSE - WIRD UNTERSUCHT`, 'warn')
+      this.msg(`${this.tag(c)} - EINFAHRT TROTZ GESPERRTER BOXENGASSE - WIRD UNTERSUCHT`, 'warn')
       return
     }
     if (type === 'pitSpeed') {
@@ -1737,6 +1741,7 @@ export class Race {
       const violation = over > 0.05
       inc.ideal = { culprit: null, sev: !violation ? 0 : !this.quali && (prior >= 1 || gain > 0.2) ? 2 : 1 }
       inc.options = this.quali ? ['nfa', 'lap'] : ['nfa', 'lap', 'lap5']
+      if (this.quali) inc.rule = RULES.trackLimitsQuali
       inc.optionSev = { nfa: 0, lap: 1, lap5: 2 }
       inc.facts = [
         ['Fahrer', `${c.num} ${c.name} - ${c.team}`],
@@ -1746,7 +1751,7 @@ export class Race {
         ['Bisherige Verstöße', String(prior)],
         ['Sender', 'Track-Limit-Schleife ausgelöst'],
       ]
-      inc.tip = 'Tipp: Zum Moment der größten Abweichung scrubben, hineinzoomen und prüfen, ob der Reifen auf der Streckenseite die weiße Linie noch berührt.'
+      inc.tip = 'Tipp: Spule zu dem Moment, in dem das Auto am weitesten draußen ist, und zoome hinein. Berührt der innere Reifen die weiße Linie noch?'
       inc.statements = [{ code: c.code, text: pick(['Ich hatte noch einen halben Reifen auf der Linie.', 'Da war eine Rutscherei, kein Vorteil.', 'Die Linie ist dort unmöglich zu sehen.']) }]
       inc.replay = { kind: 'limits', over, gain }
       inc.expert = violation

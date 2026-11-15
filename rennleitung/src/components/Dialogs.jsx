@@ -50,20 +50,20 @@ export function CaseDialog({ race, incId, onClose }) {
               </tbody>
             </table>
             {inc.tip && <div className="tip">{inc.tip}</div>}
-            {hintOpt && !fb && <div className="tip">Empfehlung der Stewards (Einsteiger): {hintWho}{labelOf(hintOpt)}</div>}
+            {hintOpt && !fb && <div className="tip">Empfehlung für Einsteiger: {hintWho}{labelOf(hintOpt)}</div>}
             {inc.statements.map((s) => (
               <div key={s.code} className="quote"><b>{s.code}:</b> „{s.text}“</div>
             ))}
-            <div className="rule"><b>REGLEMENT</b><br />{RULES[inc.type]}</div>
+            <div className="rule"><b>REGEL</b>{(inc.rule || RULES[inc.type]).split('\n').map((l, k) => <div key={k} className={l.startsWith('•') ? 'li' : ''}>{l}</div>)}</div>
             {fb ? (
               <div className={`verdict ${fb.delta > 0 ? 'good' : 'bad'}`}>
-                <b>{fb.delta > 0 ? '+' : ''}{fb.delta} Fairness · {fb.text}</b>
+                <b>{fb.delta > 0 ? `Richtig entschieden · +${fb.delta} Fairness` : `Anders als die Experten · ${fb.delta} Fairness`}</b>
                 <div>{fb.verdict}</div>
                 <button className="btn sm" onClick={onClose}>WEITER</button>
               </div>
             ) : (
               <>
-                <div className="ptitle">ENTSCHEIDUNG DER STEWARDS</div>
+                <div className="ptitle">DEINE ENTSCHEIDUNG</div>
                 {isCollision && (
                   <div className="culprit">
                     {[['a', carA], ['b', carB]].map(([k, c]) => (
@@ -78,7 +78,7 @@ export function CaseDialog({ race, incId, onClose }) {
                     </button>
                   ))}
                 </div>
-                {isCollision && <div className="hint">Für eine Strafe zuerst den Schuldigen wählen. „Keine Strafe“ bedeutet Rennunfall.</div>}
+                {isCollision && <div className="hint">Für eine Strafe wählst du zuerst den Schuldigen. „Keine Strafe“ heißt Rennunfall.</div>}
               </>
             )}
           </div>
@@ -99,13 +99,13 @@ export function ReportDialog({ snap, onClose, onNew, onRace, onSeason, finished 
           <div className={`grade g${r.grade}`}>{r.grade}</div>
           <div>
             <b>{r.summary}</b>
-            <div className="dim">Sicherheit {r.safety} · Fairness {r.fairness} · Ablauf {r.flow} · {r.decided} Fälle entschieden, {r.good} davon gut{r.open ? ` · ${r.open} offen` : ''}</div>
-            <div className="dim">Streckensicherung: {r.actsYou} Eingriffe von dir, {r.actsAuto} von der Automatik</div>
+            <div className="dim">Sicherheit {r.safety} · Fairness {r.fairness} · Ablauf {r.flow}</div>
+            <div className="dim">{r.decided} {r.decided === 1 ? 'Fall' : 'Fälle'} entschieden, davon {r.good} richtig{r.open ? ` · ${r.open} noch offen` : ''} · Streckensicherung: {r.actsYou}-mal du, {r.actsAuto}-mal die Automatik</div>
           </div>
         </div>
         <div className="repcols">
           <table className="results">
-            <thead><tr><th>POS</th><th>FAHRER</th><th>TEAM</th><th>{q ? 'BESTZEIT' : 'ZEIT'}</th><th>STRAFEN</th><th>{q ? 'ABSTAND' : 'BESTE'}</th></tr></thead>
+            <thead><tr><th>POS</th><th>FAHRER</th><th>TEAM</th><th>{q ? 'BESTZEIT' : 'ZEIT'}</th><th>STRAFE</th><th>{q ? 'ABSTAND' : 'BESTE'}</th></tr></thead>
             <tbody>
               {(snap.results || []).map((x) => (
                 <tr key={x.code}>
@@ -121,7 +121,7 @@ export function ReportDialog({ snap, onClose, onNew, onRace, onSeason, finished 
             </tbody>
           </table>
           <div className="replog">
-            {r.log.length === 0 && <div className="hint">Noch keine Entscheidungen.</div>}
+            {r.log.length === 0 && <div className="hint">Noch nichts entschieden.</div>}
             {r.log.map((e, i) => (
               <div key={i} className="logrow">
                 <span><i className={`who ${e.by === 'auto' ? 'auto' : 'you'}`}>{e.by === 'auto' ? 'AUTO' : 'DU'}</i>{e.text}</span>

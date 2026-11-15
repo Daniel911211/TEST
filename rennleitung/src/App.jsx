@@ -1,10 +1,10 @@
 import { useEffect, useRef, useState } from 'react'
-import { Race, clockStr, raceTimeStr } from './sim/race.js'
+import { Race, raceTimeStr } from './sim/race.js'
 import { SetupDialog, SeasonDialog, HelpDialog } from './components/Menus.jsx'
 import { CALENDAR, loadSetup, saveSetup, loadSeason, saveSeason, newSeason, helpSeen, markHelpSeen, gradeOf } from './season.js'
 import TrackMap from './components/TrackMap.jsx'
 import CamView from './components/CamView.jsx'
-import { TimingTower, ControlPanel, IncidentPanel, MessageLog } from './components/Panels.jsx'
+import { TimingTower, ControlPanel, IncidentPanel, MessageLog, RadioLog } from './components/Panels.jsx'
 import { CaseDialog, ReportDialog } from './components/Dialogs.jsx'
 import { sound } from './sound.js'
 
@@ -26,8 +26,8 @@ const SHOW_TRACK_CAM = false
 
 const WEATHER = { dry: 'TROCKEN', rain: 'REGEN', heavy: 'STARKREGEN', drying: 'TROCKNET AB' }
 
-const Meter = ({ label, value }) => (
-  <div className="meter">
+const Meter = ({ label, value, title }) => (
+  <div className="meter" title={title}>
     <span>{label} <b>{Math.round(value)}</b></span>
     <div className="mbar"><i style={{ width: `${value}%`, background: value > 66 ? '#2fe08a' : value > 33 ? '#ffc94a' : '#ff4a4a' }} /></div>
   </div>
@@ -226,9 +226,8 @@ export default function App() {
         </div>
         <div className="stat"><span className="dim">RUNDE</span><b>{snap.lap}/{snap.laps}</b></div>
         <div className="stat"><span className="dim">RENNZEIT</span><b>{raceTimeStr(snap.raceTime)}</b></div>
-        <div className="stat"><span className="dim">UHRZEIT</span><b>{clockStr(snap.t)}</b></div>
         <div className={`weather ${snap.weather.phase}`}>
-          <span className="dim" style={{ fontSize: 9, letterSpacing: 1 }}>WETTER</span>
+          <span className="dim">WETTER</span>
           <b>{WEATHER[snap.weather.phase]}{snap.weather.forecast !== null && snap.weather.forecast < 240 && snap.weather.phase === 'dry' ? ` · Regen in ${Math.ceil(snap.weather.forecast / 60)} min` : ''}</b>
         </div>
         <div className="speeds">
@@ -237,23 +236,21 @@ export default function App() {
           ))}
           <button className={`btn sm ${paused ? 'on' : ''}`} onClick={() => setPaused(!paused)}>{paused ? '▶' : '❚❚'}</button>
         </div>
-        <div className="meters">
-          <Meter label="SICHERHEIT" value={snap.safety} />
-          <Meter label="FAIRNESS" value={snap.fairness} />
-          <Meter label="ABLAUF" value={snap.flow} />
-        </div>
         <div className="setup">
           <button className="btn sm" onClick={() => setMenu('setup')}>NEUES RENNEN</button>
           <button className={`btn sm ${inSeason.current ? 'on' : ''}`} onClick={() => setMenu('season')}>SAISON</button>
           <button className="btn sm" title="Einführung" onClick={() => setMenu('help')}>HILFE</button>
           <button className="btn sm" onClick={() => setReport(true)}>BERICHT</button>
-          <button className={`btn sm ${muted ? '' : 'on'}`} title="Ton an/aus" onClick={() => { sound.setMuted(!muted); setMuted(!muted) }}>{muted ? 'TON AUS' : 'TON AN'}</button>
+          <button className={`btn sm ${muted ? '' : 'on'}`} title="Ton an/aus" onClick={() => { sound.setMuted(!muted); setMuted(!muted) }}>{muted ? 'TON AUS' : 'TON'}</button>
           <input id="volume" className="vol" type="range" min="0" max="1" step="0.05" value={muted ? 0 : vol} aria-label="Lautstärke" onChange={(e) => { const v = +e.target.value; sound.setVolume(v); setVol(v); setMuted(false) }} />
         </div>
       </header>
 
       <main className="main">
-        <TimingTower rows={snap.rows} selected={selected} onSelect={setSelected} state={snap.state} />
+        <div className="left">
+          <TimingTower rows={snap.rows} selected={selected} onSelect={setSelected} state={snap.state} quali={snap.quali} />
+          <RadioLog radio={snap.radio} />
+        </div>
         <section className="center">
           <div className="stage">
           <div className="panel mapbox">
@@ -264,18 +261,18 @@ export default function App() {
                 {snap.quali
                   ? <button className="btn big ok" onClick={() => race.startQuali()}>QUALIFYING STARTEN</button>
                   : <button className="btn big ok" onClick={() => race.startFormation()}>EINFÜHRUNGSRUNDE FREIGEBEN</button>}
-                <div className="hint">{snap.quali ? 'Drei gezeitete Runden, die beste zählt. Du sicherst mit gelben Flaggen und entscheidest über Track Limits und Behinderungen.' : `${snap.laps} Runden · Du bist die Rennleitung: Flaggen, Neutralisierung, Strafen.`}</div>
+                <div className="hint">{snap.quali ? 'Drei gezeitete Runden, die beste zählt. Du sicherst mit Gelb und entscheidest über Track Limits und Behindern.' : `${snap.laps} Runden. Du sicherst die Strecke und entscheidest über Strafen.`}</div>
               </div>
             )}
             {snap.state === 'GRIDREADY' && (
               <div className="startbox">
-                {snap.medNotReady && <div className="stallwarn">⚠ Der Arztwagen ist noch nicht bereit. Start erst freigeben, wenn er sich meldet.</div>}
-                {snap.stalled.length > 0 && <div className="stallwarn">⚠ {snap.stalled.join(', ')} steht mit abgewürgtem Motor in der Aufstellung</div>}
+                {snap.medNotReady && <div className="stallwarn">⚠ Arztwagen noch nicht bereit. Warte mit dem Start, bis er sich meldet.</div>}
+                {snap.stalled.length > 0 && <div className="stallwarn">⚠ {snap.stalled.join(', ')}: Motor abgewürgt. Start abbrechen!</div>}
                 <div className="startbtns">
                   <button className="btn big ok" onClick={() => race.startLights()}>STARTAMPEL STARTEN</button>
                   <button className="btn red" onClick={() => race.abortStart()}>START ABBRECHEN</button>
                 </div>
-                <div className="hint">Abbruch bedeutet: zusätzliche Einführungsrunde, eine Rennrunde weniger.</div>
+                <div className="hint">Ein Abbruch kostet eine Rennrunde: Das Feld fährt eine weitere Einführungsrunde.</div>
               </div>
             )}
             {snap.state === 'LIGHTS' && (
@@ -298,8 +295,14 @@ export default function App() {
           <ControlPanel snap={snap} race={race} selectedRow={row} selectedCar={selCar} onAuto={toggleAuto} />
         </section>
         <aside className="right">
+          <div className="panel score">
+            <div className={`grade sm g${snap.report.grade}`} title="Deine Note, wenn das Rennen jetzt enden würde">{snap.report.grade}</div>
+            <Meter label="SICHERHEIT" value={snap.safety} title="Sinkt, wenn Autos an einer ungesicherten Gefahrenstelle vorbeifahren. Zählt 40 %." />
+            <Meter label="FAIRNESS" value={snap.fairness} title="Steigt mit richtigen Urteilen, sinkt mit falschen und verpassten. Zählt 40 %." />
+            <Meter label="ABLAUF" value={snap.flow} title="Sinkt, wenn das Rennen länger als nötig gebremst wird. Zählt 20 %." />
+          </div>
           <IncidentPanel incidents={snap.incidents} t={snap.t} onOpen={setCaseId} race={race} />
-          <MessageLog messages={snap.messages} radio={snap.radio} />
+          <MessageLog messages={snap.messages} />
         </aside>
       </main>
 
