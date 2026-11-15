@@ -479,10 +479,9 @@ export class Race {
     this.vscEndAt = null
     this.scEnding = false
     if (!this.cars.some((c) => c.status === 'stopped') && this.wet < 0.6) this.flow = clamp(this.flow - 4, 0, 100)
-    // Das Safety Car wartet an der Boxenausfahrt hinter Start/Ziel und fährt raus, wenn der Führende kommt
-    const ld = lead ? lead.dist : 0
-    const P = this.track.pit
-    this.sc = { dist: (Math.floor((ld + 40) / this.L) + 1) * this.L + (P.span - (this.L - P.inS)), speed: 0, lat: 0, lights: true, waiting: true, leaving: false, pitU: this.parkU(), shift: 1 }
+    // Das Safety Car fährt sofort vom Parkplatz los, egal wo das Feld gerade ist. Grüne Lichter heißen:
+    // Es sammelt noch ein und winkt alle außer dem Führenden vorbei. Orange heißt: Überholverbot.
+    this.sc = { dist: 0, speed: 0, lat: 0, lights: 'green', collected: false, leaving: false, pitU: this.parkU(), shift: 1 }
     this.msg('SAFETY CAR IM EINSATZ', 'warn')
     this.reactRadio('sc')
   }
@@ -490,15 +489,19 @@ export class Race {
   scStayOut() {
     if (this.state !== 'SC' || !this.scEnding || !this.sc || this.sc.leaving || this.locked()) return
     this.scEnding = false
-    this.sc.lights = true
+    this.sc.lights = this.sc.collected ? 'orange' : 'green'
     this.logAction('Safety Car bleibt draußen')
     this.msg('SAFETY CAR BLEIBT DRAUSSEN - LICHTER AN', 'warn')
   }
+  // Das Safety Car ist gerufen, aber noch nicht auf der Strecke
+  scExiting() {
+    return !!(this.sc && this.sc.pitU != null && !this.sc.leaving)
+  }
   scInThisLap() {
     if (this.state !== 'SC' || this.scEnding || this.locked()) return
-    this.logAction(this.sc && this.sc.waiting ? 'Safety Car zurückgerufen' : 'Safety Car reingeholt')
-    // Steht das Safety Car noch auf dem Parkplatz, bleibt es einfach stehen und das Rennen ist sofort wieder frei
-    if (this.sc && this.sc.waiting) {
+    this.logAction(this.scExiting() ? 'Safety Car zurückgerufen' : 'Safety Car reingeholt')
+    // Ist das Safety Car noch in der Boxengasse, kehrt es um und das Rennen ist sofort wieder frei
+    if (this.scExiting()) {
       this.sc = null
       this.scEnding = false
       this.state = 'GREEN'
@@ -716,18 +719,20 @@ export class Race {
     if (this.sc) {
       const sc = this.sc
       const lead = order.find((c) => c.status === 'run')
-      if (sc.waiting && (!lead || sc.dist - lead.dist < 320)) sc.waiting = false
-      // Vor dem Reinkommen biegt es kurz vor Start/Ziel in die Box ab
       const P = this.track.pit
-      const idx = Math.floor(mod(sc.dist, this.L) / this.track.ds) % this.track.n
       if (sc.pitU != null && !sc.leaving) {
-        // wartet am Ende der Boxengasse und fährt über die Ausfahrt auf die Strecke
-        sc.speed += clamp((sc.waiting ? 0 : 30) - sc.speed, -30 * dt, 12 * dt)
-        if (!sc.waiting) sc.shift = Math.max(0, sc.shift - 1.5 * dt)
+        // Ausfahrt: vom Parkplatz in die Boxengasse und über die Boxenausfahrt auf die Strecke
+        sc.speed += clamp(30 - sc.speed, -30 * dt, 12 * dt)
+        sc.shift = Math.max(0, sc.shift - 1.5 * dt)
         sc.pitU += sc.speed * dt
-        if (sc.pitU >= P.len) sc.pitU = null
+        if (sc.pitU >= P.len) {
+          sc.pitU = null
+          // Physisch an der Boxenausfahrt; in der Distanzzählung liegt es damit vor dem Führenden
+          const ld = lead ? lead.dist : 0
+          sc.dist = ld + mod(mod(P.inS + P.span, this.L) - ld, this.L)
+          sc.lat = P.side * 0.9
+        }
       } else if (sc.pitU != null) {
-        // zurück in die Boxengasse
         // zurück durch die Boxengasse auf den Parkplatz
         const rem = this.parkU() - sc.pitU
         sc.speed += clamp(Math.min(22, Math.sqrt(2 * 8 * Math.max(0, rem)) + 0.5) - sc.speed, -34 * dt, 12 * dt)
@@ -737,9 +742,18 @@ export class Race {
           if (sc.shift >= 1) this.sc = null
         }
       } else {
-        sc.speed += clamp(this.track.v[idx] * 0.42 - sc.speed, -30 * dt, 12 * dt)
+        // Einsammeln: langsam voraus, bis der Führende direkt dahinter ist. Dann orange Lichter und Überholverbot.
+        if (!sc.collected && lead && !lead.pit && mod(sc.dist - lead.dist, this.L) < 20) {
+          sc.collected = true
+          if (sc.lights) sc.lights = 'orange'
+          this.msg('FÜHRENDER HINTER DEM SAFETY CAR - ÜBERHOLVERBOT', 'warn')
+        }
+        const idx = Math.floor(mod(sc.dist, this.L) / this.track.ds) % this.track.n
+        sc.speed += clamp(this.track.v[idx] * (sc.collected ? 0.42 : 0.2) - sc.speed, -30 * dt, 12 * dt)
         const prev = sc.dist
         sc.dist += sc.speed * dt
+        sc.lat += clamp(-sc.lat, -0.6 * dt, 0.6 * dt)
+        // Vor dem Reinkommen biegt es an der Boxeneinfahrt ab
         if (this.scEnding && mod(prev, this.L) < P.inS && mod(sc.dist, this.L) >= P.inS) { sc.leaving = true; sc.pitU = 0 }
       }
     }
@@ -793,11 +807,8 @@ export class Race {
     }
     else if (st === 'VSC') v *= 0.6
     else if (st === 'SC') {
-      const ahead = idxInOrder > 0 ? running[idxInOrder - 1] : this.sc
-      const gap = ahead ? ahead.dist - c.dist : 0
-      catchGap = gap
-      // Aufschließen: der Führende zum Safety Car, alle anderen zum Vordermann
-      v *= gap > 40 && (idxInOrder === 0 || gap < this.L * 0.6) ? 0.62 : 0.42
+      // Alle schließen zügig zum Zug hinter dem Safety Car auf; gebremst wird über den Vordermann
+      v *= 0.7
     } else {
       const f = this.sectors[sec]
       if (f === 'yellow') v *= 0.8
@@ -807,19 +818,32 @@ export class Race {
     if (st !== 'GREEN' || this.sectors.some((f) => f !== 'green')) c.lapDirty = true
     // Vordermann / Überholen
     let blocker = null, bgap = 1e9
-    const consider = (o, isSC) => {
+    // anyLat: Vordermann zählt unabhängig von der Spur (Einführungsrunde, Zug hinter dem Safety Car)
+    const consider = (o, isSC, anyLat = false) => {
       let g = mod(o.dist - c.dist, L)
       if (st === 'FORMATION' && o.onGrid) return
       // Liegen zwei Autos exakt gleichauf, gilt das mit der kleineren Nummer als vorn, damit sie sich trennen
       if (g < 1e-6 && !isSC && o.id < c.id) g = 0.01
-      if (g > 0 && g < 45 && (st === 'FORMATION' || Math.abs(o.lat - c.lat) < 0.75) && g < bgap) {
+      if (g > 0 && g < 45 && (anyLat || Math.abs(o.lat - c.lat) < 0.75) && g < bgap) {
         bgap = g
         blocker = o
         blocker.isSC = isSC
       }
     }
-    for (const o of running) if (o !== c && !o.pit) consider(o, false)
-    if (this.sc && this.sc.pitU == null) consider(this.sc, true)
+    // Unter Safety Car wird hintereinander gefahren, niemand bleibt neben einem anderen
+    const file = st === 'FORMATION' || st === 'SC'
+    for (const o of running) if (o !== c && !o.pit) consider(o, false, file)
+    // Safety Car: Solange es mit grünen Lichtern einsammelt, winkt es alle außer dem Führenden vorbei
+    let scPass = false
+    if (this.sc && this.sc.pitU == null) {
+      const sc = this.sc
+      if (sc.lights === 'green' && !sc.collected && idxInOrder !== 0) {
+        const g = mod(sc.dist - c.dist, L)
+        if (g < 60 || g > L - 12) scPass = true
+        // Vorbei darf nur, wer schon seitlich versetzt ist; sonst bleibt er kurz dahinter
+        consider(sc, true, false)
+      } else consider(sc, true, true)
+    }
     const free = st === 'GREEN'
     if (blocker) {
       const sp = st === 'FORMATION' ? 9 : st === 'SC' || st === 'VSC' ? 14 : 11
@@ -844,7 +868,8 @@ export class Race {
         v *= 1.05
       }
     } else if (Math.abs(c.latTarget) > 0.4 && c.latTarget === c.passing) c.latTarget = 0
-    if (!c.passing && !pre && Math.abs(c.latTarget) > 0.4 && this.state !== 'RESTART' && this.state !== 'RED') c.latTarget = 0
+    if (scPass) c.latTarget = -T.pit.side * 0.85 // seitlich am Safety Car vorbei
+    else if (!c.passing && !pre && Math.abs(c.latTarget) > 0.4 && this.state !== 'RESTART' && this.state !== 'RED') c.latTarget = 0
 
     const a = v > c.speed ? 14 : st === 'RED' ? 42 : 38
     c.speed += clamp(v - c.speed, -a * dt, a * dt)
@@ -1029,7 +1054,7 @@ export class Race {
     return { x: q.x - Math.sin(q.h) * o, y: q.y + Math.cos(q.h) * o, h: q.h }
   }
   // Das Safety Car ist immer sichtbar: geparkt, in der Boxengasse oder auf der Strecke
-  scPose() {
+  scPose(latM = 3.6) {
     const sc = this.sc
     if (!sc) return this.parkPose()
     if (sc.pitU != null) {
@@ -1038,7 +1063,7 @@ export class Race {
       const o = 8.5 * (sc.shift || 0) * P.side
       return { x: q.x - Math.sin(q.h) * o, y: q.y + Math.cos(q.h) * o, h: q.h }
     }
-    return this.pose({ dist: sc.dist, lat: 0 }, 0)
+    return this.pose({ dist: sc.dist, lat: sc.lat || 0 }, latM)
   }
   // Position eines Autos in Metern (Strecke oder Boxengasse); latM = Meter pro Einheit Querversatz
   pose(c, latM) {
@@ -1162,10 +1187,10 @@ export class Race {
     this.dangerT = uncovered ? this.dangerT + dt : 0
     if (this.dangerT > 7) { this.dangerT = -18; this.sayRandom('danger', 1) }
     const stoppedSecs = new Set(this.cars.filter((c) => c.status === 'stopped').map((c) => sectorOf(mod(c.dist, this.L), this.L)))
-    const idle = (this.state === 'SC' || this.state === 'VSC') && !stoppedSecs.size && this.wet < 0.6
+    const idle = (this.state === 'SC' || this.state === 'VSC') && !stoppedSecs.size && this.wet < 0.6 && !this.scEnding && !this.vscEndAt
     // Schonfrist: das Safety Car braucht nach der Bergung noch gut eine Runde, erst danach kostet es Ablauf
     this.idleT = idle ? (this.idleT || 0) + dt : 0
-    const grace = this.state === 'SC' ? this.track.lapRef * 1.7 : 15
+    const grace = 45 // Sekunden, um nach der Bergung das Ende einzuleiten; die Einfahrrunde selbst kostet nichts
     if (idle && this.idleT > grace) this.flow = clamp(this.flow - 0.25 * dt, 0, 100)
     if (this.state === 'GREEN' && !stoppedSecs.size && this.sectors.every((f) => f === 'green')) this.flow = clamp(this.flow + 0.03 * dt, 0, 100)
     this.scIdleT = idle && this.idleT > grace * 0.6 && !this.scEnding && !this.vscEndAt ? this.scIdleT + dt : 0
@@ -1526,7 +1551,7 @@ export class Race {
       auto: this.auto,
       autoNote: this.ad.note,
       scEnding: this.scEnding,
-      scWaiting: !!(this.sc && this.sc.waiting),
+      scWaiting: this.scExiting(),
       vscEnding: !!this.vscEndAt,
       restartIn: this.state === 'RESTART' ? Math.max(0, Math.ceil(this.restartAt - this.t)) : 0,
       results,

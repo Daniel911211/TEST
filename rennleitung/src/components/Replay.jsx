@@ -105,10 +105,13 @@ export function drawSafetyCar(ctx, x, y, ang, k, lights, now) {
   ctx.fillStyle = '#d93a3a'; ctx.fillRect(-0.85, 2.22, 0.4, 0.14); ctx.fillRect(0.45, 2.22, 0.4, 0.14)
   // Lichtbalken auf dem Dach: blinkt abwechselnd orange, vor dem Reinkommen aus
   const ph = Math.floor(now / 220) % 2
-  ctx.fillStyle = lights && ph === 0 ? '#ffb020' : '#4a3a1a'; ctx.fillRect(-0.6, 0.3, 0.55, 0.3)
-  ctx.fillStyle = lights && ph === 1 ? '#ffb020' : '#4a3a1a'; ctx.fillRect(0.05, 0.3, 0.55, 0.3)
+  // lights: 'green' = sammelt das Feld ein, Überholen des Safety Cars erlaubt; 'orange' = Überholverbot
+  const col = lights === 'green' ? '#2fe08a' : '#ffb020'
+  const off = lights === 'green' ? '#1c3a2a' : '#4a3a1a'
+  ctx.fillStyle = lights && ph === 0 ? col : off; ctx.fillRect(-0.6, 0.3, 0.55, 0.3)
+  ctx.fillStyle = lights && ph === 1 ? col : off; ctx.fillRect(0.05, 0.3, 0.55, 0.3)
   if (lights) {
-    ctx.fillStyle = 'rgba(255,176,32,0.22)'
+    ctx.fillStyle = lights === 'green' ? 'rgba(47,224,138,0.22)' : 'rgba(255,176,32,0.22)'
     ctx.beginPath(); ctx.arc(ph ? 0.33 : -0.33, 0.45, 1.5, 0, Math.PI * 2); ctx.fill()
   }
   ctx.restore()
