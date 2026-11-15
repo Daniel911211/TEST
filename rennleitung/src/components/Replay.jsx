@@ -115,7 +115,7 @@ export function drawSafetyCar(ctx, x, y, ang, k, lights, now) {
 }
 
 // Fahrerkürzel am Auto; das als schuldig gewählte Auto bekommt zusätzlich einen pulsierenden Ring
-function mark(ctx, x, y, k, code, active, now, left = false) {
+function mark(ctx, x, y, k, code, active, now, left = false, place = null) {
   const r = 3.6 * k
   if (active) {
     ctx.strokeStyle = `rgba(255,210,31,${0.55 + 0.45 * Math.sin(now / 160)})`
@@ -125,7 +125,12 @@ function mark(ctx, x, y, k, code, active, now, left = false) {
   ctx.font = '700 11px ui-monospace, monospace'
   const text = active ? `${code} · SCHULD` : code
   const w = ctx.measureText(text).width + 10
-  const lx = left ? Math.max(4, x - r * 0.75 - w) : Math.min(W - w - 4, x + r * 0.75), ly = Math.max(4, y - r - 6)
+  let lx = left ? Math.max(4, x - r * 0.75 - w) : Math.min(W - w - 4, x + r * 0.75), ly = Math.max(4, y - r - 6)
+  // place: Schild mittig direkt über oder unter dem Auto, damit es nicht am Nachbarauto landet
+  if (place) {
+    lx = Math.max(4, Math.min(W - w - 4, x - w / 2))
+    ly = place === 'above' ? Math.max(4, y - 1.7 * k - 21) : Math.min(H - 21, y + 1.7 * k + 4)
+  }
   ctx.fillStyle = active ? '#ffd21f' : 'rgba(8,10,14,0.85)'
   ctx.fillRect(lx, ly, w, 17)
   ctx.fillStyle = active ? '#10141c' : '#e8edf7'
@@ -377,25 +382,41 @@ function draw(ctx, s, now) {
     // Unsichere Freigabe (Boxengasse, Fahrtrichtung nach rechts)
     const solo = kind === 'pitspeed'
     const react = solo ? 0 : inc.replay.react
-    // Ablauf aus den Falldaten: Bei der Freigabe (t0) ist B noch 'gap' Meter hinter der Box von A.
-    // B fährt 80 km/h, bremst um 'react' km/h und beschleunigt wieder. A fährt zuerst in der Arbeitsspur
-    // neben B und ordnet sich erst ein, wenn es klar vorn ist. So überlappen sich die Autos nie.
-    let xA = 6, yA = 5, xB, vB = solo ? inc.replay.kmh / 3.6 : 22.2
+    // Ablauf aus den Falldaten. Bei der Freigabe (t0) ist B noch 'gap' Meter hinter der Box von A und fährt 80 km/h.
+    // A fährt aus der Box und zieht in die Fahrspur. B bremst hart um 'react' km/h, hält das Tempo kurz und
+    // beschleunigt wieder. Ist B noch zu nah, drängt A erst an die gestrichelte Linie und B weicht aus;
+    // ganz in die Spur wechselt A erst, wenn es eine Wagenlänge vor B ist. So überlappen sich die Autos nie.
+    let xA = 6, yA = 5, yB = -3, xB, vB = solo ? inc.replay.kmh / 3.6 : 22.2
     const t = p * 6, t0 = solo ? 99 : 1.2
     if (solo) xB = -30 + vB * t
     else {
       const gap = inc.replay.gap ?? 15
       const v1 = (80 - react) / 3.6
+      const kin = (tau) => 6 + (tau < 2.47 ? 4.5 * tau * tau : 27.4 + 22.2 * (tau - 2.47))
+      const want = (tau) => ease((tau - 0.5) / 0.9) // A lenkt Richtung Fahrspur
+      // Je weniger B bremsen musste, desto mehr Luft bleibt hinter A
+      const sep = 6.6 + ((60 - react) / 60) * 5
       xB = 6 - gap - 22.2 * t0
+      let commitAt = null // Zeitpunkt, ab dem A eine Wagenlänge vor B in der Fahrspur ist
       for (let q = 0; q < t; q += 0.02) {
-        const tau = q - t0
-        const target = tau > 0.15 && tau < 1.5 ? v1 : 22.2
-        vB += Math.max(-15 * 0.02, Math.min(6 * 0.02, target - vB))
+        const tq = q - t0
+        const target = tq > 0.1 && tq < 1.6 ? v1 : 22.2
+        vB += Math.max(-40 * 0.02, Math.min(6 * 0.02, target - vB))
         xB += vB * 0.02
+        const tauQ = Math.max(0, tq)
+        xA = kin(tauQ)
+        if (commitAt === null && want(tauQ) > 0.5 && xA - xB >= 6.3) commitAt = q
+        // Ist A einmal vorn, bleibt es vorn: es beschleunigt mindestens so schnell, wie B nachkommt
+        if (commitAt !== null) xA = Math.max(xA, xB + Math.min(sep, 6.3 + (q - commitAt) * 6))
       }
       const tau = Math.max(0, t - t0)
-      xA = 6 + (tau < 2.47 ? 4.5 * tau * tau : 27.4 + 22.2 * (tau - 2.47))
-      yA = lerp(lerp(5, 0.7, ease(tau / 0.8)), -3, ease((xA - xB - 7) / 5))
+      const out = ease(tau / 0.8) // aus der Box in die Arbeitsspur
+      const wantLane = want(tau)
+      const distClear = ease((Math.abs(xA - xB) - 6.3) / 1.5)
+      const clear = commitAt === null ? distClear : Math.max(distClear, ease((t - commitAt) / 0.4))
+      const push = Math.max(0, Math.min(1, (react - 8) / 30)) * (1 - clear) * wantLane
+      yA = lerp(lerp(5, 0.7, out), lerp(lerp(0.7, -0.35, push), -3, clear), wantLane)
+      yB = -3 - 0.65 * push
     }
     const k = (H / 16) * zoom
     const camX = fixed ? 8 : solo ? xB : (xA + xB) / 2
@@ -416,11 +437,12 @@ function draw(ctx, s, now) {
     const [lx, ly] = S(5.2, 2.6)
     ctx.fillStyle = green ? '#2fe08a' : '#ff4a4a'; ctx.fillRect(lx, ly, 3 * k, 6)
     ctx.fillStyle = green ? '#2fe08a' : '#ff4a4a'; ctx.textAlign = 'center'; ctx.fillText(green ? 'FREIGABE' : 'STOPP', lx + 1.5 * k, ly + 22); ctx.textAlign = 'left'
-    const [bx, by] = S(xB, -3), [ax, ay] = S(xA, yA)
+    const [bx, by] = S(xB, yB), [ax, ay] = S(xA, yA)
     drawCar(ctx, bx, by, Math.PI / 2, carB.livery, k)
     if (!solo) drawCar(ctx, ax, ay, Math.PI / 2, carA.livery, k)
-    mark(ctx, bx, by, k, carB.code, false, now)
-    if (!solo) mark(ctx, ax, ay, k, carA.code, false, now)
+    mark(ctx, bx, by, k, carB.code, false, now, false, 'above')
+    if (!solo) mark(ctx, ax, ay, k, carA.code, false, now, false, 'below')
+    if (!solo && t > t0) label(ctx, `${carB.code} bremst von 80 auf ${80 - react} km/h`, 10, H - 28, react > 30 ? '#ff6a6a' : react >= 10 ? '#ffd21f' : '#2fe08a')
     if (solo) {
       label(ctx, `${carB.code}: ${inc.replay.kmh.toFixed(1)} km/h`, W - 10, 10, inc.replay.kmh > 80 ? '#ff6a6a' : '#2fe08a', 'right')
       label(ctx, 'LIMIT 80 km/h', W - 10, 32, '#ffd21f', 'right')

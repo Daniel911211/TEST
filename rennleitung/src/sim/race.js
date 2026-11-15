@@ -1003,11 +1003,16 @@ export class Race {
   // Freigabe an der Box: normalerweise wartet die Crew, bis die Fahrspur frei ist
   releaseOk(c) {
     const pit = c.pit
-    const o = this.cars.find((x) => x !== c && x.pit && x.status === 'run' && x.pit.phase !== 'stop' && pit.u - x.pit.u > 3 && pit.u - x.pit.u < 26)
-    if (!o) return true
+    // Autos, die gerade an der Box vorbeifahren oder bis 30 m dahinter herankommen
+    const close = this.cars.filter((x) => x !== c && x.pit && x.status === 'run' && x.pit.phase !== 'stop' && pit.u - x.pit.u > -6 && pit.u - x.pit.u < 30)
+    if (!close.length) return true
+    // Fährt eines direkt neben der Box, wartet die Crew immer. Eine unsichere Freigabe gibt es nur
+    // vor ein Auto, das 8 bis 30 m dahinter kommt: Der Freigegebene zieht ihm dann vor die Nase.
+    if (close.some((x) => pit.u - x.pit.u < 8)) return false
+    const o = close.reduce((m, x) => (x.pit.u > m.pit.u ? x : m))
     if (pit.rolled === undefined) pit.rolled = Math.random() < 0.22
     if (!pit.rolled) return false
-    const react = Math.round(clamp((30 - (pit.u - o.pit.u)) * 2.2, 8, 60))
+    const react = Math.round(clamp((32 - (pit.u - o.pit.u)) * 2.4, 6, 58))
     o.speed *= 1 - react / 120
     this.spawn('unsafeRelease', { a: c, b: o, react, gap: pit.u - o.pit.u })
     return true
@@ -1345,7 +1350,7 @@ export class Race {
       inc.facts = [
         ['Freigegeben', `${a.num} ${a.name} - ${a.team}`],
         ['Betroffen', `${b.num} ${b.name} - ${b.team}`],
-        ['Abstand bei Freigabe', `${gap.toFixed(0)} m`],
+        ['Abstand bei Freigabe', `${b.code} war ${gap.toFixed(0)} m hinter der Box`],
         ['Reaktion von ' + b.code, `Bremsung -${react} km/h`],
         ['Ort', 'Boxengasse'],
       ]
@@ -1361,6 +1366,11 @@ export class Race {
         { code: a.code, text: react > 30 ? 'Ich fahre los, wenn das Licht grün wird. Das müsst ihr mit der Crew klären.' : 'Die Ampel war grün und da war Platz genug.' },
       ]
       inc.replay = { kind: 'release', react, gap }
+      inc.expert = react > 30
+        ? `Experten: ${b.code} musste um ${react} km/h abbremsen, um einen Unfall zu vermeiden. Deutliches Bremsen: 5 Sekunden.`
+        : react >= 10
+          ? `Experten: ${b.code} musste nur lupfen (${react} km/h langsamer), es bestand keine Gefahr. Verwarnung.`
+          : `Experten: ${b.code} wurde praktisch nicht behindert (${react} km/h langsamer). Keine Strafe.`
       inc.consequence = `${b.code} bremst um ${react} km/h.`
       this.incidents.push(inc)
       this.msg(`${this.tag(a)} / ${this.tag(b)} - UNSICHERE FREIGABE - WIRD UNTERSUCHT`, 'warn')
