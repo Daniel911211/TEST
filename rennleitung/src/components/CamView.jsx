@@ -159,6 +159,27 @@ export default function CamView({ race, mode, selected, freeCam }) {
       ctx.strokeStyle = race.wet > 0.3 ? '#3c3f48' : '#4b4c52'; ctx.lineWidth = 12.6; ctx.stroke(cache.road)
       // Start/Ziel
       ctx.save(); ctx.translate(T.xs[0], T.ys[0]); ctx.rotate(T.h[0]); ctx.fillStyle = '#fff'; ctx.fillRect(-0.6, -6.3, 1.2, 12.6); ctx.restore()
+      // Startaufstellung: eine Startbox je Startplatz. Die Vorderkante der Querlinie liegt 2,65 m vor der
+      // Fahrzeugmitte, genau die Linie, gegen die im Fall "Falsche Startposition" gemessen wird.
+      {
+        const slots = new Map()
+        for (let i = 0; i < race.cars.length; i++) slots.set(-(12 + i * 8), i % 2 ? 0.9 : -0.9)
+        for (const c of race.cars) slots.set(c.slot, c.slotLat)
+        for (const [d, lat] of slots) {
+          const q = race.pose({ dist: d + 2.65, lat }, 3.6)
+          if (Math.abs(q.x - cam.x) > w / S || Math.abs(q.y - cam.y) > h / S) continue
+          ctx.save()
+          ctx.translate(q.x, q.y)
+          ctx.rotate(q.h + Math.PI / 2)
+          ctx.fillStyle = '#f4f4f4'
+          ctx.fillRect(-1.7, 0, 3.4, 0.25)
+          ctx.fillRect(-1.7, 0, 0.18, 2.6)
+          ctx.fillRect(1.52, 0, 0.18, 2.6)
+          ctx.fillStyle = '#ffd21f'
+          ctx.fillRect(-0.1, -1.2, 0.2, 1.2)
+          ctx.restore()
+        }
+      }
 
       const drawOne = (c, color, stopped) => {
         const p = race.pose(c, 3.6)
