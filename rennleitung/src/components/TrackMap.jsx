@@ -199,6 +199,7 @@ export default function TrackMap({ race, selected, onSelect, freeCam }) {
       view.current = { sc, ox, oy }
       // Sichtfeld der Streckenkamera als Rechteck
       const fc = freeCam.current
+      if (!fc.hidden) {
       const rw = Math.max(16, fc.vw * sc), rh = Math.max(12, fc.vh * sc)
       const rx = fc.x * sc + ox - rw / 2, ry = fc.y * sc + oy - rh / 2
       ctx.fillStyle = fc.manual ? 'rgba(76,208,255,0.14)' : 'rgba(76,208,255,0.06)'
@@ -211,6 +212,7 @@ export default function TrackMap({ race, selected, onSelect, freeCam }) {
       ctx.fillStyle = '#4cd0ff'
       ctx.textAlign = 'left'
       ctx.fillText('KAM 03', rx, ry - 4)
+      }
       ctx.textAlign = 'center'
       hits.current = []
       const sel = selRef.current
@@ -295,6 +297,7 @@ export default function TrackMap({ race, selected, onSelect, freeCam }) {
   }
   const inRect = (p) => {
     const fc = freeCam.current, { sc } = view.current
+    if (fc.hidden) return false
     return Math.abs(p.x - fc.x) * sc < Math.max(16, fc.vw * sc) / 2 + 6 && Math.abs(p.y - fc.y) * sc < Math.max(12, fc.vh * sc) / 2 + 6
   }
   // Rechteck ziehen verschiebt die Streckenkamera, Doppelklick setzt sie an eine Stelle
@@ -314,6 +317,7 @@ export default function TrackMap({ race, selected, onSelect, freeCam }) {
   }
   const up = () => { drag.current.on = false }
   const dbl = (e) => {
+    if (freeCam.current.hidden) return
     const p = toWorld(e)
     Object.assign(freeCam.current, { manual: true, x: p.x, y: p.y })
   }

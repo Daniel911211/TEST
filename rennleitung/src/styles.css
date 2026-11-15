@@ -232,3 +232,4 @@ select {
 .dots i { width: 9px; height: 9px; border-radius: 50%; background: #2a3342; cursor: pointer; }
 .dots i.on { background: #ffd21f; }
 .state.quali { background: #6a4bd8; color: #fff; }
+.cams.one { grid-template-rows: 1fr; }

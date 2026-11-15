@@ -21,6 +21,9 @@ const STATE_LABEL = {
   FINISHED: ['ZIELFLAGGE', 'fin'],
 }
 
+// Streckenkamera (zweite Kamera): vorerst ausgeblendet, bis klar ist, wie sie sich verhalten soll
+const SHOW_TRACK_CAM = false
+
 const WEATHER = { dry: 'TROCKEN', rain: 'REGEN', heavy: 'STARKREGEN', drying: 'TROCKNET AB' }
 
 const Meter = ({ label, value }) => (
@@ -54,7 +57,7 @@ export default function App() {
   const [report, setReport] = useState(false)
   const [toast, setToast] = useState(null)
   // Freie Streckenkamera: Mittelpunkt in Metern, wird von Karte und Kamera gemeinsam genutzt
-  const freeCam = useRef({ manual: false, x: 0, y: 0, vw: 100, vh: 80 })
+  const freeCam = useRef({ manual: false, x: 0, y: 0, vw: 100, vh: 80, hidden: !SHOW_TRACK_CAM })
   const startSeen = useRef({ lights: 0, state: 'GRID' })
   useEffect(() => {
     const s = startSeen.current
@@ -287,9 +290,9 @@ export default function App() {
               </div>
             )}
           </div>
-          <div className="cams">
+          <div className={`cams ${SHOW_TRACK_CAM ? '' : 'one'}`}>
             <CamView race={race} mode="follow" selected={selected} />
-            <CamView race={race} mode="cctv" selected={selected} freeCam={freeCam} />
+            {SHOW_TRACK_CAM && <CamView race={race} mode="cctv" selected={selected} freeCam={freeCam} />}
           </div>
           </div>
           <ControlPanel snap={snap} race={race} selectedRow={row} selectedCar={selCar} onAuto={toggleAuto} />
