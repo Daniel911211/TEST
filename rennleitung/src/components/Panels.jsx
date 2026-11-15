@@ -120,7 +120,7 @@ export function IncidentPanel({ incidents, t, onOpen, race }) {
                 {left !== null && <span className={`timer ${left < 30 ? 'low' : ''}`}>{left}s</span>}
               </div>
               <div className="dim">
-                {i.kind === 'hazard' ? '' : `${cars.map((c) => c.last).join(' / ')} · `}{i.place} · Runde {i.lap}
+                {i.kind === 'hazard' ? '' : `${cars.map((c) => c.last).join(' / ')} · `}{i.kind === 'protest' ? '' : `${i.place} · `}Runde {i.lap}
               </div>
               {i.kind === 'hazard' && i.haz && (
                 <div className="marshal">
