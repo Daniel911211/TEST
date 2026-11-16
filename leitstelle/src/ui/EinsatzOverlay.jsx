@@ -19,7 +19,7 @@ export default function EinsatzOverlay({ g, incidentId, onClose, onOpenIncident,
 function Fenster({ g, inc, onClose, onLocate, flash, onPrev, onNext }) {
   const [picked, setPicked] = useState([])
   const [filter, setFilter] = useState(inc.type.id[0] === 'R' ? 'rd' : 'fw') // Rettungsdienst-Einsätze starten beim Rettungsdienst
-  const [ton, setTon] = useState(defaultAlarm(inc.type.id)) // Alarmton der Alarmierungsmaske (Vorgabe nach Einsatzart)
+  const [ton, setTon] = useState(defaultAlarm(inc.type)) // Alarmton der Alarmierungsmaske (Vorgabe nach Einsatzart)
   const assigned = g.vehicles.filter((v) => v.incidentId === inc.id)
   const tf = inc.type.ohneSS ? SLOW : 1 // Fahrzeit ohne Sondersignal
   const onScene = assigned.filter((v) => v.status === 4)
@@ -83,11 +83,10 @@ function Fenster({ g, inc, onClose, onLocate, flash, onPrev, onNext }) {
           <div className="ef-block alarm-maske">
             <h4>Alarmierung</h4>
             <div className="ef-row">
-              <label>Alarmton
-                <select value={ton} onChange={(e) => setTon(e.target.value)}>
-                  {ALARM_SOUNDS.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
-                </select>
-              </label>
+              <span className="muted">Alarmton</span>
+              <span className="chips">
+                {ALARM_SOUNDS.map((s) => <button key={s.id} className={ton === s.id ? 'on' : ''} title={s.hint} onClick={() => setTon(s.id)}>{s.name}</button>)}
+              </span>
               <span className="nowrap">
                 <button className="small" disabled={ton === 'none'} title="Gewählten Ton anhören" onClick={() => playAlarm(ton, true)}>▶ Anhören</button>
                 <button className="small" title="Ton anhalten" onClick={stopAlarm}>■</button>

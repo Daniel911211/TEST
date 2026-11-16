@@ -5,14 +5,14 @@ const KEY = 'leitstelle-sound'
 
 // Neue Töne: Datei nach public/sound/ legen und hier eintragen (id, Anzeigename, Dateiname).
 export const ALARM_SOUNDS = [
-  { id: 'fw', name: 'Feuerwehr (Sirene, 14 s)', file: 'alarm-fw.mp3' },
-  { id: 'rd', name: 'Rettungsdienst (Melder, 4 s)', file: 'alarm-rd.mp3' },
-  { id: 'none', name: 'Kein Ton', file: null },
+  { id: 'dringend', name: 'Dringend', file: 'melder-dringend.mp3', hint: 'Meldertöne dringend (3 s)' },
+  { id: 'normal', name: 'Normal', file: 'melder-normal.mp3', hint: 'Meldertöne nicht dringend (4 s)' },
+  { id: 'none', name: 'Stumm', file: null, hint: 'Kein Ton' },
 ]
 export const SOUND_BY_ID = Object.fromEntries(ALARM_SOUNDS.map((s) => [s.id, s]))
 
-// Vorgabe je Einsatzart: R-Stichworte (Rettungsdienst, Krankentransport) → Melder, sonst Sirene
-export const defaultAlarm = (typeId) => (typeId?.[0] === 'R' ? 'rd' : 'fw')
+// Vorgabe je Einsatzart: Stichwort ohne Sondersignal (R0, Krankentransport) → Normal, sonst Dringend
+export const defaultAlarm = (type) => (type?.ohneSS ? 'normal' : 'dringend')
 
 export const soundOn = () => { try { return localStorage.getItem(KEY) !== 'aus' } catch { return true } }
 export const setSoundOn = (on) => { try { localStorage.setItem(KEY, on ? 'an' : 'aus') } catch { /* ignore */ } }
@@ -21,7 +21,7 @@ const audio = {}
 let current = null
 // id aus ALARM_SOUNDS; force = auch bei ausgeschaltetem Ton spielen (Anhören in der Maske).
 // Ein laufender Ton wird abgebrochen, damit sich die Töne nicht überlagern.
-export function playAlarm(id = 'fw', force = false) {
+export function playAlarm(id = 'dringend', force = false) {
   const s = SOUND_BY_ID[id]
   if (!s?.file || (!force && !soundOn())) return
   if (!audio[id]) { audio[id] = new Audio(`sound/${s.file}`); audio[id].preload = 'auto' }
