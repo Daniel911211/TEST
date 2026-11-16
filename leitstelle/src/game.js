@@ -21,11 +21,11 @@ export const VEHICLE_TYPES = {
   DLK: { name: 'DLK 23-12', kind: 'FW', cost: 4500, speed: 60, water: 0, as: 0 },
   RW: { name: 'RW', kind: 'FW', cost: 4200, speed: 60, water: 0, as: 0 },
   ELW1: { name: 'ELW 1', kind: 'FW', cost: 2200, speed: 80, water: 0, as: 0 },
-  // Sonderfahrzeuge: kind 'ANY' = auf jeder Wache stationierbar
-  ELW2: { name: 'ELW 2', kind: 'ANY', cost: 5500, speed: 70, water: 0, as: 0 },
-  ABCE: { name: 'ABC-Erkunder', kind: 'ANY', cost: 3500, speed: 80, water: 0, as: 0 },
-  GWM: { name: 'GW-Messtechnik', kind: 'ANY', cost: 4000, speed: 65, water: 0, as: 0 },
-  DEKON: { name: 'Dekon-P', kind: 'ANY', cost: 4500, speed: 60, water: 0, as: 0 },
+  // Sonderfahrzeuge: auf jeder Feuerwache stationierbar (nicht auf Rettungswachen)
+  ELW2: { name: 'ELW 2', kind: 'FW', cost: 5500, speed: 70, water: 0, as: 0 },
+  ABCE: { name: 'ABC-Erkunder', kind: 'FW', cost: 3500, speed: 80, water: 0, as: 0 },
+  GWM: { name: 'GW-Messtechnik', kind: 'FW', cost: 4000, speed: 65, water: 0, as: 0 },
+  DEKON: { name: 'Dekon-P', kind: 'FW', cost: 4500, speed: 60, water: 0, as: 0 },
   GWL: { name: 'GW-L', kind: 'FW', cost: 3000, speed: 65, water: 0, as: 0 },
   GWA: { name: 'GW-A', kind: 'FW', cost: 3200, speed: 65, water: 0, as: 0 },
   RTW: { name: 'RTW', kind: 'RW', cost: 2000, speed: 80 },
