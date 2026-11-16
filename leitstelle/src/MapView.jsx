@@ -61,7 +61,7 @@ export default function MapView({ game, sites, selected, buildMode, onMapClick, 
     sync(veh, game.vehicles.filter((v) => v.status !== 2), (v) =>
       L.marker(v.pos, { icon: icon('', 'mk mk-veh', 24), zIndexOffset: 300 }), (mk, v) => {
         mk.setLatLng(v.pos)
-        mk.setIcon(icon(`${v.status}`, `mk mk-veh t-${v.type}`, 24))
+        mk.setIcon(icon(`${v.status}`, `mk mk-veh t-${VEHICLE_TYPES[v.type].kind}`, 24))
         mk.bindTooltip(`${v.callsign} · Status ${v.status}`)
       })
   })

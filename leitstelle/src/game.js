@@ -1,5 +1,6 @@
 import KLINIKEN from './data/kliniken.json'
 // Reine Spiellogik (ohne React/Leaflet)
+import { INCIDENT_TYPES, ROLES, matchSlots, addNeeds } from './stichworte.js'
 
 export const GAME_SEC_PER_REAL_SEC = 30 // bei 1x: 1 echte Sekunde = 30 Spielsekunden
 export const DETOUR = 1.3 // Umwegfaktor Luftlinie -> Straße
@@ -13,20 +14,22 @@ export const STATION_TYPES = {
 }
 
 export const VEHICLE_TYPES = {
-  HLF: { name: 'HLF 20', kind: 'FW', cost: 3000, speed: 70 },
-  DLK: { name: 'DLK 23', kind: 'FW', cost: 4500, speed: 60 },
+  TSF: { name: 'TSF-W', kind: 'FW', cost: 2000, speed: 70, water: 750, as: 1 },
+  LF: { name: 'LF 20', kind: 'FW', cost: 2800, speed: 70, water: 2000, as: 2 },
+  HLF: { name: 'HLF 20', kind: 'FW', cost: 3000, speed: 70, water: 1600, as: 2 },
+  TLF: { name: 'TLF 4000', kind: 'FW', cost: 3200, speed: 65, water: 4000, as: 1 },
+  DLK: { name: 'DLK 23-12', kind: 'FW', cost: 4500, speed: 60, water: 0, as: 0 },
+  RW: { name: 'RW', kind: 'FW', cost: 4200, speed: 60, water: 0, as: 0 },
+  ELW1: { name: 'ELW 1', kind: 'FW', cost: 2200, speed: 80, water: 0, as: 0 },
+  GWL: { name: 'GW-L', kind: 'FW', cost: 3000, speed: 65, water: 0, as: 0 },
+  GWA: { name: 'GW-A', kind: 'FW', cost: 3200, speed: 65, water: 0, as: 0 },
   RTW: { name: 'RTW', kind: 'RW', cost: 2000, speed: 80 },
   NEF: { name: 'NEF', kind: 'RW', cost: 2500, speed: 95 },
+  KTW: { name: 'N-KTW', kind: 'RW', cost: 1500, speed: 80 },
 }
 
-export const INCIDENT_TYPES = [
-  { id: 'muell', name: 'Containerbrand', need: { HLF: 1 }, work: 300, reward: 350, penalty: 150, deadline: 900, weight: 3, points: 5 },
-  { id: 'tuer', name: 'Türöffnung', need: { HLF: 1 }, work: 240, reward: 300, penalty: 100, deadline: 1200, weight: 2, points: 4 },
-  { id: 'zimmer', severity: 2, name: 'Zimmerbrand', need: { HLF: 2, DLK: 1, RTW: 1 }, work: 700, reward: 1400, penalty: 600, deadline: 900, weight: 2, points: 15, patient: true },
-  { id: 'internist', severity: 1, name: 'Internistischer Notfall', need: { RTW: 1 }, work: 240, reward: 450, penalty: 200, deadline: 720, weight: 5, points: 6, patient: true },
-  { id: 'notarzt', severity: 3, name: 'Reanimation', need: { RTW: 1, NEF: 1 }, work: 420, reward: 900, penalty: 500, deadline: 600, weight: 2, points: 12, patient: true },
-  { id: 'vu', severity: 3, name: 'Verkehrsunfall', need: { HLF: 1, RTW: 1, NEF: 1 }, work: 600, reward: 1200, penalty: 500, deadline: 900, weight: 2, points: 14, patient: true },
-]
+// Einsatzstichworte nach Hessen-Erlass: siehe stichworte.js
+export { INCIDENT_TYPES, ROLES, matchSlots }
 
 export const HOSPITALS = KLINIKEN
 
@@ -164,18 +167,17 @@ export function dispatch(g, incidentId, vehicleIds) {
   }
 }
 
-// Empfohlene Auswahl: pro benötigtem Typ die schnellsten freien Fahrzeuge
+// Empfohlene Auswahl: für jede noch offene Rolle das schnellste freie Fahrzeug
 export function recommend(g, inc) {
   const picked = []
-  const have = {}
-  for (const v of g.vehicles) if (v.incidentId === inc.id) have[v.type] = (have[v.type] || 0) + 1
-  for (const [type, n] of Object.entries(inc.type.need)) {
-    const missing = n - (have[type] || 0)
-    if (missing <= 0) continue
+  const assigned = g.vehicles.filter((v) => v.incidentId === inc.id)
+  const unfilled = matchSlots(inc.need, assigned)
+  const roles = Object.keys(unfilled).sort((a, b) => ROLES[a].types.length - ROLES[b].types.length)
+  for (const r of roles) {
     const c = g.vehicles
-      .filter((v) => v.type === type && isAvailable(v))
+      .filter((v) => isAvailable(v) && ROLES[r].types.includes(v.type) && !picked.includes(v.id))
       .sort((a, b) => etaSec(a, inc.pos) - etaSec(b, inc.pos))
-      .slice(0, missing)
+      .slice(0, unfilled[r])
     picked.push(...c.map((v) => v.id))
   }
   return picked
@@ -254,8 +256,7 @@ function releaseVehicle(v) {
 }
 
 function spawnIncident(g) {
-  const owned = new Set(g.vehicles.map((v) => v.type))
-  const types = INCIDENT_TYPES.filter((t) => Object.keys(t.need).every((k) => owned.has(k)))
+  const types = INCIDENT_TYPES.filter((t) => Object.keys(matchSlots(t.need, g.vehicles)).length === 0)
   if (!types.length) return
   const total = types.reduce((s, t) => s + t.weight, 0)
   let r = Math.random() * total
@@ -264,7 +265,12 @@ function spawnIncident(g) {
   const ang = Math.random() * Math.PI * 2
   const dist = rnd(0.8, 5) // km
   const pos = [st.pos[0] + (Math.cos(ang) * dist) / 111, st.pos[1] + (Math.sin(ang) * dist) / (111 * Math.cos((st.pos[0] * Math.PI) / 180))]
-  const inc = { id: g.nextId++, type, pos, created: g.t, status: 'open', workLeft: type.work, startedAt: null, dispatched: false, patientTaken: false }
+  // Nachforderungen ("zusätzliche Einsatzmittel nach Lage"): erst vor Ort bekannt
+  let extra = {}
+  for (const [role, n] of Object.entries(type.extra)) {
+    if (Math.random() < 0.4 && Object.keys(matchSlots(addNeeds(addNeeds(type.need, extra), { [role]: n }), g.vehicles)).length === 0) extra = addNeeds(extra, { [role]: n })
+  }
+  const inc = { id: g.nextId++, type, need: { ...type.need }, extra, revealed: false, pos, created: g.t, status: 'open', workLeft: type.work, startedAt: null, dispatched: false }
   g.incidents.push(inc)
   addLog(g, `Neuer Einsatz: ${type.name}`)
 }
@@ -395,9 +401,17 @@ export function tick(g, dt) {
 
   // Einsätze
   for (const inc of [...g.incidents]) {
-    const atScene = {}
-    for (const v of g.vehicles) if (v.incidentId === inc.id && v.status === 4) atScene[v.type] = (atScene[v.type] || 0) + 1
-    const satisfied = Object.entries(inc.type.need).every(([k, n]) => (atScene[k] || 0) >= n)
+    const atScene = g.vehicles.filter((v) => v.incidentId === inc.id && v.status === 4)
+
+    // Erkundung: erstes Fahrzeug vor Ort meldet ggf. Nachforderungen
+    if (!inc.revealed && atScene.length) {
+      inc.revealed = true
+      if (Object.keys(inc.extra).length) {
+        inc.need = addNeeds(inc.need, inc.extra)
+        addLog(g, `Lagemeldung ${inc.type.name}: Nachforderung ${Object.entries(inc.extra).map(([k, n]) => `${n}× ${ROLES[k].short}`).join(', ')}`)
+      }
+    }
+    const satisfied = Object.keys(matchSlots(inc.need, atScene)).length === 0
 
     if (inc.status === 'open') {
       if (satisfied) {
@@ -420,12 +434,12 @@ export function tick(g, dt) {
         g.points += inc.type.points
         g.done++
         addLog(g, `Einsatz erledigt: ${inc.type.name} (+${fmtMoney(reward)})`)
-        let patientTaken = false
+        let patients = inc.type.patient ? (inc.type.rd === 'MANV' ? 4 : 1) : 0
         for (const v of g.vehicles) {
           if (v.incidentId !== inc.id) continue
           v.condition = Math.max(0, (v.condition ?? 100) - rnd(6, 14))
-          if (v.status === 4 && inc.type.patient && v.type === 'RTW' && !patientTaken) {
-            patientTaken = true
+          if (v.status === 4 && patients > 0 && (v.type === 'RTW' || v.type === 'KTW')) {
+            patients--
             v.incidentId = null
             v.route = null
             requestHospital(g, v, inc.type.severity || 1)
@@ -437,7 +451,7 @@ export function tick(g, dt) {
   }
 }
 
-const KEY = 'leitstelle-save-v1'
+const KEY = 'leitstelle-save-v2' // v2: Hessen-Stichworte (inkompatibel zu v1)
 export const saveGame = (g) => { try { localStorage.setItem(KEY, JSON.stringify(g)) } catch { /* ignore */ } }
 export const loadGame = () => {
   try {

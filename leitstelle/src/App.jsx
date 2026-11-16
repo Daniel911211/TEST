@@ -5,7 +5,7 @@ import EXTRA_SITES from './data/zusatz-standorte.json'
 
 const SITES = [...OSM_SITES, ...EXTRA_SITES]
 import {
-  GAME_SEC_PER_REAL_SEC, STATION_TYPES, VEHICLE_TYPES, STATUS_TEXT, MAX_VEHICLES_PER_STATION,
+  GAME_SEC_PER_REAL_SEC, STATION_TYPES, VEHICLE_TYPES, STATUS_TEXT, MAX_VEHICLES_PER_STATION, ROLES,
   newGame, loadGame, saveGame, clearSave, tick, buildStation, buyVehicle, dispatch, recommend,
   isAvailable, etaSec, SEVERITY_TEXT, HOSPITALS, hospitalFree, transportOptions, confirmTransport, repairQuote, sendToWorkshop, buildWorkshop, WORKSHOP_COST, fmtClock, fmtMin, fmtMoney, rankOf, nextRank,
 } from './game.js'
@@ -60,7 +60,9 @@ export default function App() {
   const selectIncident = (id) => { setSel({ incidentId: id, stationId: null }); setPicked([]); setTab('einsaetze') }
   const selectStation = (id) => { if (!build) { setSel({ incidentId: null, stationId: id }); setTab('wachen') } }
 
-  const need = inc ? Object.entries(inc.type.need) : []
+  const need = inc ? Object.entries(inc.need) : []
+  const onScene = inc ? g.vehicles.filter((v) => v.incidentId === inc.id) : []
+  const sum = (key) => onScene.reduce((a, v) => a + (VEHICLE_TYPES[v.type][key] || 0), 0)
   const assigned = inc ? g.vehicles.filter((v) => v.incidentId === inc.id) : []
   const free = inc ? g.vehicles.filter(isAvailable).sort((a, b) => etaSec(a, inc.pos) - etaSec(b, inc.pos)) : []
   const send = () => { dispatch(g, inc.id, picked); setPicked([]) }
@@ -107,7 +109,11 @@ export default function App() {
               {inc && (
                 <div className="card">
                   <h3>{inc.type.name}</h3>
-                  <p>Benötigt: {need.map(([k, n]) => `${n}× ${VEHICLE_TYPES[k].name}`).join(', ')}<br />Belohnung: {fmtMoney(inc.type.reward)}</p>
+                  <p><small className="muted">{inc.type.bild}</small></p>
+                  <p>Benötigt: {need.map(([k, n]) => `${n}× ${ROLES[k].name}`).join(', ')}
+                    {inc.revealed && Object.keys(inc.extra).length > 0 && <><br /><b style={{ color: '#f4a300' }}>Nachforderung erhalten</b></>}
+                    {inc.type.water > 0 && <><br />Wasser: {sum('water')} / {inc.type.water} l · Atemschutztrupps: {sum('as')} / {inc.type.as}</>}
+                    <br />Belohnung: {fmtMoney(inc.type.reward)}</p>
                   {assigned.length > 0 && (
                     <><h4>Alarmiert</h4><ul className="mini">{assigned.map((v) => <li key={v.id}>{v.callsign} – S{v.status}</li>)}</ul></>
                   )}

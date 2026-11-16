@@ -1,0 +1,134 @@
+// Einsatzstichworte nach dem Gemeinsamen Runderlass des HMdIS/HMSI (Stand 2022, gültig ab 1.1.2023).
+// Die "taktischen Einheiten" des Erlasses werden hier auf Rollen abgebildet, die mit Fahrzeugtypen erfüllt werden.
+// Vereinfachungen: ELW 2 -> zusätzlicher ELW 1; GABC/GDekon/Boote/Taucher/Hebegeräte sind (noch) nicht im Spiel
+// und werden durch RW / GW-A / Gruppen angenähert. Wasser und Atemschutztrupps werden nur angezeigt.
+
+// Rolle -> akzeptierte Fahrzeugtypen (Reihenfolge = Präferenz bei der automatischen Zuordnung)
+export const ROLES = {
+  GT: { name: 'Gruppe mit techn. Komponenten', short: 'Gruppe (Technik)', types: ['HLF'] },
+  G: { name: 'Löschgruppe', short: 'Gruppe', types: ['HLF', 'LF'] },
+  S: { name: 'Staffel', short: 'Staffel', types: ['TSF', 'TLF', 'LF', 'HLF'] },
+  TLF: { name: 'Tanklöschfahrzeug', short: 'TLF', types: ['TLF'] },
+  HR: { name: 'Hubrettungsfahrzeug', short: 'Hubrettung', types: ['DLK'] },
+  ELW1: { name: 'Einsatzleitwagen', short: 'ELW', types: ['ELW1'] },
+  RW: { name: 'Rüstwagen', short: 'RW', types: ['RW'] },
+  GWL: { name: 'GW-L / Schlauch', short: 'GW-L', types: ['GWL'] },
+  GWA: { name: 'GW-A (Atemschutz)', short: 'GW-A', types: ['GWA'] },
+  RTW: { name: 'Rettungswagen', short: 'RTW', types: ['RTW'] },
+  NEF: { name: 'Notarzt (NEF)', short: 'NEF', types: ['NEF'] },
+  KTW: { name: 'Krankentransport (N-KTW)', short: 'KTW', types: ['KTW'] },
+}
+
+// Rettungsdienst-Stichworte
+const RD = {
+  R0K: { need: { KTW: 1 } },
+  R0: { need: { RTW: 1 } },
+  R1: { need: { RTW: 1 } },
+  R2: { need: { RTW: 1, NEF: 1 } },
+  R3: { need: { NEF: 1 } },
+  RLEBEL: { need: { RTW: 1, NEF: 1 } },
+  MANV: { need: { RTW: 4, NEF: 2 } },
+}
+
+function mk(id, name, bild, o) {
+  const cat = id[0] === 'R' && !id.startsWith('RW') ? 'R' : id[0] // F, H oder R
+  const need = { ...o.need }
+  if (o.rd) for (const [k, n] of Object.entries(RD[o.rd].need)) need[k] = (need[k] || 0) + n
+  const size = Object.values(need).reduce((a, b) => a + b, 0)
+  const reward = Math.round((250 + 200 * size) / 10) * 10
+  const severity = ['R2', 'R3', 'RLEBEL', 'MANV'].includes(o.rd) ? 3 : cat === 'R' ? 1 : 2
+  return {
+    id, name, bild, need, extra: o.extra || {}, rd: o.rd || null, weight: o.weight,
+    work: o.work, water: o.water || 0, as: o.as || 0,
+    deadline: cat === 'R' ? 600 : cat === 'H' ? 1200 : 900,
+    reward, penalty: Math.round(reward * 0.4), points: 3 + 2 * size,
+    patient: !!o.rd && o.rd !== 'R3', severity,
+  }
+}
+
+const EXTRA_BRAND = { HR: 1, TLF: 1, GWL: 1 }
+
+export const INCIDENT_TYPES = [
+  // --- Brand ---
+  mk('F1', 'F1 – Kleinbrand', 'PKW, Mülltonne, Gerümpel im Freien, Nachschau', { need: { S: 1 }, extra: { TLF: 1 }, weight: 6, work: 300, water: 500, as: 1 }),
+  mk('F2', 'F2 – Wohnungs-/Zimmerbrand', 'Wohnungs-, Dachstuhl-, Keller-, Zimmer-, Kaminbrand, Rauchentwicklung', { need: { G: 2, ELW1: 1 }, rd: 'R1', extra: EXTRA_BRAND, weight: 4, work: 720, water: 1000, as: 3 }),
+  mk('F2Y', 'F2Y – Wohnungsbrand, Menschenleben in Gefahr', 'Brand in Wohngebäude mit Menschenleben in Gefahr', { need: { G: 2, S: 1, ELW1: 1 }, rd: 'R2', extra: EXTRA_BRAND, weight: 1.2, work: 840, water: 1000, as: 4 }),
+  mk('F3', 'F3 – Ausgedehnter Brand Sondergebäude', 'Hochhaus, Gewerbebetrieb, Schreinerei, Kfz-Werkstatt, Lagerplatz', { need: { G: 3, ELW1: 2 }, rd: 'R1', extra: { HR: 1, TLF: 1, GWL: 1, RW: 1 }, weight: 0.6, work: 1200, water: 3600, as: 5 }),
+  mk('F3Y', 'F3Y – Sondergebäude, Menschenleben in Gefahr', 'Ausgedehnter Brand mit Menschenleben in Gefahr', { need: { G: 3, S: 1, ELW1: 2, GWA: 1 }, rd: 'R2', extra: { HR: 1, TLF: 1, GWL: 1 }, weight: 0.3, work: 1320, water: 3600, as: 6 }),
+  mk('F4', 'F4 – Brand als Großschadenslage', 'Brand als Großschadenslage', { need: { G: 6, HR: 2, GWA: 1, ELW1: 2, TLF: 1 }, rd: 'R1', extra: { GWL: 1, TLF: 1 }, weight: 0.1, work: 1800, water: 8000, as: 10 }),
+  mk('FBMA', 'F BMA – Brandmeldeanlage', 'Meldung einer Brandmeldeanlage', { need: { S: 2, ELW1: 1 }, extra: { HR: 1 }, weight: 5, work: 360, water: 1000, as: 3 }),
+  mk('FRWM', 'F RWM – Rauchwarnmelder', 'Ausgelöster (Heim-)Rauchwarnmelder', { need: { S: 1 }, extra: { HR: 1, TLF: 1 }, weight: 3, work: 240, water: 500, as: 2 }),
+  mk('FBUSY', 'F BUS Y – Busbrand, Menschenleben in Gefahr', 'Brand eines besetzten Busses', { need: { G: 3, TLF: 1, ELW1: 2 }, rd: 'MANV', weight: 0.15, work: 1200, water: 5000, as: 6 }),
+  mk('FFLUG1Y', 'F FLUG 1 Y – Flugunfall (klein)', 'Brand nach Flugunfall: Kleinflugzeug, Hubschrauber, Ballon', { need: { G: 1, GT: 1, ELW1: 1, RW: 1 }, rd: 'R2', extra: { TLF: 1 }, weight: 0.1, work: 900, water: 2500, as: 4 }),
+  mk('FFLUG2Y', 'F FLUG 2 Y – Flugunfall (groß)', 'Brand nach Flugunfall mit Großflugzeug', { need: { G: 6, RW: 2, HR: 1, GWL: 1, ELW1: 2, TLF: 1 }, rd: 'MANV', weight: 0.05, work: 1800, water: 15000, as: 10 }),
+  mk('FGAS1', 'F GAS 1 – Gasflaschen-/Gasleitungsbrand', 'Brand einzelner Gasflaschen oder einer Gasleitung', { need: { G: 2, ELW1: 1, RW: 1 }, extra: { TLF: 1, GWL: 1 }, weight: 0.5, work: 600, water: 1000, as: 3 }),
+  mk('FGAS2', 'F GAS 2 – Gastank-/Gaskesselwagenbrand', 'Brand eines Gastanks, Gastankfahrzeugs, Gaskesselwagens', { need: { G: 3, ELW1: 2, RW: 1 }, rd: 'R1', extra: { TLF: 1, GWL: 1 }, weight: 0.15, work: 1200, water: 5000, as: 5 }),
+  mk('FLKW', 'F LKW – LKW-/Busbrand', 'Brand eines LKW, Busses ohne Personen, Mähdreschers', { need: { G: 2, ELW1: 1, RW: 1 }, extra: { GWA: 1, TLF: 1 }, weight: 1, work: 720, water: 5000, as: 3 }),
+  mk('FZUG', 'F Zug – Schienenfahrzeugbrand', 'Brand eines Schienenfahrzeugs ohne Menschenleben in Gefahr', { need: { G: 2, ELW1: 1, RW: 1 }, extra: { GWA: 1, TLF: 1 }, weight: 0.1, work: 900, water: 5000, as: 3 }),
+  mk('FZUGY', 'F ZUG Y – Zugbrand, viele Menschenleben in Gefahr', 'Brand eines Zuges mit großer Anzahl Menschenleben in Gefahr', { need: { G: 6, HR: 1, RW: 1, ELW1: 2, GWA: 1 }, rd: 'MANV', weight: 0.05, work: 1800, water: 8000, as: 10 }),
+  mk('FSCHIFF1', 'F SCHIFF 1 – Sportboot-/Yachtbrand', 'Brand eines Sportboots, Segelboots, einer Yacht (Boote fehlen im Spiel)', { need: { G: 2, ELW1: 1 }, rd: 'R1', weight: 0.1, work: 720, water: 1000, as: 3 }),
+  mk('FSCHIFF2', 'F SCHIFF 2 – Frachtschiffbrand', 'Brand eines Frachtschiffes', { need: { G: 3, ELW1: 2 }, rd: 'R1', extra: { HR: 1, GWA: 1, TLF: 1 }, weight: 0.05, work: 1200, water: 3600, as: 5 }),
+  mk('FSCHIFF2Y', 'F SCHIFF 2 Y – Personenschiff/Fähre', 'Brand eines Personenschiffs mit vielen Menschenleben in Gefahr', { need: { G: 3, ELW1: 2, HR: 1 }, rd: 'MANV', extra: { GWA: 1 }, weight: 0.03, work: 1320, water: 3600, as: 6 }),
+  mk('FSCHIFF2G', 'F SCHIFF 2 GEFAHR – Schiff mit Gefahrgut', 'Brand eines Tank-/Container-/Frachtschiffes mit Gefahrgut', { need: { G: 6, ELW1: 2, RW: 1, GWA: 1 }, rd: 'R1', weight: 0.03, work: 1500, water: 5000, as: 5 }),
+  mk('FWALD1', 'F WALD 1 – Wald-/Flächenbrand klein', 'Wald, Wiese oder Feld, geringe Ausbreitungsgefahr; Windenergieanlage', { need: { G: 2, TLF: 1 }, weight: 1.5, work: 900, water: 2500, as: 2 }),
+  mk('FWALD2', 'F WALD 2 – Wald-/Flächenbrand groß', 'Wald, Wiese oder Feld mit Gefahr der weiteren Ausdehnung', { need: { G: 3, TLF: 2, ELW1: 2, GWL: 1 }, extra: { HR: 1 }, weight: 0.3, work: 1500, water: 8000, as: 4 }),
+
+  // --- Hilfeleistung ---
+  mk('H1', 'H1 – Einfache technische Hilfe', 'Wasser im Keller, Wasserrohrbruch, Baum auf Straße, Tier in Not, Ölspur', { need: { S: 1 }, extra: { HR: 1, RW: 1 }, weight: 5, work: 300 }),
+  mk('H1Y', 'H1Y – Türöffnung / Person im Aufzug', 'Notfall-Türöffnung, Person im Aufzug, Tragehilfe', { need: { S: 1 }, rd: 'R1', extra: { HR: 1 }, weight: 4, work: 240 }),
+  mk('H2', 'H2 – Technische Hilfe (mittel)', 'Fahrzeug umgestürzt, Bauunfall, Gerüsteinsturz ohne Menschenleben', { need: { GT: 1, ELW1: 1 }, extra: { RW: 1, GWL: 1 }, weight: 1.5, work: 600 }),
+  mk('HABSTY', 'H ABST Y – Person in Absturzgefahr', 'Person in Absturzgefahr oder droht zu springen', { need: { G: 2, HR: 1, ELW1: 1 }, weight: 0.2, work: 600 }),
+  mk('HELEK', 'H ELEK – Elektrounfall', 'Unfall in großen elektrischen Anlagen', { need: { G: 1 }, weight: 0.4, work: 480 }),
+  mk('HEINSTY', 'H EINST Y – Gebäudeeinsturz', 'Gebäudeeinsturz mit Menschenleben in Gefahr', { need: { GT: 3, ELW1: 2, RW: 1 }, rd: 'R2', extra: { GWL: 1 }, weight: 0.15, work: 1500 }),
+  mk('HFLUSS', 'H FLUSS – Technische Hilfe an Gewässern', 'Einfache technische Hilfe am Fluss (Boote fehlen im Spiel)', { need: { G: 1 }, weight: 0.3, work: 480 }),
+  mk('HFLUSSY', 'H FLUSS Y – Person in Fluss', 'Person in Fluss (Boote/Taucher fehlen im Spiel)', { need: { G: 2 }, rd: 'R2', weight: 0.1, work: 720 }),
+  mk('HWASSY', 'H WASS Y – Person in Wasser', 'Person in Wasser (Boote/Taucher fehlen im Spiel)', { need: { G: 2 }, rd: 'R2', weight: 0.1, work: 720 }),
+  mk('HGAS1', 'H GAS 1 – Gasgeruch', 'Gasgeruch', { need: { G: 1 }, weight: 1.2, work: 360 }),
+  mk('HGAS2', 'H GAS 2 – Gasunfall', 'Unfall mit Gas, Verdacht auf Gefahr', { need: { G: 2, ELW1: 1, RW: 1 }, weight: 0.2, work: 720 }),
+  mk('HGEFAHR1', 'H GEFAHR 1 – Gefahrstoffunfall', 'Unfall mit Gefahrstoffaustritt', { need: { GT: 2, GWA: 1, ELW1: 1 }, weight: 0.5, work: 720 }),
+  mk('HGEFAHR2', 'H GEFAHR 2 – Gefahrstoffunfall (groß)', 'Größerer Unfall mit Gefahrstoffaustritt', { need: { GT: 2, GWL: 1, ELW1: 2, RW: 1 }, rd: 'R1', weight: 0.15, work: 1200 }),
+  mk('HKLEMM1Y', 'H KLEMM 1 Y – Person eingeklemmt', 'Person eingeklemmt in Fahrzeug oder Maschine', { need: { GT: 2, RW: 1, ELW1: 1 }, rd: 'R2', weight: 1.5, work: 720 }),
+  mk('HKLEMM2Y', 'H KLEMM 2 Y – Mehrere Personen eingeklemmt', 'Mehrere Personen eingeklemmt oder verschüttet', { need: { GT: 4, RW: 2, ELW1: 2 }, rd: 'MANV', weight: 0.3, work: 1200 }),
+  mk('HRADIO', 'H RADIOAKTIV – Radioaktive Stoffe', 'Unfall mit radioaktiven Stoffen (GABC fehlt im Spiel)', { need: { G: 2, ELW1: 2, GWA: 1 }, weight: 0.02, work: 1200 }),
+  mk('HSCHIFF', 'H SCHIFF – Schiffshavarie', 'Havarie oder Kollision eines Schiffes (Boote fehlen im Spiel)', { need: { G: 3 }, weight: 0.05, work: 900 }),
+  mk('HSCHIFFY1', 'H SCHIFF Y 1 – Schiffshavarie mit Personen', 'Havarie mit Menschenleben in Gefahr', { need: { G: 3 }, rd: 'R2', weight: 0.03, work: 1200 }),
+  mk('HSCHIFFY2', 'H SCHIFF Y 2 – Schiffshavarie groß', 'Havarie mit großer Anzahl Menschenleben in Gefahr', { need: { G: 6, ELW1: 2 }, rd: 'MANV', weight: 0.02, work: 1500 }),
+  mk('HZUG1Y', 'H ZUG 1 Y – Person unter Zug', 'Person unter Zug / eingeklemmt', { need: { G: 2, RW: 1, ELW1: 1 }, rd: 'R2', weight: 0.1, work: 900 }),
+  mk('HZUG2Y', 'H ZUG 2 Y – Zugunfall', 'Unfall eines Zuges mit vielen Menschenleben in Gefahr', { need: { G: 6, RW: 2, ELW1: 2 }, rd: 'MANV', weight: 0.03, work: 1800 }),
+  mk('HUNWETTER1', 'H UNWETTER 1 – Unwetterschäden', 'Wind-, Schnee-, Hagelschäden', { need: { S: 1 }, weight: 2, work: 300 }),
+  mk('HUNWETTER2', 'H UNWETTER 2 – Unwetter, Wasserschäden', 'Wasserschäden durch Unwetter / Starkregen', { need: { S: 2 }, weight: 1, work: 420 }),
+
+  // --- Rettungsdienst ---
+  mk('R0K', 'R0K – Minderdringlicher Notfall', 'Minderdringlicher Notfalleinsatz (N-KTW)', { need: {}, rd: 'R0K', weight: 2, work: 180 }),
+  mk('R0', 'R0 – Notfall ohne Sondersignal', 'Notfalleinsatz unterhalb der Notarzt-Indikation', { need: {}, rd: 'R0', weight: 3, work: 240 }),
+  mk('R1', 'R1 – Notfall mit Sondersignal', 'Dringlicher Notfalleinsatz', { need: {}, rd: 'R1', weight: 5, work: 240 }),
+  mk('R2', 'R2 – Notfall mit Notarzt', 'Akut lebensbedrohliche Situation', { need: {}, rd: 'R2', weight: 3, work: 420 }),
+  mk('R3', 'R3 – Notarzt allein', 'Notarzteinsatz allein (z. B. Nachforderung)', { need: {}, rd: 'R3', weight: 1, work: 300 }),
+  mk('RLEBEL', 'R LEBEL – Lebensbedrohliche Einsatzlage', 'Lebensbedrohliche Lage für Einsatzpersonal (bewaffnete Täter)', { need: {}, rd: 'RLEBEL', weight: 0.1, work: 600 }),
+  mk('RMANV', 'R MANV – Massenanfall von Verletzten', 'Große Anzahl von Verletzten', { need: {}, rd: 'MANV', weight: 0.1, work: 1200 }),
+]
+
+// Welche Rollen können mit den gegebenen Fahrzeugen nicht besetzt werden? ({} = alles besetzt)
+export function matchSlots(need, vehicles) {
+  const pool = [...vehicles]
+  const unfilled = {}
+  const roles = Object.keys(need).sort((a, b) => ROLES[a].types.length - ROLES[b].types.length)
+  for (const r of roles) {
+    for (let i = 0; i < need[r]; i++) {
+      let idx = -1
+      for (const t of ROLES[r].types) {
+        idx = pool.findIndex((v) => v.type === t)
+        if (idx >= 0) break
+      }
+      if (idx >= 0) pool.splice(idx, 1)
+      else unfilled[r] = (unfilled[r] || 0) + 1
+    }
+  }
+  return unfilled
+}
+
+export const addNeeds = (a, b) => {
+  const out = { ...a }
+  for (const [k, n] of Object.entries(b)) out[k] = (out[k] || 0) + n
+  return out
+}
