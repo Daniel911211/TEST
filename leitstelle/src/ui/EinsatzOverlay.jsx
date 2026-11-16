@@ -17,7 +17,7 @@ export default function EinsatzOverlay({ g, incidentId, onClose, onOpenIncident,
 
 function Fenster({ g, inc, onClose, onLocate, flash, onPrev, onNext }) {
   const [picked, setPicked] = useState([])
-  const [filter, setFilter] = useState('alle')
+  const [filter, setFilter] = useState(inc.type.id[0] === 'R' ? 'rd' : 'fw') // Rettungsdienst-Einsätze starten beim Rettungsdienst
   const assigned = g.vehicles.filter((v) => v.incidentId === inc.id)
   const tf = inc.type.ohneSS ? SLOW : 1 // Fahrzeit ohne Sondersignal
   const onScene = assigned.filter((v) => v.status === 4)
@@ -27,7 +27,7 @@ function Fenster({ g, inc, onClose, onLocate, flash, onPrev, onNext }) {
   const elwAtScene = onScene.some((v) => v.type === 'ELW1')
   const free = g.vehicles
     .filter(isAvailable)
-    .filter((v) => filter === 'alle' || groupOf(v.type) === filter)
+    .filter((v) => groupOf(v.type) === filter)
     .sort((a, b) => etaSec(a, inc.pos, tf) - etaSec(b, inc.pos, tf))
   const toggle = (id, on) => setPicked(on ? [...picked, id] : picked.filter((x) => x !== id))
   const send = () => { dispatch(g, inc.id, picked); setPicked([]) }

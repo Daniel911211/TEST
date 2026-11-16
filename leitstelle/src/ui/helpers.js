@@ -3,7 +3,6 @@ import { VEHICLE_TYPES, STATION_TYPES } from '../game.js'
 
 // Fahrzeuggruppen für Filterknöpfe
 export const VEHICLE_GROUPS = [
-  ['alle', 'Alle'],
   ['fw', 'Feuerwehr'],
   ['rd', 'Rettungsdienst'],
 ]

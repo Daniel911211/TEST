@@ -65,7 +65,7 @@ function FahrzeugeTab({ g, station, vehicles, onOpenVehicle, flash, setTab }) {
 
 function MarktTab({ g, station, flash }) {
   const types = Object.entries(VEHICLE_TYPES).filter(([, d]) => d.kind === station.kind || d.kind === 'ANY')
-  const groups = VEHICLE_GROUPS.filter(([k]) => k !== 'alle').map(([k, name]) => [name, types.filter(([t]) => groupOf(t) === k)]).filter(([, l]) => l.length)
+  const groups = VEHICLE_GROUPS.map(([k, name]) => [name, types.filter(([t]) => groupOf(t) === k)]).filter(([, l]) => l.length)
   return (
     <div className="pad">
       {groups.map(([name, list]) => (
