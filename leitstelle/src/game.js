@@ -167,16 +167,26 @@ const addLog = (g, text, meta = {}) => {
 // Protokoll als Text (zum Herunterladen), älteste Zeile zuerst
 export const logAsText = (g, entries = g.log) => [...entries].reverse().map((l) => `${fmtClock(l.t)}  ${(LOG_KINDS[l.kind] || 'Info').padEnd(13)} ${l.text}`).join('\n')
 
-export function buildStation(g, kind, pos, name, siteId = null) {
+// Erstes Fahrzeug einer neuen Wache (gratis): Feuerwache wählt ein Löschfahrzeug, Rettungswache bekommt einen RTW.
+export const FIRST_VEHICLES = { FW: ['HLF', 'LF', 'TSF'], RW: ['RTW'] }
+// Auswahl fürs Bauformular; die neue Wache zählt bei der Freischaltung schon mit
+export const firstVehicleOptions = (g, kind) => FIRST_VEHICLES[kind].map((type) => {
+  const d = VEHICLE_TYPES[type]
+  const locked = countStations(g, kind) + 1 < (d.ab || 0)
+  return { type, name: d.name, locked, text: locked ? unlockText(type) : `${d.water} l Wasser · ${d.as} AS-Trupp${d.as !== 1 ? 's' : ''}` }
+})
+
+export function buildStation(g, kind, pos, name, siteId = null, firstVehicle = null) {
   const def = STATION_TYPES[kind]
   if (g.money < def.cost) return { ok: false, msg: 'Nicht genug Geld.' }
   if (siteId && g.stations.some((s) => s.siteId === siteId)) return { ok: false, msg: 'Hier steht schon eine Wache.' }
+  const opts = firstVehicleOptions(g, kind)
+  const first = opts.find((o) => o.type === firstVehicle && !o.locked) || opts.find((o) => !o.locked) || opts[opts.length - 1]
   g.money -= def.cost
   const station = { id: g.nextId++, kind, pos, siteId, name: name || `${kind === 'FW' ? 'FW' : 'RW'} ${g.stations.filter((s) => s.kind === kind).length + 1}` }
   g.stations.push(station)
-  // erstes Fahrzeug gratis
-  addVehicle(g, station, kind === 'FW' ? 'HLF' : 'RTW')
-  addLog(g, `${station.name} gebaut (${STATION_TYPES[kind].name}, ${fmtMoney(STATION_TYPES[kind].cost)}).`, { kind: 'bau' })
+  addVehicle(g, station, first.type) // erstes Fahrzeug gratis
+  addLog(g, `${station.name} gebaut (${STATION_TYPES[kind].name}, ${fmtMoney(STATION_TYPES[kind].cost)}), erstes Fahrzeug: ${VEHICLE_TYPES[first.type].name}.`, { kind: 'bau' })
   return { ok: true, station }
 }
 

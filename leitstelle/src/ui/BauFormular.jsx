@@ -1,20 +1,29 @@
-import { STATION_TYPES, fmtMoney } from '../game.js'
+import { STATION_TYPES, firstVehicleOptions, fmtMoney } from '../game.js'
 
 // Bauformular über der Karte (nach Vorbild „Neues Gebäude bauen“): Gebäudetyp, Name, Standort per Klick, Bauen
 export default function BauFormular({ g, build, setBuild, siteMode, onBuild }) {
   const def = STATION_TYPES[build.kind]
   const needsSite = siteMode(build.kind)
   const hasPos = !!build.pos
+  const firsts = firstVehicleOptions(g, build.kind)
+  const chosen = firsts.find((o) => o.type === build.vehicle && !o.locked) || firsts.find((o) => !o.locked)
   return (
     <div className="bau-form" onClick={(e) => e.stopPropagation()}>
       <div className="bau-head"><b>Neues Gebäude bauen</b><span className="spacer" /><button className="small" onClick={() => setBuild(null)}>✕</button></div>
       <label>Gebäudetyp
-        <select value={build.kind} onChange={(e) => setBuild({ kind: e.target.value, pos: null, site: null, name: '' })}>
+        <select value={build.kind} onChange={(e) => setBuild({ kind: e.target.value, pos: null, site: null, name: '', vehicle: e.target.value === 'FW' ? 'LF' : 'RTW' })}>
           {Object.entries(STATION_TYPES).map(([k, d]) => <option key={k} value={k}>{d.name} – {fmtMoney(d.cost)}</option>)}
         </select>
       </label>
       <label>Name
         <input value={build.name} placeholder={build.site ? build.site.name : `${def.name} ${g.stations.filter((s) => s.kind === build.kind).length + 1}`} onChange={(e) => setBuild({ ...build, name: e.target.value })} />
+      </label>
+      <label>Erstes Fahrzeug (gratis)
+        {firsts.length > 1
+          ? <select value={chosen?.type || ''} onChange={(e) => setBuild({ ...build, vehicle: e.target.value })}>
+            {firsts.map((o) => <option key={o.type} value={o.type} disabled={o.locked}>{o.name} – {o.locked ? `🔒 ${o.text}` : o.text}</option>)}
+          </select>
+          : <b>{firsts[0].name}</b>}
       </label>
       <div className="bau-ort">
         <span className="muted">Standort</span>{' '}

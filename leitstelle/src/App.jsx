@@ -31,7 +31,7 @@ export default function App() {
   const [, force] = useState(0)
   const [speed, setSpeed] = useState(1)
   const [sound, setSound] = useState(soundOn()) // Alarmton an/aus (Schalter in der Kopfzeile)
-  const [build, setBuild] = useState(null) // Bauformular: { kind:'FW'|'RW', pos, site, name } | null
+  const [build, setBuild] = useState(null) // Bauformular: { kind:'FW'|'RW', pos, site, name, vehicle } | null (vehicle = erstes Fahrzeug, gratis)
   const [wsel, setWsel] = useState({ stationId: null, vehicleId: null })
   const [focus, setFocus] = useState(null) // { pos, vehicleId, n } für 📍
   const [overlay, setOverlay] = useState(null) // { kind:'station', id, tab } | { kind:'vehicle'|'hospital'|'workshop'|'sprech'|'incident', id } | null
@@ -78,7 +78,7 @@ export default function App() {
     setTimeout(() => setFocus((f) => (f?.vehicleId === id ? null : f)), 4000)
   }
   const closeOverlay = () => { setOverlay(null); setWsel((s) => ({ ...s, vehicleId: null })) }
-  const startBuild = () => setBuild(build ? null : { kind: 'FW', pos: null, site: null, name: '' })
+  const startBuild = () => setBuild(build ? null : { kind: 'FW', pos: null, site: null, name: '', vehicle: 'LF' })
   // Standort wählen: markierter Standort (Feuerwachen) oder freier Kartenpunkt; gebaut wird erst mit „Bauen“ im Formular
   const onSiteClick = (site) => {
     if (!build) { flash('Klicke zuerst auf „Neues Gebäude bauen“.'); return }
@@ -93,7 +93,7 @@ export default function App() {
   }
   const doBuild = () => {
     if (!build?.pos) return
-    const r = buildStation(g, build.kind, build.pos, build.name.trim() || build.site?.name, build.site?.id)
+    const r = buildStation(g, build.kind, build.pos, build.name.trim() || build.site?.name, build.site?.id, build.vehicle)
     if (!r.ok) flash(r.msg); else { setBuild(null); openStation(r.station.id, 'markt') }
   }
   const selectStation = (id) => { if (!build) openStation(id) }
