@@ -223,6 +223,7 @@ export function confirmTransport(g, vehicleId, hospitalId) {
   if (!v || v.status !== 5 || !h) return { ok: false, msg: 'Kein offener Sprechwunsch.' }
   if (hospitalFree(g, h.id) <= 0) return { ok: false, msg: `${h.name} meldet keine Kapazität – bitte anderes Haus wählen.` }
   const wish = v.request?.wishId
+  g.hospitals[h.id].free-- // Bett wird mit der Anmeldung reserviert
   v.status = 7
   v.hospital = h
   v.route = null
@@ -354,17 +355,10 @@ export function tick(g, dt) {
         break
       case 7:
         if (driveTo(g, v, v.hospital.pos, dt, (e) => addLog(g, `${v.callsign}: Routing fehlgeschlagen (${e.message})`))) {
-          if (hospitalFree(g, v.hospital.id) > 0) {
-            g.hospitals[v.hospital.id].free--
-            v.status = 8
-            v.timer = 300
-            g.money += 80
-            addLog(g, `${v.callsign}: Status 8 – Patient übergeben in ${v.hospital.name} (+80 €)`)
-          } else {
-            addLog(g, `${v.callsign}: ${v.hospital.name} meldet Kapazität erschöpft! Neue Zielklinik nötig.`)
-            requestHospital(g, v)
-            v.request.wishId = null
-          }
+          v.status = 8
+          v.timer = 300
+          g.money += 80
+          addLog(g, `${v.callsign}: Status 8 – Patient übergeben in ${v.hospital.name} (+80 €)`)
         }
         break
       case 5:
