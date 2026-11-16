@@ -12,7 +12,7 @@ export default function KlinikOverlay({ g, hospitalId, onClose, onOpenHospital, 
   const go = (d) => onOpenHospital(HOSPITALS[(idx + d + HOSPITALS.length) % HOSPITALS.length].id)
 
   return (
-    <Overlay
+    <Overlay compact
       title={<><span className="wk wk-KH">H</span> {h.name}</>}
       sub={`Klinik · ${free} von ${beds} Betten frei`}
       onClose={onClose} onPrev={() => go(-1)} onNext={() => go(1)}

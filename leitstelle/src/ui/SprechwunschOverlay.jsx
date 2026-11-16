@@ -17,7 +17,7 @@ export default function SprechwunschOverlay({ g, vehicleId, onClose, onOpenSprec
   const next = () => { const rest = sprechwunschList(g).filter((x) => x.id !== v.id); setNote(''); if (rest.length) onOpenSprech(rest[0].id); else onClose() }
 
   return (
-    <Overlay
+    <Overlay compact
       title={<><span className="st s5">5</span> {v.callsign}</>}
       sub={`Sprechwunsch · ${sprechKindName(kind)}${inc ? ` · ${incidentTitle(inc)}` : sw?.incTitle ? ` · ${sw.incTitle} (erledigt)` : ''}${sw ? ` · wartet seit ${fmtMin(g.t - sw.since)}` : ''} · Spiel angehalten`}
       head={inc && <button className="small" onClick={() => onSelectIncident(inc.id)}>Zum Einsatz</button>}

@@ -16,7 +16,7 @@ export default function WerkstattOverlay({ g, workshopId, onClose, onOpenWorksho
   const free = Math.max(0, w.plaetze - busy)
 
   return (
-    <Overlay
+    <Overlay compact
       title={<><span className="wk wk-WS">W</span> {w.name}</>}
       sub={`Lkw-Werkstatt · ${w.ort} · ${free} von ${w.plaetze} Plätzen frei`}
       onClose={onClose} onPrev={() => go(-1)} onNext={() => go(1)}

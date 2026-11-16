@@ -23,7 +23,7 @@ export default function FahrzeugOverlay({ g, vehicleId, onClose, onOpenVehicle, 
   const wsText = werk ? (v.wsPhase === 'fahrt' ? 'auf Anfahrt' : v.wsPhase === 'warten' ? 'wartet auf einen freien Platz' : `in Reparatur, noch ${fmtMin(v.timer)}`) : ''
 
   return (
-    <Overlay
+    <Overlay compact
       title={v.callsign} sub={`${d.name} · ${d.kind === 'RW' ? 'Rettungsdienst' : d.water > 0 ? 'Löschfahrzeug' : 'Sonderfahrzeug'}`}
       head={<>
         <button className="small" title="Auf der Karte zeigen" onClick={() => onLocate(v.id)}>📍 Auf Karte</button>
