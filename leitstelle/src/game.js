@@ -190,6 +190,33 @@ export function buildStation(g, kind, pos, name, siteId = null, firstVehicle = n
   return { ok: true, station }
 }
 
+// Umbenennen: Wache (Funkrufnamen ihrer Fahrzeuge ziehen mit, wenn sie mit dem alten Wachennamen beginnen) und Fahrzeug
+export function renameStation(g, stationId, name) {
+  const st = g.stations.find((x) => x.id === stationId)
+  if (!st) return { ok: false, msg: 'Wache nicht gefunden.' }
+  name = (name || '').trim()
+  if (!name) return { ok: false, msg: 'Der Name darf nicht leer sein.' }
+  if (name === st.name) return { ok: true }
+  if (g.stations.some((x) => x.id !== st.id && x.name === name)) return { ok: false, msg: 'Diesen Namen hat schon eine andere Wache.' }
+  const old = st.name
+  st.name = name
+  for (const v of g.vehicles) if (v.stationId === st.id && v.callsign.startsWith(old + ' ')) v.callsign = name + v.callsign.slice(old.length)
+  addLog(g, `${old} umbenannt in ${name}.`, { kind: 'bau' })
+  return { ok: true }
+}
+export function renameVehicle(g, vehicleId, callsign) {
+  const v = g.vehicles.find((x) => x.id === vehicleId)
+  if (!v) return { ok: false, msg: 'Fahrzeug nicht gefunden.' }
+  callsign = (callsign || '').trim()
+  if (!callsign) return { ok: false, msg: 'Der Funkrufname darf nicht leer sein.' }
+  if (callsign === v.callsign) return { ok: true }
+  if (g.vehicles.some((x) => x.id !== v.id && x.callsign === callsign)) return { ok: false, msg: 'Diesen Funkrufnamen hat schon ein anderes Fahrzeug.' }
+  const old = v.callsign
+  v.callsign = callsign
+  addLog(g, `${old} umbenannt in ${callsign}.`, { kind: 'bau', v })
+  return { ok: true }
+}
+
 function addVehicle(g, station, type) {
   const n = g.vehicles.filter((v) => v.type === type).length + 1
   g.vehicles.push({

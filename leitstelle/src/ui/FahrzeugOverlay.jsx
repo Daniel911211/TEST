@@ -1,7 +1,8 @@
 import { useState } from 'react'
-import { VEHICLE_TYPES, STATUS_TEXT, HOSPITALS, WERKSTATT_BY_ID, incidentTitle, sondersignal, repairQuote, hasOwnWorkshop, workshopOptions, sendToWorkshop, recallVehicle, sellPrice, fmtMin, fmtMoney } from '../game.js'
+import { VEHICLE_TYPES, STATUS_TEXT, HOSPITALS, WERKSTATT_BY_ID, incidentTitle, sondersignal, repairQuote, hasOwnWorkshop, workshopOptions, sendToWorkshop, renameVehicle, recallVehicle, sellPrice, fmtMin, fmtMoney } from '../game.js'
 import { vehiclesOf, stationOf } from './helpers.js'
 import Overlay from './Overlay.jsx'
+import NameEdit from './NameEdit.jsx'
 import { CondBar, incidentOf, sell } from './WachenOverlay.jsx'
 
 // Overlay eines Fahrzeugs: Wache, Typ, Status, Zustand, Einsatz; Rückalarmieren, Werkstatt, Verkaufen
@@ -26,6 +27,7 @@ export default function FahrzeugOverlay({ g, vehicleId, onClose, onOpenVehicle, 
     <Overlay compact
       title={v.callsign} sub={`${d.name} · ${d.kind === 'RW' ? 'Rettungsdienst' : d.water > 0 ? 'Löschfahrzeug' : 'Sonderfahrzeug'}`}
       head={<>
+        <NameEdit value={v.callsign} title="Funkrufname ändern" flash={flash} onSave={(n) => renameVehicle(g, v.id, n)} />
         <button className="small" title="Auf der Karte zeigen" onClick={() => onLocate(v.id)}>📍 Auf Karte</button>
         {st && <button className="small" onClick={() => onOpenStation(st.id)}>Zur Wache</button>}
       </>}

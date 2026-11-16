@@ -209,3 +209,4 @@ textarea.vermerk { width:100%; background:#0f1319; color:var(--text); border:1px
 .mk-werk { border-radius:4px; background:#2b6cb0; color:#fff; }
 .wk-WS { background:#2b6cb0; }
 .werkstatt-wahl { margin-top:8px; } .werkstatt-wahl button { width:100%; }
+.name-edit { display:flex; align-items:center; gap:4px; } .name-edit .search { margin-left:0; width:260px; }

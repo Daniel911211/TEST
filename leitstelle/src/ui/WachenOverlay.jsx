@@ -1,6 +1,7 @@
-import { VEHICLE_TYPES, STATUS_TEXT, incidentTitle, buyVehicle, sellVehicle, sellPrice, repairQuote, hasOwnWorkshop, sendToWorkshop, buildWorkshop, WORKSHOP_COST, fmtMin, fmtMoney, vehicleUnlocked, unlockText } from '../game.js'
+import { VEHICLE_TYPES, STATUS_TEXT, incidentTitle, buyVehicle, sellVehicle, sellPrice, repairQuote, hasOwnWorkshop, sendToWorkshop, renameStation, buildWorkshop, WORKSHOP_COST, fmtMin, fmtMoney, vehicleUnlocked, unlockText } from '../game.js'
 import { VEHICLE_GROUPS, groupOf, vehiclesOf, stationTypeName, shortName } from './helpers.js'
 import Overlay from './Overlay.jsx'
+import NameEdit from './NameEdit.jsx'
 
 // Reiter je Wachentyp – hier später Erweiterungen, Lager usw. ergänzen
 const TABS = {
@@ -24,7 +25,7 @@ export default function WachenOverlay({ g, stationId, tab, setTab, onClose, onOp
     <Overlay compact
       title={<><span className={`wk wk-${station.kind}`}>{station.kind}</span> {station.name}</>}
       sub={`${stationTypeName(station)} · ${vehicles.length} Fahrzeug${vehicles.length !== 1 ? 'e' : ''} · Werkstatt: ${station.workshop ? 'ja' : 'nein'}`}
-      head={<button className="small" onClick={() => setTab('markt')}>Fahrzeugmarkt</button>}
+      head={<><NameEdit value={station.name} title="Wache umbenennen" flash={flash} onSave={(n) => renameStation(g, station.id, n)} /><button className="small" onClick={() => setTab('markt')}>Fahrzeugmarkt</button></>}
       tabs={tabs} tab={cur} setTab={setTab} onClose={onClose}
       onPrev={g.stations.length > 1 ? () => go(-1) : null} onNext={g.stations.length > 1 ? () => go(1) : null}
     >
