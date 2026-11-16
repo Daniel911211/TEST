@@ -1,6 +1,8 @@
 [
-  { "kind": "RW", "id": "x-flieden", "name": "Rettungswache Flieden (DRK, Lage ca.)", "pos": [50.585, 9.54], "approx": true,
-    "note": "Übergangswache nahe Sportplatz 'Im Weiher'; endgültiger Standort im Königreich (geplant Sommer 2027). Koordinaten ungefähr, per Geocoding prüfen." },
-  { "kind": "RW", "id": "x-hosenfeld", "name": "Rettungswache Hosenfeld (Malteser, Lage ca.)", "pos": [50.62, 9.52], "approx": true,
-    "note": "Seit 1. Januar 2026 in Betrieb, Malteser. Koordinaten ungefähr, per Geocoding prüfen." }
+  { "kind": "RW", "id": "x-flieden", "name": "Rettungswache Flieden (DRK, Übergang Im Weiher)", "pos": [50.42665, 9.55503], "approx": true,
+    "note": "Übergangswache nahe Sportplatz 'Im Weiher' (Straßenmitte per Nominatim); endgültiger Standort im Königreich geplant Sommer 2027." },
+  { "kind": "RW", "id": "x-hosenfeld", "name": "Rettungswache Hosenfeld (Malteser, Ortslage ca.)", "pos": [50.51199, 9.49855], "approx": true,
+    "note": "Seit 1. Januar 2026 in Betrieb. Position = Ortsmittelpunkt Hosenfeld, genaue Adresse unbekannt." },
+  { "kind": "RW", "id": "x-grossenlueder", "name": "Rettungswache Großenlüder (Malteser, Ortslage ca.)", "pos": [50.57536, 9.55022], "approx": true,
+    "note": "Neue Wache laut Landkreis; Position = Ortsmittelpunkt Großenlüder, genaue Adresse unbekannt." }
 ]
