@@ -222,5 +222,6 @@ textarea.vermerk { width:100%; background:#0f1319; color:var(--text); border:1px
 .frage { width:min(440px, 100%); background:var(--panel); border:1px solid var(--line); border-radius:10px; box-shadow:0 10px 40px #000a; padding:14px 16px; display:flex; flex-direction:column; gap:10px; }
 .frage h3 { font-size:16px; } .frage p { color:var(--muted); font-size:13px; }
 .frage-foot { display:flex; justify-content:flex-end; gap:8px; }
+button.alarm-weiter { border-color:var(--amber); color:var(--amber); }
 button.test { border-style:dashed; opacity:.75; }
 button.danger { background:#5a1a1a; border-color:#8a2a2a; color:#ffd1d1; } button.danger:hover { background:#7a2222; }

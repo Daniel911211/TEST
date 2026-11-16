@@ -16,6 +16,14 @@ export default function SprechwunschOverlay({ g, vehicleId, onClose, onOpenSprec
   const inc = sw ? g.incidents.find((i) => i.id === sw.incidentId) : null
   const kind = sw?.kind || 'klinik'
   const next = () => { const rest = sprechwunschList(g).filter((x) => x.id !== v.id); setNote(''); setZusage(null); if (rest.length) onOpenSprech(rest[0].id); else onClose() }
+  // Nachalarmieren: beantwortet den Sprechwunsch (eingetippte Antwort, sonst die Zusage „… wird alarmiert“, sonst nur Quittung) und öffnet den Einsatz
+  const nachalarmieren = () => {
+    const opts = answerOptions(g, v.id)
+    const z = opts.find((o) => o.zusage)
+    const r = note.trim() ? answerSprechwunsch(g, v.id, note, zusage) : z ? answerSprechwunsch(g, v.id, z.text, true) : answerSprechwunsch(g, v.id, '')
+    if (!r.ok) { flash(r.msg); return }
+    setNote(''); setZusage(null); onSelectIncident(inc.id)
+  }
 
   return (
     <Overlay compact
@@ -36,6 +44,7 @@ export default function SprechwunschOverlay({ g, vehicleId, onClose, onOpenSprec
             <textarea className="vermerk" rows={3} placeholder="Antwort an das Fahrzeug (Vorschlag anklicken oder selbst schreiben; steht danach im Funk und im Einsatztagebuch) …" value={note} onChange={(e) => { setNote(e.target.value); setZusage(null) }} />
             <div className="ef-actions">
               <button className="primary" style={{ width: 'auto' }} disabled={!note.trim()} onClick={() => { const r = answerSprechwunsch(g, v.id, note, zusage); if (r.ok) { flash('Antwort gesendet.'); next() } else flash(r.msg) }}>Antworten</button>
+              {inc && <button className="alarm-weiter" title="Antwort senden und den Einsatz zum Nachalarmieren öffnen" onClick={nachalarmieren}>🚨 Nachalarmieren</button>}
               <button onClick={() => { answerSprechwunsch(g, v.id, ''); next() }}>Nur quittieren</button>
             </div>
           </>
