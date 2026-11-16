@@ -36,7 +36,14 @@ export default function MapView({ game, sites, selected, buildMode, onMapClick, 
   useEffect(() => {
     const m = map.current
     const { st, veh, inc } = layers.current
-    for (const h of HOSPITALS) layers.current.hosp?.get(h.id)?.setTooltipContent(`${h.name} – freie Betten: ${game.hospitals[h.id]?.free ?? 0}/${h.capacity}`)
+    for (const h of HOSPITALS) {
+      const mk = layers.current.hosp?.get(h.id)
+      const txt = `${h.name} – freie Betten: ${game.hospitals[h.id]?.free ?? 0}/${h.capacity}`
+      if (mk && mk._txt !== txt) { mk._txt = txt; mk.setTooltipContent(txt) }
+    }
+    // Marker nur anfassen, wenn sich wirklich etwas geändert hat (sonst flackert die Karte)
+    const setTip = (mk, txt) => { if (mk._txt !== txt) { mk._txt = txt; mk.getTooltip() ? mk.setTooltipContent(txt) : mk.bindTooltip(txt) } }
+    const setIcon = (mk, key, make) => { if (mk._key !== key) { mk._key = key; mk.setIcon(make()) } }
     const sync = (store, items, make, update) => {
       const ids = new Set(items.map((i) => i.id))
       for (const [id, mk] of store) if (!ids.has(id)) { mk.remove(); store.delete(id) }
@@ -54,15 +61,18 @@ export default function MapView({ game, sites, selected, buildMode, onMapClick, 
       L.marker(i.pos, { icon: icon('!', 'mk mk-inc', 30), zIndexOffset: 500 }).on('click', (e) => {
         L.DomEvent.stopPropagation(e); cb.current.onSelectIncident(i.id)
       }), (mk, i) => {
-        mk.bindTooltip(`${i.type.name}${i.status === 'working' ? ' (wird bearbeitet)' : ''}`)
+        setTip(mk, `${i.type.name}${i.status === 'working' ? ' (wird bearbeitet)' : ''}`)
         const sel = selected.incidentId === i.id
-        mk.setIcon(icon('!', `mk mk-inc ${i.status === 'working' ? 'working' : ''} ${sel ? 'sel' : ''}`, 30))
+        const cls = `mk mk-inc ${i.status === 'working' ? 'working' : ''} ${sel ? 'sel' : ''}`
+        setIcon(mk, cls, () => icon('!', cls, 30))
       })
     sync(veh, game.vehicles.filter((v) => v.status !== 2), (v) =>
       L.marker(v.pos, { icon: icon('', 'mk mk-veh', 24), zIndexOffset: 300 }), (mk, v) => {
-        mk.setLatLng(v.pos)
-        mk.setIcon(icon(`${v.status}`, `mk mk-veh t-${VEHICLE_TYPES[v.type].kind}`, 24))
-        mk.bindTooltip(`${v.callsign} · Status ${v.status}`)
+        const ll = mk.getLatLng()
+        if (ll.lat !== v.pos[0] || ll.lng !== v.pos[1]) mk.setLatLng(v.pos)
+        const cls = `mk mk-veh t-${VEHICLE_TYPES[v.type].kind}`
+        setIcon(mk, `${v.status}|${cls}`, () => icon(`${v.status}`, cls, 24))
+        setTip(mk, `${v.callsign} · Status ${v.status}`)
       })
   })
 
@@ -79,7 +89,8 @@ export default function MapView({ game, sites, selected, buildMode, onMapClick, 
         }).addTo(layer)
         layer.sites.set(s.id, mk)
       }
-      mk.getElement()?.classList.toggle('active', buildMode === (s.kind || 'FW'))
+      const active = buildMode === (s.kind || 'FW')
+      if (mk._active !== active) { mk._active = active; mk.getElement()?.classList.toggle('active', active) }
     }
   })
 
