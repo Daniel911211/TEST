@@ -31,7 +31,7 @@ function Fenster({ g, inc, onClose, onLocate, flash, onPrev, onNext }) {
     .filter((v) => groupOf(v.type) === filter)
     .sort((a, b) => etaSec(a, inc.pos, tf) - etaSec(b, inc.pos, tf))
   const toggle = (id, on) => setPicked(on ? [...picked, id] : picked.filter((x) => x !== id))
-  const send = () => { const r = dispatch(g, inc.id, picked); if (r?.ok !== false && picked.length) playAlarm(); setPicked([]) }
+  const send = () => { const r = dispatch(g, inc.id, picked); if (r?.ok !== false && picked.length) playAlarm(inc.type.id[0] === 'R' ? 'rd' : 'fw'); setPicked([]) }
   const state = inc.status === 'working' ? `in Bearbeitung · noch ${fmtMin(inc.workLeft)}` : inc.dispatched ? 'Kräfte alarmiert' : 'offen'
 
   return (
