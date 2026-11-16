@@ -91,7 +91,7 @@ export function newGame() {
   return {
     v: 1,
     t: 8 * 3600,
-    money: 20000,
+    money: 30000,
     points: 0,
     done: 0,
     failed: 0,
@@ -442,7 +442,7 @@ export function tick(g, dt) {
   // Spawn
   g.spawnIn -= dt
   if (g.spawnIn <= 0) {
-    g.spawnIn = rnd(250, 550)
+    g.spawnIn = rnd(360, 750) // Spielsekunden bis zum nächsten Einsatz (≈ 12–25 s bei 1x)
     const open = g.incidents.length
     if (g.stations.length && open < 2 + g.stations.length) spawnIncident(g)
   }
@@ -484,8 +484,7 @@ export function tick(g, dt) {
       case 5:
         if (g.t - v.request.since > 1500) {
           const o = transportOptions(g, v).find((h) => h.free > 0) || transportOptions(g, v)[0]
-          g.money -= 100
-          addLog(g, `${v.callsign}: Leitstelle hat nicht geantwortet – Eigenentscheidung ${o.name} (−100 €).`)
+          addLog(g, `${v.callsign}: Leitstelle hat nicht geantwortet – Eigenentscheidung ${o.name}.`)
           if (o.free > 0) { v.request.wishId = null; confirmTransport(g, v.id, o.id) } else v.request.since = g.t
         }
         break
@@ -548,9 +547,8 @@ export function tick(g, dt) {
           if (!inc.devPlan && g.t - inc.created > 600) inc.devPlan = rollPlan(inc, 0.5)
         }
       } else if (inc.startedAt == null && g.t - inc.created > inc.type.deadline) {
-        g.money -= inc.type.penalty
         g.failed++
-        addLog(g, `Einsatz gescheitert: ${inc.type.name} (−${fmtMoney(inc.type.penalty)})`)
+        addLog(g, `Einsatz gescheitert: ${inc.type.name}`)
         for (const v of g.vehicles) if (v.incidentId === inc.id) releaseVehicle(v)
         g.incidents = g.incidents.filter((i) => i !== inc)
       }

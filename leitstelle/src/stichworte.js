@@ -41,13 +41,13 @@ function mk(id, name, bild, o) {
   const need = { ...o.need }
   if (o.rd) for (const [k, n] of Object.entries(RD[o.rd].need)) need[k] = (need[k] || 0) + n
   const size = Object.values(need).reduce((a, b) => a + b, 0)
-  const reward = Math.round((250 + 200 * size) / 10) * 10
+  const reward = Math.round(((250 + 200 * size) * 1.25) / 10) * 10
   const severity = ['R2', 'R3', 'RLEBEL', 'MANV'].includes(o.rd) ? 3 : cat === 'R' ? 1 : 2
   return {
     id, name, bild, need, extra: o.extra || {}, rd: o.rd || null, weight: o.weight,
     work: o.work, elw2Ask: !!o.elw2Ask, water: o.water || 0, as: o.as || 0,
     deadline: cat === 'R' ? 600 : cat === 'H' ? 1200 : 900,
-    reward, penalty: Math.round(reward * 0.4), points: 3 + 2 * size,
+    reward, penalty: 0, // vorerst keine Strafe bei gescheiterten Einsätzen points: 3 + 2 * size,
     patient: !!o.rd && o.rd !== 'R3', severity,
   }
 }
