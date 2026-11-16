@@ -1,4 +1,4 @@
-import { VEHICLE_TYPES, STATUS_TEXT, incidentTitle, buyVehicle, sellVehicle, sellPrice, repairQuote, sendToWorkshop, buildWorkshop, WORKSHOP_COST, fmtMin, fmtMoney, vehicleUnlocked, unlockText } from '../game.js'
+import { VEHICLE_TYPES, STATUS_TEXT, incidentTitle, buyVehicle, sellVehicle, sellPrice, repairQuote, hasOwnWorkshop, sendToWorkshop, buildWorkshop, WORKSHOP_COST, fmtMin, fmtMoney, vehicleUnlocked, unlockText } from '../game.js'
 import { VEHICLE_GROUPS, groupOf, vehiclesOf, stationTypeName, shortName } from './helpers.js'
 import Overlay from './Overlay.jsx'
 
@@ -52,7 +52,9 @@ function FahrzeugeTab({ g, station, vehicles, onOpenVehicle, flash, setTab }) {
               <td className="muted">{inc ? incidentTitle(inc) : v.status === 6 ? `Werkstatt – noch ${fmtMin(v.timer)}` : '–'}</td>
               <td style={{ minWidth: 70 }}><CondBar c={v.condition} /></td>
               <td className="nowrap" onClick={(e) => e.stopPropagation()}>
-                {q && <button className="small" title={`${fmtMin(q.duration)}, ${fmtMoney(q.cost)}`} onClick={() => { const r = sendToWorkshop(g, v.id); if (!r.ok) flash(r.msg) }}>Werkstatt</button>}
+                {q && (hasOwnWorkshop(g, v)
+                  ? <button className="small" title={`Eigene Werkstatt: ${fmtMin(q.duration)}, ${fmtMoney(q.cost)}`} onClick={() => { const r = sendToWorkshop(g, v.id); if (!r.ok) flash(r.msg) }}>Werkstatt</button>
+                  : <button className="small" title="Lkw-Werkstatt im Fahrzeugfenster wählen" onClick={() => onOpenVehicle(v.id)}>Werkstatt …</button>)}
                 {v.status === 2 && <button className="small" onClick={() => sell(g, v, flash)}>Verkaufen</button>}
               </td>
             </tr>

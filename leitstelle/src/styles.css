@@ -203,3 +203,6 @@ textarea.vermerk { width:100%; background:#0f1319; color:var(--text); border:1px
 .alarm-maske .chips { padding:0; border:none; }
 .alarm-maske .ef-row { justify-content:flex-start; flex-wrap:wrap; }
 .alarm-maske .ef-row small { margin-left:auto; }
+.mk-werk { border-radius:4px; background:#2b6cb0; color:#fff; }
+.wk-WS { background:#2b6cb0; }
+.werkstatt-wahl { margin-top:8px; } .werkstatt-wahl button { width:100%; }

@@ -1,0 +1,8 @@
+[
+  { "id": "w-man", "name": "MAN Nutzfahrzeuge Fulda", "ort": "Fulda", "pos": [50.53653, 9.6784], "plaetze": 4 },
+  { "id": "w-noll", "name": "Noll Nutzfahrzeuge", "ort": "Künzell", "pos": [50.53545, 9.70053], "plaetze": 3 },
+  { "id": "w-scania", "name": "Scania Fulda", "ort": "Eichenzell", "pos": [50.48634, 9.68156], "plaetze": 3 },
+  { "id": "w-ebert", "name": "Iveco-Werkstatt Ebert", "ort": "Hünfeld", "pos": [50.69141, 9.7522], "plaetze": 2 },
+  { "id": "w-kosiarka", "name": "Kosiarka Nutzfahrzeuge", "ort": "Flieden", "pos": [50.41724, 9.57479], "plaetze": 2 },
+  { "id": "w-rhoen", "name": "Nutzfahrzeugzentrum Rhön", "ort": "Poppenhausen", "pos": [50.48876, 9.86541], "plaetze": 1 }
+]

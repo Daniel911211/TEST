@@ -1,4 +1,5 @@
 import KLINIKEN from './data/kliniken.json'
+import WERKSTAETTEN_DATEN from './data/werkstaetten.json'
 // Reine Spiellogik (ohne React/Leaflet)
 import { INCIDENT_TYPES, ROLES, matchSlots, addNeeds, growProb, ESCALATE, maxNeeds, diffNeeds } from './stichworte.js'
 import { pickSzenario, incidentTitle } from './szenarien.js'
@@ -46,6 +47,9 @@ export const unlockText = (type) => { const d = VEHICLE_TYPES[type]; return `ab 
 export { INCIDENT_TYPES, ROLES, matchSlots }
 
 export const HOSPITALS = KLINIKEN
+// Lkw-Werkstätten im Landkreis (echte Nutzfahrzeugbetriebe aus OSM/Verzeichnissen; Feld plaetze = gleichzeitige Reparaturplätze)
+export const WERKSTAETTEN = WERKSTAETTEN_DATEN
+export const WERKSTATT_BY_ID = Object.fromEntries(WERKSTAETTEN.map((w) => [w.id, w]))
 // Klinikbetten: reiner Zähler. Jede Klinik startet mit 5 Betten, Ausbau in 5er-Schritten gegen Geld.
 // Ein Bett wird mit der Anmeldung (Status 5 -> 7) belegt und nach der Behandlungszeit wieder frei.
 export const START_BEDS = 5
@@ -308,21 +312,46 @@ export function buildWorkshop(g, stationId) {
   return { ok: true }
 }
 
+// Reparatur: eigene Wachen-Werkstatt (40 % günstiger, doppelt so schnell, keine Fahrt) oder Lkw-Werkstatt auf der Karte
+// (Fahrzeug fährt mit Status 6 hin, wartet ggf. auf einen freien Platz, wird repariert und fährt mit Status 1 zurück).
+export const hasOwnWorkshop = (g, v) => !!g.stations.find((x) => x.id === v.stationId)?.workshop
 export function repairQuote(g, v) {
-  const own = g.stations.find((x) => x.id === v.stationId)?.workshop
+  const own = hasOwnWorkshop(g, v)
   const missing = 100 - v.condition
-  return { cost: Math.round(missing * 8 * (own ? 0.6 : 1)), duration: Math.max(120, missing * 12 * (own ? 0.5 : 1)), own: !!own }
+  return { cost: Math.round(missing * 8 * (own ? 0.6 : 1)), duration: Math.max(120, missing * 12 * (own ? 0.5 : 1)), own }
+}
+// Fahrzeuge je Werkstatt: in Reparatur, wartend, auf Anfahrt
+export const workshopVehicles = (g, id) => g.vehicles.filter((v) => v.status === 6 && v.werkstatt === id)
+export const workshopBusy = (g, id) => workshopVehicles(g, id).filter((v) => v.wsPhase === 'reparatur').length
+export const workshopWaiting = (g, id) => workshopVehicles(g, id).filter((v) => v.wsPhase === 'warten').length
+// Werkstattwahl für ein Fahrzeug, nach Fahrzeit sortiert (Anfahrt ohne Sondersignal)
+export function workshopOptions(g, v) {
+  const q = repairQuote(g, { ...v, stationId: null })
+  return WERKSTAETTEN.map((w) => ({ ...w, dist: km(v.pos, w.pos), eta: etaSec(v, w.pos, SLOW), busy: workshopBusy(g, w.id), waiting: workshopWaiting(g, w.id), cost: q.cost, duration: q.duration }))
+    .map((w) => ({ ...w, free: Math.max(0, w.plaetze - w.busy - w.waiting) }))
+    .sort((a, b) => a.eta - b.eta)
 }
 
-export function sendToWorkshop(g, vehicleId) {
+// workshopId: id einer Lkw-Werkstatt; ohne Angabe eigene Wachen-Werkstatt (falls vorhanden), sonst nächste Lkw-Werkstatt
+export function sendToWorkshop(g, vehicleId, workshopId = null) {
   const v = g.vehicles.find((x) => x.id === vehicleId)
   if (!v || v.status !== 2) return { ok: false, msg: 'Fahrzeug muss auf der Wache stehen (Status 2).' }
   if (v.condition >= 100) return { ok: false, msg: 'Fahrzeug ist in perfektem Zustand.' }
-  const q = repairQuote(g, v)
-  if (g.money < q.cost) return { ok: false, msg: 'Nicht genug Geld.' }
-  g.money -= q.cost
-  v.status = 6; v.workshop = true; v.timer = q.duration
-  addLog(g, `${v.callsign}: Status 6 – in der ${q.own ? 'eigenen ' : ''}Werkstatt (${fmtMin(q.duration)}, ${fmtMoney(q.cost)}).`, { kind: 'status', v })
+  const own = hasOwnWorkshop(g, v)
+  if (!workshopId && own) {
+    const q = repairQuote(g, v)
+    if (g.money < q.cost) return { ok: false, msg: 'Nicht genug Geld.' }
+    g.money -= q.cost
+    v.status = 6; v.workshop = true; v.werkstatt = null; v.wsPhase = null; v.timer = q.duration
+    addLog(g, `${v.callsign}: Status 6 – in der eigenen Werkstatt (${fmtMin(q.duration)}, ${fmtMoney(q.cost)}).`, { kind: 'status', v })
+    return { ok: true }
+  }
+  const w = workshopId ? workshopOptions(g, v).find((x) => x.id === workshopId) : workshopOptions(g, v)[0]
+  if (!w) return { ok: false, msg: 'Werkstatt nicht gefunden.' }
+  if (g.money < w.cost) return { ok: false, msg: 'Nicht genug Geld.' }
+  g.money -= w.cost
+  v.status = 6; v.workshop = true; v.werkstatt = w.id; v.wsPhase = 'fahrt'; v.wsDuration = w.duration; v.timer = 0; v.route = null
+  addLog(g, `${v.callsign}: Status 6 – Fahrt zur Werkstatt ${w.name} (${w.ort}), Anfahrt ca. ${fmtMin(w.eta)}, Reparatur ${fmtMin(w.duration)}, ${fmtMoney(w.cost)}.`, { kind: 'status', v })
   return { ok: true }
 }
 
@@ -751,7 +780,31 @@ export function tick(g, dt) {
           if (o.free > 0) { v.request.wishId = null; confirmTransport(g, v.id, o.id) } else v.request.since = g.t
         }
         break
-      case 6:
+      case 6: {
+        const w = v.werkstatt && WERKSTATT_BY_ID[v.werkstatt]
+        if (w) {
+          // Lkw-Werkstatt: Anfahrt → warten auf Platz (Reihenfolge nach Ankunft) → Reparatur → Rückfahrt mit Status 1
+          if (v.wsPhase === 'fahrt') {
+            if (driveTo(g, v, w.pos, dt, (e) => addLog(g, `${v.callsign}: Routing fehlgeschlagen (${e.message})`, { v }))) {
+              v.wsPhase = 'warten'; v.wsSince = g.t
+              addLog(g, `${v.callsign}: in der Werkstatt ${w.name} angekommen.`, { v })
+            }
+          }
+          if (v.wsPhase === 'warten') {
+            const before = g.vehicles.filter((x) => x.status === 6 && x.werkstatt === w.id && x.wsPhase === 'warten' && x.wsSince < v.wsSince).length
+            if (workshopBusy(g, w.id) + before < w.plaetze) {
+              v.wsPhase = 'reparatur'; v.timer = v.wsDuration || repairQuote(g, { ...v, stationId: null }).duration
+              addLog(g, `${v.callsign}: Reparatur bei ${w.name} begonnen (${fmtMin(v.timer)}).`, { v })
+            }
+          } else if (v.wsPhase === 'reparatur') {
+            v.timer -= dt
+            if (v.timer <= 0) {
+              v.condition = 100; v.werkstatt = null; v.wsPhase = null; v.status = 1; v.route = null
+              addLog(g, `${v.callsign}: Reparatur bei ${w.name} fertig, Status 1 – Rückfahrt zur Wache.`, { v })
+            }
+          }
+          break
+        }
         v.timer -= dt
         if (v.timer <= 0) {
           v.status = km(v.pos, st.pos) < 0.05 ? 2 : 1
@@ -759,6 +812,7 @@ export function tick(g, dt) {
           else { v.condition = Math.max(v.condition, 50); addLog(g, `${v.callsign}: Panne behoben, Status ${v.status}.`, { v }) }
         }
         break
+      }
       case 8:
         v.timer -= dt
         if (v.timer <= 0) { releaseVehicle(v); addLog(g, `${v.callsign}: Status 1 – frei, Rückfahrt zur Wache.`, { v }) }

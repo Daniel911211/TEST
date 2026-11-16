@@ -1,3 +1,4 @@
+import { WERKSTAETTEN, workshopBusy } from './game.js'
 import { useEffect, useRef } from 'react'
 import L from 'leaflet'
 import { CENTER, HOSPITALS, VEHICLE_TYPES, incidentTitle } from './game.js'
@@ -5,14 +6,14 @@ import { CENTER, HOSPITALS, VEHICLE_TYPES, incidentTitle } from './game.js'
 const icon = (html, cls, size = 28) =>
   L.divIcon({ html, className: cls, iconSize: [size, size], iconAnchor: [size / 2, size / 2] })
 
-export default function MapView({ game, sites, selected, focus, buildMode, buildPos, onMapClick, onSelectIncident, onSelectStation, onSelectVehicle, onSelectHospital, onSiteClick }) {
+export default function MapView({ game, sites, selected, focus, buildMode, buildPos, onMapClick, onSelectIncident, onSelectStation, onSelectVehicle, onSelectHospital, onSelectWorkshop, onSiteClick }) {
   const el = useRef(null)
   const map = useRef(null)
   const layers = useRef({ st: new Map(), veh: new Map(), inc: new Map() })
   const cb = useRef({})
   const gameRef = useRef(game)
   gameRef.current = game
-  cb.current = { onMapClick, onSelectIncident, onSelectStation, onSelectVehicle, onSelectHospital, onSiteClick, buildMode }
+  cb.current = { onMapClick, onSelectIncident, onSelectStation, onSelectVehicle, onSelectHospital, onSelectWorkshop, onSiteClick, buildMode }
 
   useEffect(() => {
     const m = L.map(el.current, { zoomControl: true }).setView(CENTER, 12)
@@ -23,6 +24,10 @@ export default function MapView({ game, sites, selected, focus, buildMode, build
     layers.current.hosp = new Map()
     for (const h of HOSPITALS) layers.current.hosp.set(h.id, L.marker(h.pos, { icon: icon('H', 'mk mk-hosp', 24) }).bindTooltip(h.name).on('click', (e) => {
       L.DomEvent.stopPropagation(e); cb.current.onSelectHospital?.(h.id)
+    }).addTo(m))
+    layers.current.werk = new Map()
+    for (const w of WERKSTAETTEN) layers.current.werk.set(w.id, L.marker(w.pos, { icon: icon('W', 'mk mk-werk', 22) }).bindTooltip(w.name).on('click', (e) => {
+      L.DomEvent.stopPropagation(e); cb.current.onSelectWorkshop?.(w.id)
     }).addTo(m))
     const siteLayer = L.layerGroup().addTo(m)
     siteLayer.sites = new Map()
@@ -55,6 +60,11 @@ export default function MapView({ game, sites, selected, focus, buildMode, build
     for (const h of HOSPITALS) {
       const mk = layers.current.hosp?.get(h.id)
       const txt = `${h.name} – freie Betten: ${game.hospitals[h.id]?.free ?? 0}/${game.hospitals[h.id]?.beds ?? 0}`
+      if (mk && mk._txt !== txt) { mk._txt = txt; mk.setTooltipContent(txt) }
+    }
+    for (const w of WERKSTAETTEN) {
+      const mk = layers.current.werk?.get(w.id)
+      const txt = `${w.name} (${w.ort}) – Lkw-Werkstatt, ${Math.max(0, w.plaetze - workshopBusy(game, w.id))}/${w.plaetze} Plätze frei`
       if (mk && mk._txt !== txt) { mk._txt = txt; mk.setTooltipContent(txt) }
     }
     // Marker nur anfassen, wenn sich wirklich etwas geändert hat (sonst flackert die Karte)
