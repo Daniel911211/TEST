@@ -5,12 +5,12 @@ import { CENTER, HOSPITALS, VEHICLE_TYPES } from './game.js'
 const icon = (html, cls, size = 28) =>
   L.divIcon({ html, className: cls, iconSize: [size, size], iconAnchor: [size / 2, size / 2] })
 
-export default function MapView({ game, selected, buildMode, onMapClick, onSelectIncident, onSelectStation }) {
+export default function MapView({ game, sites, selected, buildMode, onMapClick, onSelectIncident, onSelectStation, onSiteClick }) {
   const el = useRef(null)
   const map = useRef(null)
   const layers = useRef({ st: new Map(), veh: new Map(), inc: new Map() })
   const cb = useRef({})
-  cb.current = { onMapClick, onSelectIncident, onSelectStation, buildMode }
+  cb.current = { onMapClick, onSelectIncident, onSelectStation, onSiteClick, buildMode }
 
   useEffect(() => {
     const m = L.map(el.current, { zoomControl: true }).setView(CENTER, 12)
@@ -19,13 +19,17 @@ export default function MapView({ game, selected, buildMode, onMapClick, onSelec
       attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
     }).addTo(m)
     for (const h of HOSPITALS) L.marker(h.pos, { icon: icon('H', 'mk mk-hosp', 24) }).bindTooltip(h.name).addTo(m)
+    const siteLayer = L.layerGroup().addTo(m)
+    siteLayer.sites = new Map()
+    layers.current.siteLayer = siteLayer
+    if (sites.length) m.fitBounds(L.latLngBounds(sites.map((s) => s.pos)).pad(0.05))
     m.on('click', (e) => cb.current.onMapClick([e.latlng.lat, e.latlng.lng]))
     map.current = m
     return () => m.remove()
   }, [])
 
   useEffect(() => {
-    if (map.current) map.current.getContainer().style.cursor = buildMode ? 'crosshair' : ''
+    if (map.current) map.current.getContainer().style.cursor = buildMode === 'RW' || (buildMode === 'FW' && !sites.length) ? 'crosshair' : ''
   }, [buildMode])
 
   useEffect(() => {
@@ -58,6 +62,23 @@ export default function MapView({ game, selected, buildMode, onMapClick, onSelec
         mk.setIcon(icon(`${v.status}`, `mk mk-veh t-${v.type}`, 24))
         mk.bindTooltip(`${v.callsign} · Status ${v.status}`)
       })
+  })
+
+  useEffect(() => {
+    const layer = layers.current.siteLayer
+    if (!layer) return
+    const taken = new Set(game.stations.map((s) => s.siteId))
+    for (const s of sites) {
+      if (taken.has(s.id)) { const mk = layer.sites.get(s.id); if (mk) { mk.remove(); layer.sites.delete(s.id) } continue }
+      let mk = layer.sites.get(s.id)
+      if (!mk) {
+        mk = L.marker(s.pos, { icon: icon('', 'mk mk-site', 16) }).bindTooltip(s.name).on('click', (e) => {
+          L.DomEvent.stopPropagation(e); cb.current.onSiteClick(s)
+        }).addTo(layer)
+        layer.sites.set(s.id, mk)
+      }
+      mk.getElement()?.classList.toggle('active', buildMode === 'FW')
+    }
   })
 
   useEffect(() => {

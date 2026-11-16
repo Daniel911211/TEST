@@ -102,11 +102,12 @@ const addLog = (g, text) => {
   if (g.log.length > 60) g.log.length = 60
 }
 
-export function buildStation(g, kind, pos, name) {
+export function buildStation(g, kind, pos, name, siteId = null) {
   const def = STATION_TYPES[kind]
   if (g.money < def.cost) return { ok: false, msg: 'Nicht genug Geld.' }
+  if (siteId && g.stations.some((s) => s.siteId === siteId)) return { ok: false, msg: 'Hier steht schon eine Wache.' }
   g.money -= def.cost
-  const station = { id: g.nextId++, kind, pos, name: name || `${kind === 'FW' ? 'FW' : 'RW'} ${g.stations.filter((s) => s.kind === kind).length + 1}` }
+  const station = { id: g.nextId++, kind, pos, siteId, name: name || `${kind === 'FW' ? 'FW' : 'RW'} ${g.stations.filter((s) => s.kind === kind).length + 1}` }
   g.stations.push(station)
   // erstes Fahrzeug gratis
   addVehicle(g, station, kind === 'FW' ? 'HLF' : 'RTW')
