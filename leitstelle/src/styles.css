@@ -210,3 +210,9 @@ textarea.vermerk { width:100%; background:#0f1319; color:var(--text); border:1px
 .wk-WS { background:#2b6cb0; }
 .werkstatt-wahl { margin-top:8px; } .werkstatt-wahl button { width:100%; }
 .name-edit { display:flex; align-items:center; gap:4px; } .name-edit .search { margin-left:0; width:260px; }
+/* Eigene Sicherheitsabfrage (statt confirm(), das der Browser unterdrücken kann) */
+.frage-back { position:fixed; inset:0; z-index:1300; background:#000a; display:flex; align-items:center; justify-content:center; padding:16px; }
+.frage { width:min(440px, 100%); background:var(--panel); border:1px solid var(--line); border-radius:10px; box-shadow:0 10px 40px #000a; padding:14px 16px; display:flex; flex-direction:column; gap:10px; }
+.frage h3 { font-size:16px; } .frage p { color:var(--muted); font-size:13px; }
+.frage-foot { display:flex; justify-content:flex-end; gap:8px; }
+button.danger { background:#5a1a1a; border-color:#8a2a2a; color:#ffd1d1; } button.danger:hover { background:#7a2222; }

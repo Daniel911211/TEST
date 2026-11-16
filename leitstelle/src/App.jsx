@@ -37,6 +37,7 @@ export default function App() {
   const [overlay, setOverlay] = useState(null) // { kind:'station', id, tab } | { kind:'vehicle'|'hospital'|'workshop'|'sprech'|'incident', id } | null
   const incidentId = overlay?.kind === 'incident' ? overlay.id : null // gewählter Einsatz = offenes Einsatz-Overlay
   const [msg, setMsg] = useState('')
+  const [askReset, setAskReset] = useState(false) // eigene Sicherheitsabfrage für „Neu“ (Browser-Dialoge werden mancherorts unterdrückt)
   const speedRef = useRef(1)
   speedRef.current = speed
   // Solange ein Sprechwunsch bearbeitet wird, steht das Spiel (sonst ist der Einsatz beim Tippen schon vorbei)
@@ -101,8 +102,7 @@ export default function App() {
   const next = nextRank(g.points)
   const requests = sprechwunschList(g).length
   const reset = () => {
-    if (!confirm('Spielstand wirklich löschen?')) return
-    clearSave(); gameRef.current = newGame(); setWsel({ stationId: null, vehicleId: null }); setOverlay(null)
+    clearSave(); gameRef.current = newGame(); setWsel({ stationId: null, vehicleId: null }); setOverlay(null); setAskReset(false)
   }
 
   return (
@@ -124,7 +124,7 @@ export default function App() {
         </button>
         <button onClick={openProtokoll} title="Protokoll aller Ereignisse">📋 Protokoll</button>
         <button className={sound ? 'on' : ''} title={sound ? 'Alarmton ist an. Klicken zum Ausschalten.' : 'Alarmton ist aus. Klicken zum Einschalten.'} onClick={() => { const on = !sound; setSoundOn(on); setSound(on); if (!on) stopAlarm() }}>{sound ? '🔊 Ton an' : '🔇 Ton aus'}</button>
-        <button onClick={reset}>Neu</button>
+        <button onClick={() => setAskReset(true)} title="Spielstand löschen und neu beginnen">Neu</button>
       </header>
       <div className="top">
         <div className="map-wrap">
@@ -152,6 +152,18 @@ export default function App() {
             <FahrzeugOverlay g={g} vehicleId={overlay.id} onClose={closeOverlay} onOpenVehicle={openVehicle} onOpenStation={openStation} onLocate={locateVehicle} flash={flash} />
           )}
           {msg && <div className="toast">{msg}</div>}
+          {askReset && (
+            <div className="frage-back" onClick={() => setAskReset(false)}>
+              <div className="frage" onClick={(e) => e.stopPropagation()}>
+                <h3>Spielstand wirklich löschen?</h3>
+                <p>Alle Wachen, Fahrzeuge, Einsätze und das Protokoll gehen verloren. Das lässt sich nicht rückgängig machen.</p>
+                <div className="frage-foot">
+                  <button autoFocus onClick={() => setAskReset(false)}>Abbrechen</button>
+                  <button className="danger" onClick={reset}>Ja, Spielstand löschen</button>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
         <EinsatzPanel g={g} selectedId={incidentId} onOpenIncident={openIncident} onOpenSprech={openSprech} />
       </div>
