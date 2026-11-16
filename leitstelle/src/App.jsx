@@ -1,25 +1,28 @@
 import { useEffect, useRef, useState } from 'react'
 import MapView from './MapView.jsx'
+import EinsatzPanel from './ui/EinsatzPanel.jsx'
+import WachenPanel from './ui/WachenPanel.jsx'
+import SprechwunschPanel from './ui/SprechwunschPanel.jsx'
+import FunkPanel from './ui/FunkPanel.jsx'
 import OSM_SITES from './data/feuerwehren.json'
 import EXTRA_SITES from './data/zusatz-standorte.json'
-
-const SITES = [...OSM_SITES, ...EXTRA_SITES]
 import {
-  GAME_SEC_PER_REAL_SEC, STATION_TYPES, VEHICLE_TYPES, STATUS_TEXT, MAX_VEHICLES_PER_STATION, ROLES,
-  newGame, loadGame, saveGame, clearSave, tick, buildStation, buyVehicle, sellVehicle, sellPrice, dispatch, recommend,
-  isAvailable, etaSec, SEVERITY_TEXT, askElw2, requestLagemeldung, HOSPITALS, hospitalFree, transportOptions, confirmTransport, repairQuote, sendToWorkshop, buildWorkshop, WORKSHOP_COST, fmtClock, fmtMin, fmtMoney, rankOf, nextRank,
+  GAME_SEC_PER_REAL_SEC, STATION_TYPES,
+  newGame, loadGame, saveGame, clearSave, tick, buildStation, fmtClock, fmtMoney, rankOf, nextRank,
 } from './game.js'
 
+const SITES = [...OSM_SITES, ...EXTRA_SITES]
+
+// Layout-Rahmen: Kopfzeile, oben Karte + Einsatzbereich, unten Wachen + Sprechwünsche + Funk
 export default function App() {
   const gameRef = useRef(null)
   if (!gameRef.current) gameRef.current = loadGame() || newGame()
   const g = gameRef.current
   const [, force] = useState(0)
   const [speed, setSpeed] = useState(1)
-  const [tab, setTab] = useState('einsaetze')
   const [build, setBuild] = useState(null) // 'FW' | 'RW' | null
-  const [sel, setSel] = useState({ incidentId: null, stationId: null })
-  const [picked, setPicked] = useState([])
+  const [incidentId, setIncidentId] = useState(null)
+  const [wsel, setWsel] = useState({ stationId: null, vehicleId: null })
   const [msg, setMsg] = useState('')
   const speedRef = useRef(1)
   speedRef.current = speed
@@ -39,38 +42,21 @@ export default function App() {
   }, [])
 
   const flash = (t) => { setMsg(t); setTimeout(() => setMsg(''), 2500) }
-  const inc = g.incidents.find((i) => i.id === sel.incidentId)
-  const station = g.stations.find((s) => s.id === sel.stationId)
-
   const siteMode = (k) => SITES.some((s) => (s.kind || 'FW') === k)
+  const built = (r) => { if (!r.ok) flash(r.msg); else { setBuild(null); setWsel({ stationId: r.station.id, vehicleId: null }) } }
   const onSiteClick = (site) => {
     const k = site.kind || 'FW'
     if (build !== k) { flash(`Wähle zuerst „${STATION_TYPES[k].name} bauen“.`); return }
-    const r = buildStation(g, k, site.pos, site.name, site.id)
-    if (!r.ok) flash(r.msg)
-    else { setBuild(null); setSel({ incidentId: null, stationId: r.station.id }); setTab('wachen') }
+    built(buildStation(g, k, site.pos, site.name, site.id))
   }
   const onMapClick = (pos) => {
     if (!build) return
     if (siteMode(build)) { flash(`${STATION_TYPES[build].name}n können nur an den markierten Standorten gebaut werden.`); return }
-    const r = buildStation(g, build, pos)
-    if (!r.ok) flash(r.msg)
-    else { setBuild(null); setSel({ incidentId: null, stationId: r.station.id }); setTab('wachen') }
+    built(buildStation(g, build, pos))
   }
-  const selectIncident = (id) => { setSel({ incidentId: id, stationId: null }); setPicked([]); setTab('einsaetze') }
-  const selectStation = (id) => { if (!build) { setSel({ incidentId: null, stationId: id }); setTab('wachen') } }
-
-  const need = inc ? Object.entries(inc.need) : []
-  const onScene = inc ? g.vehicles.filter((v) => v.incidentId === inc.id) : []
-  const sum = (key) => onScene.reduce((a, v) => a + (VEHICLE_TYPES[v.type][key] || 0), 0)
-  const assigned = inc ? g.vehicles.filter((v) => v.incidentId === inc.id) : []
-  const free = inc ? g.vehicles.filter(isAvailable).sort((a, b) => etaSec(a, inc.pos) - etaSec(b, inc.pos)) : []
-  const elVeh = inc ? g.vehicles.find((v) => v.id === inc.el && v.incidentId === inc.id && v.status === 4) : null
-  const elwAtScene = inc ? onScene.some((v) => v.type === 'ELW1' && v.status === 4) : false
-  const send = () => { dispatch(g, inc.id, picked); setPicked([]) }
+  const selectStation = (id) => { if (!build) setWsel({ stationId: id, vehicleId: null }) }
   const next = nextRank(g.points)
-  const requests = g.vehicles.filter((v) => v.status === 5)
-  const doConfirm = (vid, hid) => { const r = confirmTransport(g, vid, hid); if (!r.ok) flash(r.msg) }
+  const requests = g.vehicles.filter((v) => v.status === 5).length
 
   return (
     <div className="app">
@@ -80,158 +66,25 @@ export default function App() {
         <span>💶 {fmtMoney(g.money)}</span>
         <span>⭐ {g.points} · {rankOf(g.points)}{next ? ` (nächster Rang ab ${next[0]})` : ''}</span>
         <span>✔ {g.done} ✖ {g.failed}</span>
+        {requests > 0 && <span className="alert">📻 {requests} Sprechwunsch{requests > 1 ? 'e' : ''}</span>}
         <span className="spacer" />
         {[0, 1, 2, 5].map((s) => (
           <button key={s} className={speed === s ? 'on' : ''} onClick={() => setSpeed(s)}>{s === 0 ? '⏸' : `${s}x`}</button>
         ))}
-        <button onClick={() => { if (confirm('Spielstand wirklich löschen?')) { clearSave(); gameRef.current = newGame(); setSel({}); } }}>Neu</button>
+        <button onClick={() => { if (confirm('Spielstand wirklich löschen?')) { clearSave(); gameRef.current = newGame(); setIncidentId(null); setWsel({ stationId: null, vehicleId: null }) } }}>Neu</button>
       </header>
-      <div className="main">
-        <MapView game={g} sites={SITES} selected={sel} buildMode={build} onSiteClick={onSiteClick} onMapClick={onMapClick} onSelectIncident={selectIncident} onSelectStation={selectStation} />
-        {build && <div className="banner">{siteMode(build) ? 'Klicke auf einen markierten Standort' : 'Klicke auf die Karte'}, um eine {STATION_TYPES[build].name} zu bauen ({fmtMoney(STATION_TYPES[build].cost)}) <button onClick={() => setBuild(null)}>Abbrechen</button></div>}
-        {msg && <div className="toast">{msg}</div>}
-        <aside>
-          <nav>
-            {[['einsaetze', `Einsätze (${g.incidents.length})`], ['wachen', 'Wachen'], ['fahrzeuge', 'Fahrzeuge'], ['log', `Funk${requests.length ? ` (${requests.length}❗)` : ''}`]].map(([k, l]) => (
-              <button key={k} className={tab === k ? 'on' : ''} onClick={() => setTab(k)}>{l}</button>
-            ))}
-          </nav>
-
-          {tab === 'einsaetze' && (
-            <div className="pane">
-              {!g.incidents.length && <p className="muted">{g.stations.length ? 'Keine offenen Einsätze. Warte auf den nächsten Alarm …' : 'Baue zuerst Wachen (Tab „Wachen“).'}</p>}
-              <ul className="list">
-                {g.incidents.map((i) => (
-                  <li key={i.id} className={sel.incidentId === i.id ? 'sel' : ''} onClick={() => selectIncident(i.id)}>
-                    <b>{i.type.name}</b>
-                    <small>{i.status === 'working' ? `in Bearbeitung – ${fmtMin(i.workLeft)}` : `wartet seit ${fmtMin(g.t - i.created)} (Bonus bis ${fmtMin(i.type.deadline * 0.5)})`}</small>
-                  </li>
-                ))}
-              </ul>
-              {inc && (
-                <div className="card">
-                  <h3>{inc.type.name}</h3>
-                  <p><small className="muted">{inc.type.bild}</small></p>
-                  <p>Benötigt: {need.map(([k, n]) => `${n}× ${ROLES[k].name}`).join(', ')}
-                    {elVeh && <><br />Einsatzleitung: <b>{elVeh.callsign}</b></>}
-                    {elVeh && !inc.revealed && <><br /><button onClick={() => { const r = requestLagemeldung(g, inc.id); if (!r.ok) flash(r.msg) }}>📻 Lagemeldung anfordern</button></>}
-                    {inc.type.elw2Ask && !inc.elw2Asked && elwAtScene && <><br /><button onClick={() => { const r = askElw2(g, inc.id); if (!r.ok) flash(r.msg) }}>📻 ELW 1 anfunken: ELW 2 nötig?</button></>}
-                    {inc.escalated && <><br /><b style={{ color: '#e53935' }}>Lage verschärft – Stichwort hochgestuft</b></>}{inc.nachDone && <><br /><b style={{ color: '#f4a300' }}>Nachforderung der Einsatzleitung</b></>}{inc.revealed && <><br /><small className="muted">Lagemeldung liegt vor.</small></>}
-                    {inc.type.water > 0 && <><br />Wasser: {sum('water')} / {inc.type.water} l · Atemschutztrupps: {sum('as')} / {inc.type.as}</>}
-                    <br />Belohnung: {fmtMoney(inc.type.reward)}</p>
-                  {assigned.length > 0 && (
-                    <><h4>Alarmiert</h4><ul className="mini">{assigned.map((v) => <li key={v.id}>{v.callsign} – S{v.status}</li>)}</ul></>
-                  )}
-                  {inc.status === 'open' && (
-                    <>
-                      <h4>Freie Fahrzeuge</h4>
-                      <button onClick={() => setPicked(recommend(g, inc))}>Empfehlung wählen</button>
-                      <ul className="mini">
-                        {free.map((v) => (
-                          <li key={v.id}>
-                            <label>
-                              <input type="checkbox" checked={picked.includes(v.id)} onChange={(e) => setPicked(e.target.checked ? [...picked, v.id] : picked.filter((x) => x !== v.id))} />
-                              {v.callsign} · S{v.status} · {Math.round(v.condition)} % · {fmtMin(etaSec(v, inc.pos))}
-                            </label>
-                          </li>
-                        ))}
-                        {!free.length && <li className="muted">Keine freien Fahrzeuge.</li>}
-                      </ul>
-                      <button className="primary" disabled={!picked.length} onClick={send}>Alarmieren ({picked.length})</button>
-                    </>
-                  )}
-                </div>
-              )}
-            </div>
-          )}
-
-          {tab === 'wachen' && (
-            <div className="pane">
-              <div className="row">
-                {Object.entries(STATION_TYPES).map(([k, d]) => (
-                  <button key={k} disabled={g.money < d.cost} className={build === k ? 'on' : ''} onClick={() => setBuild(build === k ? null : k)}>
-                    {d.name} bauen<br /><small>{fmtMoney(d.cost)}</small>
-                  </button>
-                ))}
-              </div>
-              <ul className="list">
-                {g.stations.map((s) => (
-                  <li key={s.id} className={sel.stationId === s.id ? 'sel' : ''} onClick={() => setSel({ incidentId: null, stationId: s.id })}>
-                    <b>{s.name}</b> <small>{STATION_TYPES[s.kind].name} · {g.vehicles.filter((v) => v.stationId === s.id).length} Fahrzeuge</small>
-                  </li>
-                ))}
-              </ul>
-              {station && (
-                <div className="card">
-                  <h3>{station.name}</h3>
-                  <h4>Werkstatt</h4>
-                  {station.workshop ? <p className="muted">Eigene Werkstatt vorhanden: Reparatur 40 % günstiger und doppelt so schnell.</p> : (
-                    <button disabled={g.money < WORKSHOP_COST} onClick={() => { const r = buildWorkshop(g, station.id); if (!r.ok) flash(r.msg) }}>Werkstatt bauen – {fmtMoney(WORKSHOP_COST)}</button>
-                  )}
-                  <h4>Fahrzeug kaufen</h4>
-                  {Object.entries(VEHICLE_TYPES).filter(([, d]) => d.kind === station.kind || d.kind === 'ANY').map(([k, d]) => (
-                    <button key={k} disabled={g.money < d.cost} onClick={() => { const r = buyVehicle(g, station.id, k); flash(r.ok ? `${d.name} gekauft (−${fmtMoney(d.cost)})` : r.msg) }}>
-                      {d.name} – {fmtMoney(d.cost)}
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
-
-          {tab === 'fahrzeuge' && (
-            <div className="pane">
-              <ul className="list">
-                {g.vehicles.map((v) => (
-                  <li key={v.id}>
-                    <span><span className={`st s${v.status}`}>{v.status}</span> <b>{v.callsign}</b></span>
-                    <small>{STATUS_TEXT[v.status]}{v.status === 6 ? ` – noch ${fmtMin(v.timer)}` : ''}</small>
-                    <div className="cond"><i style={{ width: `${Math.round(v.condition)}%`, background: v.condition < 30 ? '#d62828' : v.condition < 60 ? '#f4a300' : '#4caf50' }} /></div>
-                    <small>Zustand {Math.round(v.condition)} %{v.condition < 30 ? ' – Pannengefahr!' : ''}</small>
-                    {v.status === 2 && v.condition < 100 && (() => { const q = repairQuote(g, v); return (
-                      <button onClick={(e) => { e.stopPropagation(); const r = sendToWorkshop(g, v.id); if (!r.ok) flash(r.msg) }}>
-                        In Werkstatt ({fmtMin(q.duration)}, {fmtMoney(q.cost)})
-                      </button>) })()}
-                    {v.status === 2 && (
-                      <button onClick={(e) => { e.stopPropagation(); if (confirm(`${v.callsign} für ${fmtMoney(sellPrice(v))} verkaufen?`)) { const r = sellVehicle(g, v.id); if (r.ok) flash(`Verkauft (+${fmtMoney(r.price)})`); else flash(r.msg) } }}>
-                        Verkaufen (+{fmtMoney(sellPrice(v))})
-                      </button>
-                    )}
-                  </li>
-                ))}
-                {!g.vehicles.length && <p className="muted">Noch keine Fahrzeuge.</p>}
-              </ul>
-            </div>
-          )}
-
-          {tab === 'log' && (
-            <div className="pane">
-              {requests.map((v) => {
-                const opts = transportOptions(g, v)
-                const wish = opts.find((h) => h.id === v.request.wishId)
-                return (
-                  <div className="card req" key={v.id}>
-                    <h3>📻 {v.callsign} – Status 5</h3>
-                    {wish ? (
-                      <p>„Patient möchte nach <b>{wish.name}</b>.“<br />Kapazität: {wish.free > 0 ? <b style={{ color: '#4caf50' }}>{wish.free} Betten frei</b> : <b style={{ color: '#d62828' }}>keine Kapazität</b>}</p>
-                    ) : <p>„Erbitte Zielklinik für den Patienten.“<br /><small className="muted">Patient {SEVERITY_TEXT[v.request.severity || 1]} – die Leitstelle entscheidet.</small></p>}
-                    {wish && wish.free > 0 && <button className="primary" onClick={() => doConfirm(v.id, wish.id)}>Wunschklinik bestätigen</button>}
-                    <h4>{wish && wish.free <= 0 ? 'Gegenvorschlag der Leitstelle' : 'Andere Klinik'}</h4>
-                    {opts.filter((h) => h.id !== wish?.id || wish.free <= 0).map((h) => (
-                      <button key={h.id} disabled={h.free <= 0 || h.id === wish?.id} onClick={() => doConfirm(v.id, h.id)}>
-                        {h.name} · {h.dist.toFixed(1)} km · {h.free > 0 ? `${h.free} frei` : 'voll'}
-                      </button>
-                    ))}
-                  </div>
-                )
-              })}
-              <h4 className="muted">Kliniken (freie Betten)</h4>
-              <ul className="mini">{HOSPITALS.map((h) => <li key={h.id}>{h.name}: <b>{hospitalFree(g, h.id)}</b>/{h.capacity}</li>)}</ul>
-              <h4 className="muted">Funkverkehr</h4>
-              <ul className="mini">{g.log.map((l, i) => <li key={i}><small>{fmtClock(l.t)}</small> {l.text}</li>)}</ul>
-            </div>
-          )}
-        </aside>
+      <div className="top">
+        <div className="map-wrap">
+          <MapView game={g} sites={SITES} selected={{ incidentId, stationId: wsel.stationId }} buildMode={build} onSiteClick={onSiteClick} onMapClick={onMapClick} onSelectIncident={setIncidentId} onSelectStation={selectStation} />
+          {build && <div className="banner">{siteMode(build) ? 'Klicke auf einen markierten Standort' : 'Klicke auf die Karte'}, um eine {STATION_TYPES[build].name} zu bauen ({fmtMoney(STATION_TYPES[build].cost)}) <button onClick={() => setBuild(null)}>Abbrechen</button></div>}
+          {msg && <div className="toast">{msg}</div>}
+        </div>
+        <EinsatzPanel g={g} selectedId={incidentId} onSelect={setIncidentId} flash={flash} />
+      </div>
+      <div className="bottom">
+        <WachenPanel g={g} build={build} setBuild={setBuild} sel={wsel} setSel={setWsel} flash={flash} />
+        <SprechwunschPanel g={g} flash={flash} />
+        <FunkPanel g={g} />
       </div>
     </div>
   )
