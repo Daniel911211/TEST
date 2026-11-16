@@ -1,8 +1,8 @@
 import { useLayoutEffect, useRef } from 'react'
 
 // Rahmen für Overlays: Kopf, Reiter, scrollbarer Inhalt, Fuß mit Vor/Zurück und Schließen.
-// Zwei Größen: groß (Standard, füllt die Fläche unter der Kopfzeile – Einsatz, Wache, Protokoll) und compact
-// (mittig, nur so hoch wie der Inhalt – Sprechwunsch, Fahrzeug, Klinik, Werkstatt). Die Kopfzeile bleibt bedienbar.
+// Zwei Größen: groß (Standard, füllt die Fläche unter der Kopfzeile – Einsatz, Protokoll) und compact
+// (mittig, nur so hoch wie der Inhalt – Wache, Sprechwunsch, Fahrzeug, Klinik, Werkstatt). Die Kopfzeile bleibt bedienbar.
 export default function Overlay({ title, sub, head, tabs, tab, setTab, onClose, onPrev, onNext, foot, compact = false, children }) {
   const back = useRef(null)
   useLayoutEffect(() => {

@@ -21,7 +21,7 @@ export default function WachenOverlay({ g, stationId, tab, setTab, onClose, onOp
   const go = (d) => onOpenStation(g.stations[(idx + d + g.stations.length) % g.stations.length].id)
 
   return (
-    <Overlay
+    <Overlay compact
       title={<><span className={`wk wk-${station.kind}`}>{station.kind}</span> {station.name}</>}
       sub={`${stationTypeName(station)} · ${vehicles.length} Fahrzeug${vehicles.length !== 1 ? 'e' : ''} · Werkstatt: ${station.workshop ? 'ja' : 'nein'}`}
       head={<button className="small" onClick={() => setTab('markt')}>Fahrzeugmarkt</button>}
