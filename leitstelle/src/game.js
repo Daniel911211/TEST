@@ -166,7 +166,7 @@ const addLog = (g, text, meta = {}) => {
   if (g.log.length > LOG_MAX) g.log.length = LOG_MAX
 }
 // Protokoll als Text (zum Herunterladen), älteste Zeile zuerst
-export const logAsText = (g, entries = g.log) => [...entries].reverse().map((l) => `${fmtClock(l.t)}  ${(LOG_KINDS[l.kind] || 'Info').padEnd(13)} ${l.text}`).join('\n')
+export const logAsText = (g, entries = g.log) => [...entries].reverse().map((l) => `${fmtClock(l.t)}  ${(LOG_KINDS[l.kind] || 'Info').padEnd(13)} ${l.text.replace(/\n/g, '\n' + ' '.repeat(21))}`).join('\n')
 
 // Erstes Fahrzeug einer neuen Wache (gratis): Feuerwache wählt ein Löschfahrzeug, Rettungswache bekommt einen RTW.
 export const FIRST_VEHICLES = { FW: ['HLF', 'LF', 'TSF'], RW: ['RTW'] }
@@ -518,7 +518,7 @@ function develop(g, inc) {
       inc.escalated = true
       if (next.elw2Ask && inc.elw2 == null) inc.elw2 = canStaff(g, 'ELW2') && Math.random() < 0.6 ? 'needed' : 'notneeded'
       const gruende = Object.keys(added).map((r) => inc.anford?.[r]).filter(Boolean)
-      text = `${opt.why}. Stichwort wird von ${oldName} auf ${next.name} erhöht.${Object.keys(added).length ? ` Nachforderung: ${needText(added)}${gruende.length ? ' (' + gruende.join(', ') + ')' : ''}.` : ''}`
+      text = `${opt.why}.\nStichwort wird von ${oldName} auf ${next.name} erhöht.${Object.keys(added).length ? `\nNachforderung: ${needText(added)}${gruende.length ? ' (' + gruende.join(', ') + ')' : ''}.` : ''}`
       addLog(g, `Stichwort erhöht: ${oldName} → ${next.name}${Object.keys(added).length ? `, Bedarf erhöht um ${needText(added)}` : ''} (Meldung folgt per Sprechwunsch).`, { kind: 'nachforderung', inc, quiet: true })
     } else plan = 'waechst'
   }
@@ -538,7 +538,7 @@ function develop(g, inc) {
       inc.nachDone = true
       text = inc.type.rd && added.NEF && Object.keys(added).length === 1
         ? `Notarzt-Nachforderung (R3): ${needText(added)} – Patient akut lebensbedrohlich.`
-        : `Lage hat sich ausgeweitet. Nachforderung: ${needText(added)}.`
+        : `Lage hat sich ausgeweitet.\nNachforderung: ${needText(added)}.`
       addLog(g, `Bedarf erhöht um ${needText(added)} (Meldung folgt per Sprechwunsch).`, { kind: 'nachforderung', inc, quiet: true })
     }
   }
@@ -617,7 +617,7 @@ export const sprechKindName = (k) => SPRECH_KIND[k] || 'Sprechwunsch'
 function setSprechwunsch(g, v, kind, text, incidentId) {
   const inc = g.incidents.find((i) => i.id === incidentId)
   if (v.sprechwunsch && v.sprechwunsch.incidentId === incidentId) {
-    v.sprechwunsch.text += ' ' + text
+    v.sprechwunsch.text += '\n' + text
     if (kind === 'nachforderung' || kind === 'folge') v.sprechwunsch.kind = kind
   } else v.sprechwunsch = { kind, text, incidentId, incTitle: inc ? incidentTitle(inc) : null, since: g.t }
   addLog(g, `${v.callsign}: Sprechwunsch – ${SPRECH_KIND[kind]}.`, { v, inc })

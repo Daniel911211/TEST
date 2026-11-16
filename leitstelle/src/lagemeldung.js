@@ -7,6 +7,8 @@ import { ROLES } from './stichworte.js'
 const rnd = (a, b) => a + Math.random() * (b - a)
 export const needText = (n) => Object.entries(n).map(([k, c]) => `${c}× ${ROLES[k].short}`).join(', ')
 const join = (parts) => parts.filter(Boolean).map((p) => p.trim()).filter(Boolean).join(' ')
+// Blöcke einer Meldung (sehe / mache / brauche …) stehen im Funk auf eigenen Zeilen
+const lines = (parts) => parts.filter(Boolean).map((p) => p.trim()).filter(Boolean).join('\n')
 
 // Beim Erzeugen eines Einsatzes: Anforderungswahrscheinlichkeiten des Szenarios würfeln.
 // Ergebnis { ROLLE: Begründung } nur für Rollen, die der Spieler überhaupt besetzen kann (sonst bliebe der Einsatz hängen).
@@ -48,7 +50,7 @@ function brauche(inc, assigned, missing, added) {
   for (const [r, n] of Object.entries(missing)) if (!alle[r]) alle[r] = n
   if (Object.keys(alle).length) {
     const gruende = Object.keys(added || {}).map((r) => inc.anford?.[r]).filter(Boolean)
-    parts.push(`Nachforderung: ${needText(alle)} zur Einsatzstelle!${gruende.length ? ' Grund: ' + gruende.join(', ') + '.' : ''}`)
+    parts.push(`Nachforderung: ${needText(alle)} zur Einsatzstelle!${gruende.length ? '\nGrund: ' + gruende.join(', ') + '.' : ''}`)
     return join(parts)
   }
   // Noch Fahrzeuge auf Anfahrt: Einsatzleiter fragt allgemein nach (er sieht sie noch nicht)
@@ -60,7 +62,7 @@ function brauche(inc, assigned, missing, added) {
 // Erste Lagemeldung. missing = noch nicht alarmierte Rollen (nach Anwendung der Anforderung), added = jetzt nachgeforderte Rollen,
 // aenderung = optionaler Entwicklungsschritt (Nachforderung/Hochstufung aus der Spiellogik)
 export function ersteLagemeldung(inc, assigned, missing, added, aenderung) {
-  return join([`Lagemeldung – ${sehe(inc)}`, mache(inc, assigned), brauche(inc, assigned, missing, added), aenderung ? `Lage ändert sich: ${aenderung}` : ''])
+  return lines([`Lagemeldung – ${sehe(inc)}`, mache(inc, assigned), brauche(inc, assigned, missing, added), aenderung ? `Lage ändert sich: ${aenderung}` : ''])
 }
 
 // Folgemeldung: Lageänderung (Text aus der Spiellogik: Grund, Hochstufung, Nachforderung)
@@ -69,7 +71,7 @@ export const folgemeldung = (text) => `Folgemeldung – ${text}`
 // Nachforderung ohne Lagemeldung (wenn die Einsatzleitung von selbst keine Lage meldet)
 export const nachforderungsmeldung = (inc, added) => {
   const gruende = Object.keys(added).map((r) => inc.anford?.[r]).filter(Boolean)
-  return `Nachforderung: ${needText(added)} zur Einsatzstelle!${gruende.length ? ' Grund: ' + gruende.join(', ') + '.' : ''}`
+  return `Nachforderung: ${needText(added)} zur Einsatzstelle!${gruende.length ? '\nGrund: ' + gruende.join(', ') + '.' : ''}`
 }
 
 // Abschlussmeldung: je Stichwortgruppe ein eigener Abschluss, Szenario kann ihn überschreiben
@@ -85,5 +87,5 @@ const ABSCHLUSS = [
 ]
 export function abschlussmeldung(inc, vehicles) {
   const text = inc.szenario?.abschluss || (inc.szenario?.stabil ? 'Keine weiteren Maßnahmen erforderlich, Einsatz beendet.' : ABSCHLUSS.find(([re]) => re.test(inc.type.id))?.[1] || 'Einsatz beendet.')
-  return `Abschlussmeldung – ${text} ${vehicles} Fahrzeug${vehicles === 1 ? '' : 'e'} frei, Kräfte rücken ein.`
+  return `Abschlussmeldung – ${text}\n${vehicles} Fahrzeug${vehicles === 1 ? '' : 'e'} frei, Kräfte rücken ein.`
 }
