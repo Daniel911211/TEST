@@ -10,6 +10,7 @@ import BauFormular from './ui/BauFormular.jsx'
 import KlinikOverlay from './ui/KlinikOverlay.jsx'
 import SprechwunschOverlay from './ui/SprechwunschOverlay.jsx'
 import EinsatzOverlay from './ui/EinsatzOverlay.jsx'
+import ProtokollOverlay from './ui/ProtokollOverlay.jsx'
 import OSM_SITES from './data/feuerwehren.json'
 import EXTRA_SITES from './data/zusatz-standorte.json'
 import {
@@ -63,6 +64,7 @@ export default function App() {
   const openHospital = (id) => setOverlay({ kind: 'hospital', id })
   const openSprech = (vehicleId) => setOverlay({ kind: 'sprech', id: vehicleId })
   const openIncident = (id) => setOverlay({ kind: 'incident', id })
+  const openProtokoll = () => setOverlay({ kind: 'protokoll' })
   // 📍 Fahrzeug auf der Karte zeigen: Overlay schließen, Karte zentrieren, Marker einige Sekunden hervorheben
   const locateVehicle = (id) => {
     const v = g.vehicles.find((x) => x.id === id)
@@ -116,6 +118,7 @@ export default function App() {
         <button className={g.spawnPaused ? 'spawn-off' : 'on'} title={g.spawnPaused ? 'Es kommen keine neuen Einsätze. Klicken zum Einschalten.' : 'Neue Einsätze werden erzeugt. Klicken zum Anhalten.'} onClick={() => toggleSpawn(g)}>
           {g.spawnPaused ? '🚫 Neue Einsätze aus' : '🚨 Neue Einsätze an'}
         </button>
+        <button onClick={openProtokoll} title="Protokoll aller Ereignisse">📋 Protokoll</button>
         <button onClick={reset}>Neu</button>
       </header>
       <div className="top">
@@ -130,6 +133,9 @@ export default function App() {
           )}
           {overlay?.kind === 'sprech' && (
             <SprechwunschOverlay g={g} vehicleId={overlay.id} onClose={closeOverlay} onOpenSprech={openSprech} onSelectIncident={openIncident} flash={flash} />
+          )}
+          {overlay?.kind === 'protokoll' && (
+            <ProtokollOverlay g={g} onClose={closeOverlay} onOpenIncident={openIncident} onOpenVehicle={openVehicle} />
           )}
           {overlay?.kind === 'incident' && (
             <EinsatzOverlay g={g} incidentId={overlay.id} onClose={closeOverlay} onOpenIncident={openIncident} onLocate={locateVehicle} flash={flash} />

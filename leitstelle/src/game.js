@@ -125,13 +125,18 @@ export function newGame() {
 
 const rnd = (a, b) => a + Math.random() * (b - a)
 // Funkmeldungen bekommen eine Art, damit die Oberfläche Lagemeldungen und Nachforderungen hervorheben kann
+// Protokoll: jede Meldung hat eine Art (kind), optional Fahrzeug (v) und Einsatz (inc, incTitle als Momentaufnahme,
+// damit auch erledigte Einsätze im Protokoll filterbar bleiben). quiet = nur im Protokoll/Tagebuch, nicht im Funk.
+export const LOG_MAX = 5000
 export const LOG_KINDS = {
-  lage: 'Lagemeldung', nachforderung: 'Nachforderung', neu: 'Neuer Einsatz', erledigt: 'Erledigt',
-  sprech: 'Sprechwunsch', leitstelle: 'Leitstelle', status: 'Status', info: '',
+  lage: 'Lagemeldung', nachforderung: 'Nachforderung', neu: 'Neuer Einsatz', alarm: 'Alarmierung', erledigt: 'Erledigt',
+  sprech: 'Sprechwunsch', leitstelle: 'Leitstelle', status: 'Status', vermerk: 'Vermerk', bau: 'Bau/Kauf', info: '',
 }
+// Arten, die nicht zum Funkverkehr gehören (nur Protokoll und Tagebuch)
+export const LOG_QUIET_KINDS = ['neu', 'vermerk', 'bau']
 const logKind = (text) => {
   if (/Lagemeldung –/.test(text)) return 'lage'
-  if (/Nachforderung|fordert ELW 2|ELW 2 wird|Erkundung –|Stichwort wird/.test(text)) return 'nachforderung'
+  if (/Nachforderung|fordert ELW 2|ELW 2 wird|Erkundung –|Stichwort wird|Bedarf erhöht|Stichwort erhöht/.test(text)) return 'nachforderung'
   if (/^Neuer Einsatz/.test(text)) return 'neu'
   if (/^Einsatz erledigt/.test(text)) return 'erledigt'
   if (/Status 5|Sprechwunsch –/.test(text)) return 'sprech'
@@ -139,10 +144,17 @@ const logKind = (text) => {
   if (/Status [1-8]|Einsatzleitung|rückalarmiert|abgezogen/.test(text)) return 'status'
   return 'info'
 }
-const addLog = (g, text) => {
-  g.log.unshift({ t: g.t, text, kind: logKind(text) })
-  if (g.log.length > 60) g.log.length = 60
+// meta: { kind?, v?: Fahrzeug, inc?: Einsatz, quiet? }
+const addLog = (g, text, meta = {}) => {
+  const e = { t: g.t, text, kind: meta.kind || logKind(text) }
+  if (meta.v) e.v = meta.v.id
+  if (meta.inc) { e.inc = meta.inc.id; e.incTitle = incidentTitle(meta.inc) }
+  if (meta.quiet) e.quiet = true
+  g.log.unshift(e)
+  if (g.log.length > LOG_MAX) g.log.length = LOG_MAX
 }
+// Protokoll als Text (zum Herunterladen), älteste Zeile zuerst
+export const logAsText = (g, entries = g.log) => [...entries].reverse().map((l) => `${fmtClock(l.t)}  ${(LOG_KINDS[l.kind] || 'Info').padEnd(13)} ${l.text}`).join('\n')
 
 export function buildStation(g, kind, pos, name, siteId = null) {
   const def = STATION_TYPES[kind]
@@ -153,7 +165,7 @@ export function buildStation(g, kind, pos, name, siteId = null) {
   g.stations.push(station)
   // erstes Fahrzeug gratis
   addVehicle(g, station, kind === 'FW' ? 'HLF' : 'RTW')
-  addLog(g, `${station.name} gebaut.`)
+  addLog(g, `${station.name} gebaut (${STATION_TYPES[kind].name}, ${fmtMoney(STATION_TYPES[kind].cost)}).`, { kind: 'bau' })
   return { ok: true, station }
 }
 
@@ -182,6 +194,7 @@ export function buyVehicle(g, stationId, type) {
   if (g.money < def.cost) return { ok: false, msg: 'Nicht genug Geld.' }
   g.money -= def.cost
   addVehicle(g, st, type)
+  addLog(g, `${g.vehicles[g.vehicles.length - 1].callsign} gekauft (${fmtMoney(def.cost)}).`, { kind: 'bau', v: g.vehicles[g.vehicles.length - 1] })
   return { ok: true }
 }
 
@@ -197,7 +210,7 @@ export function sellVehicle(g, vehicleId) {
   const price = sellPrice(v)
   g.money += price
   g.vehicles = g.vehicles.filter((x) => x !== v)
-  addLog(g, `${v.callsign} verkauft (+${fmtMoney(price)}).`)
+  addLog(g, `${v.callsign} verkauft (+${fmtMoney(price)}).`, { kind: 'bau', v })
   return { ok: true, price }
 }
 
@@ -211,13 +224,14 @@ export function dispatch(g, incidentId, vehicleIds) {
     if (!v || !isAvailable(v)) continue
     if (v.condition < 30 && Math.random() < Math.min(0.5, (30 - v.condition) / 60)) {
       v.status = 6; v.workshop = false; v.timer = 600;
-      addLog(g, `${v.callsign}: Panne beim Ausrücken! Fahrzeug fällt kurz aus.`)
+      addLog(g, `${v.callsign}: Panne beim Ausrücken! Fahrzeug fällt kurz aus.`, { kind: 'status', v, inc })
       continue
     }
     v.status = 3
     v.used = true
     v.incidentId = inc.id
     inc.dispatched = true
+    addLog(g, `${v.callsign}: alarmiert, Status 3 – Anfahrt ${sondersignal(g, v) ? 'mit' : 'ohne'} Sondersignal, ca. ${fmtMin(etaSec(v, inc.pos, tempoFactor(g, v)))}.`, { kind: 'alarm', v, inc })
   }
 }
 
@@ -244,18 +258,18 @@ export function askElw2(g, incidentId) {
   if (!elw) return { ok: false, msg: 'Kein ELW 1 vor Ort.' }
   if (!inc.type.elw2Ask || inc.elw2Asked) return { ok: false, msg: 'Schon beantwortet.' }
   inc.elw2Asked = true
-  addLog(g, `Leitstelle an ${elw.callsign}: Nachalarmplan sieht ELW 2 vor – wird dieser bei Ihnen benötigt?`)
+  addLog(g, `Leitstelle an ${elw.callsign}: Nachalarmplan sieht ELW 2 vor – wird dieser bei Ihnen benötigt?`, { v: elw, inc })
   if (inc.elw2 === 'needed') {
     inc.need = addNeeds(inc.need, { ELW2: 1 })
-    addLog(g, `${elw.callsign}: Ja, ELW 2 wird benötigt – bitte nachalarmieren.`)
-  } else addLog(g, `${elw.callsign}: ELW 2 wird nicht benötigt.`)
+    addLog(g, `${elw.callsign}: Ja, ELW 2 wird benötigt – bitte nachalarmieren.`, { v: elw, inc })
+  } else addLog(g, `${elw.callsign}: ELW 2 wird nicht benötigt.`, { v: elw, inc })
   return { ok: true }
 }
 
 // Einsatzgenerierung an/aus (Spielzeit, Fahrzeuge und laufende Einsätze gehen weiter)
 export function toggleSpawn(g) {
   g.spawnPaused = !g.spawnPaused
-  addLog(g, g.spawnPaused ? 'Leitstelle: keine neuen Einsätze (Generierung angehalten).' : 'Leitstelle: Einsatzgenerierung wieder aktiv.')
+  addLog(g, g.spawnPaused ? 'Leitstelle: keine neuen Einsätze (Generierung angehalten).' : 'Leitstelle: Einsatzgenerierung wieder aktiv.', { kind: 'leitstelle' })
   return g.spawnPaused
 }
 
@@ -272,7 +286,7 @@ export function expandHospital(g, hospitalId) {
   g.money -= BED_COST
   st.beds += BED_STEP
   st.free += BED_STEP
-  addLog(g, `${h.name}: um ${BED_STEP} Betten erweitert (jetzt ${st.beds}).`)
+  addLog(g, `${h.name}: um ${BED_STEP} Betten erweitert (jetzt ${st.beds}, ${fmtMoney(BED_COST)}).`, { kind: 'bau' })
   return { ok: true }
 }
 
@@ -282,7 +296,7 @@ export function buildWorkshop(g, stationId) {
   if (g.money < WORKSHOP_COST) return { ok: false, msg: 'Nicht genug Geld.' }
   g.money -= WORKSHOP_COST
   st.workshop = true
-  addLog(g, `${st.name}: eigene Werkstatt gebaut.`)
+  addLog(g, `${st.name}: eigene Werkstatt gebaut (${fmtMoney(WORKSHOP_COST)}).`, { kind: 'bau' })
   return { ok: true }
 }
 
@@ -300,7 +314,7 @@ export function sendToWorkshop(g, vehicleId) {
   if (g.money < q.cost) return { ok: false, msg: 'Nicht genug Geld.' }
   g.money -= q.cost
   v.status = 6; v.workshop = true; v.timer = q.duration
-  addLog(g, `${v.callsign}: in der ${q.own ? 'eigenen ' : ''}Werkstatt (${fmtMin(q.duration)}, ${fmtMoney(q.cost)}).`)
+  addLog(g, `${v.callsign}: Status 6 – in der ${q.own ? 'eigenen ' : ''}Werkstatt (${fmtMin(q.duration)}, ${fmtMoney(q.cost)}).`, { kind: 'status', v })
   return { ok: true }
 }
 
@@ -322,9 +336,9 @@ export function confirmTransport(g, vehicleId, hospitalId) {
   v.patientSeverity = v.request?.severity || 1
   v.route = null
   v.request = null
-  if (wish && wish === h.id) { g.money += 60; addLog(g, `Leitstelle an ${v.callsign}: Wunschklinik ${h.name} bestätigt (+60 €).`) }
-  else if (wish) addLog(g, `Leitstelle an ${v.callsign}: Gegenvorschlag ${h.name} – Patient einverstanden.`)
-  else addLog(g, `Leitstelle an ${v.callsign}: Zielklinik ${h.name}.`)
+  if (wish && wish === h.id) { g.money += 60; addLog(g, `Leitstelle an ${v.callsign}: Wunschklinik ${h.name} bestätigt (+60 €). Status 7.`, { v }) }
+  else if (wish) addLog(g, `Leitstelle an ${v.callsign}: Gegenvorschlag ${h.name} – Patient einverstanden. Status 7.`, { v })
+  else addLog(g, `Leitstelle an ${v.callsign}: Zielklinik ${h.name}. Status 7.`, { v })
   return { ok: true }
 }
 
@@ -337,7 +351,7 @@ function requestHospital(g, v, severity = 1) {
   v.status = 5
   v.request = { wishId: wish ? wish.id : null, since: g.t }
   v.request.severity = severity
-  addLog(g, wish ? `${v.callsign}: Status 5 – Patient möchte nach ${wish.name}. Kapazität prüfen!` : `${v.callsign}: Status 5 – erbittet Zielklinik (${SEVERITY_TEXT[severity]} verletzt/erkrankt).`)
+  addLog(g, wish ? `${v.callsign}: Status 5 – Patient möchte nach ${wish.name}. Kapazität prüfen!` : `${v.callsign}: Status 5 – erbittet Zielklinik (${SEVERITY_TEXT[severity]} verletzt/erkrankt).`, { v })
 }
 
 // Einsatzleitung: ELW 2 vor ELW 1 vor Feuerwehrfahrzeug vor Rettungsdienst, bei Gleichstand das zuerst eingetroffene
@@ -392,6 +406,7 @@ function develop(g, inc) {
       inc.escalated = true
       if (next.elw2Ask && inc.elw2 == null) inc.elw2 = Math.random() < 0.6 ? 'needed' : 'notneeded'
       text = `${opt.why}. Stichwort wird von ${oldName} auf ${next.name} erhöht.${Object.keys(added).length ? ` Nachforderung: ${needText(added)}.` : ''}`
+      addLog(g, `Stichwort erhöht: ${oldName} → ${next.name}${Object.keys(added).length ? `, Bedarf erhöht um ${needText(added)}` : ''} (Meldung folgt per Sprechwunsch).`, { kind: 'nachforderung', inc, quiet: true })
     } else plan = 'waechst'
   }
   if (plan === 'waechst') {
@@ -411,6 +426,7 @@ function develop(g, inc) {
       text = inc.type.rd && added.NEF && Object.keys(added).length === 1
         ? `Notarzt-Nachforderung (R3): ${needText(added)} – Patient akut lebensbedrohlich.`
         : `Nachforderung ${inc.type.name}: ${needText(added)}.`
+      addLog(g, `Bedarf erhöht um ${needText(added)} (Meldung folgt per Sprechwunsch).`, { kind: 'nachforderung', inc, quiet: true })
     }
   }
   scheduleNext(g, inc)
@@ -433,10 +449,10 @@ export function requestLagemeldung(g, incidentId) {
   const el = inc && g.vehicles.find((v) => v.id === inc.el && v.incidentId === inc.id && v.status === 4)
   if (!el) return { ok: false, msg: 'Noch kein Fahrzeug vor Ort.' }
   if (inc.revealed) return { ok: false, msg: 'Lagemeldung liegt bereits vor.' }
-  addLog(g, `Leitstelle an ${el.callsign}: Bitte Lagemeldung.`)
+  addLog(g, `Leitstelle an ${el.callsign}: Bitte Lagemeldung.`, { v: el, inc })
   reportLage(g, inc, el)
   // Angeforderte Lagemeldung kommt direkt als Vermerk, nicht als Sprechwunsch
-  if (el.sprechwunsch?.kind === 'lage') { addVermerk(g, inc.id, el.sprechwunsch.text, el.callsign); el.sprechwunsch = null; addLog(g, `${el.callsign}: Lagemeldung durchgegeben, im Einsatz vermerkt.`) }
+  if (el.sprechwunsch?.kind === 'lage') { const t = el.sprechwunsch.text; el.sprechwunsch = null; addLog(g, `${el.callsign}: ${t}`, { v: el, inc }); addVermerk(g, inc.id, t, el.callsign) }
   return { ok: true }
 }
 
@@ -452,7 +468,7 @@ export function recallVehicle(g, vehicleId) {
     inc.dispatched = g.vehicles.some((x) => x.incidentId === inc.id)
     if (inc.el === v.id) inc.el = null
   }
-  addLog(g, atScene ? `${v.callsign}: vom Einsatzort abgezogen, Status 1.` : `${v.callsign}: rückalarmiert, Status 1.`)
+  addLog(g, atScene ? `${v.callsign}: vom Einsatzort abgezogen, Status 1.` : `${v.callsign}: rückalarmiert, Status 1.`, { v, inc })
   return { ok: true }
 }
 
@@ -465,7 +481,7 @@ function setSprechwunsch(g, v, kind, text, incidentId) {
     v.sprechwunsch.text += ' ' + text
     if (kind === 'nachforderung') v.sprechwunsch.kind = 'nachforderung'
   } else v.sprechwunsch = { kind, text, incidentId, since: g.t }
-  addLog(g, `${v.callsign}: Sprechwunsch – ${SPRECH_KIND[kind]}.`)
+  addLog(g, `${v.callsign}: Sprechwunsch – ${SPRECH_KIND[kind]}.`, { v, inc: g.incidents.find((i) => i.id === incidentId) })
 }
 export const hasSprechwunsch = (v) => !!v.sprechwunsch || v.status === 5
 export const sprechwunschList = (g) => g.vehicles.filter(hasSprechwunsch).sort((a, b) => (a.sprechwunsch?.since ?? a.request?.since ?? 0) - (b.sprechwunsch?.since ?? b.request?.since ?? 0))
@@ -476,6 +492,7 @@ export function addVermerk(g, incidentId, text, by = 'Leitstelle') {
   if (!inc || !text?.trim()) return { ok: false, msg: 'Kein Text.' }
   inc.vermerke = inc.vermerke || []
   inc.vermerke.push({ t: g.t, text: text.trim(), by })
+  addLog(g, `Vermerk (${by}): ${text.trim()}`, { kind: 'vermerk', inc, quiet: true })
   return { ok: true }
 }
 
@@ -484,9 +501,12 @@ export function answerSprechwunsch(g, vehicleId, note) {
   const v = g.vehicles.find((x) => x.id === vehicleId)
   if (!v?.sprechwunsch) return { ok: false, msg: 'Kein offener Sprechwunsch.' }
   const sw = v.sprechwunsch
-  if (note?.trim()) addVermerk(g, sw.incidentId, note, `Leitstelle (${v.callsign})`)
+  const inc = g.incidents.find((i) => i.id === sw.incidentId)
   v.sprechwunsch = null
-  addLog(g, `Leitstelle an ${v.callsign}: ${SPRECH_KIND[sw.kind]} aufgenommen.`)
+  // Inhalt des Funkspruchs kommt erst jetzt ins Protokoll (vorher kennt ihn die Leitstelle nicht)
+  addLog(g, `${v.callsign}: ${sw.text}`, { v, inc })
+  if (note?.trim()) addVermerk(g, sw.incidentId, note, `Leitstelle (${v.callsign})`)
+  addLog(g, `Leitstelle an ${v.callsign}: ${SPRECH_KIND[sw.kind]} aufgenommen.`, { v, inc })
   return { ok: true }
 }
 
@@ -512,7 +532,7 @@ function spawnIncident(g) {
   const inc = { id: g.nextId++, type, szenario: pickSzenario(type.id), need: { ...type.need }, extra: { ...type.extra }, devStep: 0, devPlan: null, devAtT: null, revealed: false, elw2, elw2Asked: false, pos, created: g.t, status: 'open', workLeft: type.work, startedAt: null, dispatched: false }
   inc.devPlan = rollPlan(inc, isNight(g.t) ? 1.3 : 1)
   g.incidents.push(inc)
-  addLog(g, `Neuer Einsatz: ${incidentTitle(inc)}`)
+  addLog(g, `Neuer Einsatz: ${incidentTitle(inc)} (${type.name}; benötigt ${needText(inc.need)}; Meldung über ${st.name}).`, { kind: 'neu', inc })
 }
 
 // --- Routing über OSRM (keine Drosselung, kein Luftlinien-Fallback) ---
@@ -601,16 +621,16 @@ export function tick(g, dt) {
       case 3:
         if (!inc) { releaseVehicle(v); break }
         if (driveTo(g, v, inc.pos, dt, (e) => {
-          addLog(g, `${v.callsign}: Routing fehlgeschlagen (${e.message}) – Alarm abgebrochen`)
+          addLog(g, `${v.callsign}: Routing fehlgeschlagen (${e.message}) – Alarm abgebrochen`, { v, inc })
           releaseVehicle(v)
         })) {
           v.status = 4
           v.arrivedAt = g.t
-          addLog(g, `${v.callsign}: Status 4 – am Einsatzort (${incidentTitle(inc)})`)
+          addLog(g, `${v.callsign}: Status 4 – am Einsatzort (${incidentTitle(inc)})`, { v, inc })
         }
         break
       case 7:
-        if (driveTo(g, v, v.hospital.pos, dt, (e) => addLog(g, `${v.callsign}: Routing fehlgeschlagen (${e.message})`))) {
+        if (driveTo(g, v, v.hospital.pos, dt, (e) => addLog(g, `${v.callsign}: Routing fehlgeschlagen (${e.message})`, { v }))) {
           v.status = 8
           v.timer = 300
           g.money += 80
@@ -618,13 +638,13 @@ export function tick(g, dt) {
           const sev = v.patientSeverity || 1
           g.hospitals[v.hospital.id]?.patients.push({ until: g.t + TREATMENT_SEC[sev], severity: sev, admitted: g.t, by: v.callsign })
           v.patientSeverity = null
-          addLog(g, `${v.callsign}: Status 8 – Patient übergeben in ${v.hospital.name} (+80 €)`)
+          addLog(g, `${v.callsign}: Status 8 – Patient übergeben in ${v.hospital.name} (+80 €)`, { v })
         }
         break
       case 5:
         if (g.t - v.request.since > 1500) {
           const o = transportOptions(g, v).find((h) => h.free > 0) || transportOptions(g, v)[0]
-          addLog(g, `${v.callsign}: Leitstelle hat nicht geantwortet – Eigenentscheidung ${o.name}.`)
+          addLog(g, `${v.callsign}: Leitstelle hat nicht geantwortet – Eigenentscheidung ${o.name}.`, { v })
           if (o.free > 0) { v.request.wishId = null; confirmTransport(g, v.id, o.id) } else v.request.since = g.t
         }
         break
@@ -632,16 +652,16 @@ export function tick(g, dt) {
         v.timer -= dt
         if (v.timer <= 0) {
           v.status = km(v.pos, st.pos) < 0.05 ? 2 : 1
-          if (v.workshop) { v.condition = 100; addLog(g, `${v.callsign}: Reparatur fertig, wieder einsatzbereit.`) }
-          else { v.condition = Math.max(v.condition, 50); addLog(g, `${v.callsign}: Panne behoben.`) }
+          if (v.workshop) { v.condition = 100; addLog(g, `${v.callsign}: Reparatur fertig, Status ${v.status}.`, { v }) }
+          else { v.condition = Math.max(v.condition, 50); addLog(g, `${v.callsign}: Panne behoben, Status ${v.status}.`, { v }) }
         }
         break
       case 8:
         v.timer -= dt
-        if (v.timer <= 0) releaseVehicle(v)
+        if (v.timer <= 0) { releaseVehicle(v); addLog(g, `${v.callsign}: Status 1 – frei, Rückfahrt zur Wache.`, { v }) }
         break
       case 1:
-        if (driveTo(g, v, st.pos, dt, (e) => addLog(g, `${v.callsign}: Routing fehlgeschlagen (${e.message})`))) v.status = 2
+        if (driveTo(g, v, st.pos, dt, (e) => addLog(g, `${v.callsign}: Routing fehlgeschlagen (${e.message})`, { v }))) { v.status = 2; addLog(g, `${v.callsign}: Status 2 – auf der Wache.`, { v }) }
         break
       default:
         break
@@ -656,7 +676,7 @@ export function tick(g, dt) {
     const el = pickEL(atScene)
     if (el && el.id !== inc.el) {
       inc.el = el.id
-      addLog(g, `${el.callsign} übernimmt die Einsatzleitung (${incidentTitle(inc)}).`)
+      addLog(g, `${el.callsign} übernimmt die Einsatzleitung (${incidentTitle(inc)}).`, { v: el, inc })
       // Erkundung beim Eintreffen: Der Einsatzleiter stellt fest, dass die Lage größer ist, und erhöht das Stichwort
       if (!inc.erkundet) {
         inc.erkundet = true
@@ -675,7 +695,7 @@ export function tick(g, dt) {
       inc.need = addNeeds(inc.need, { ELW2: 1 })
       const elw = g.vehicles.find((v) => v.incidentId === inc.id && v.type === 'ELW1' && v.status === 4)
       if (elw) setSprechwunsch(g, elw, 'nachforderung', 'Nachforderung: ELW 2 wird benötigt.', inc.id)
-      else addLog(g, `ELW 1 (${incidentTitle(inc)}): fordert ELW 2 nach.`)
+      else addLog(g, `ELW 1 (${incidentTitle(inc)}): fordert ELW 2 nach.`, { inc })
     }
     const satisfied = Object.keys(matchSlots(inc.need, atScene)).length === 0
 
@@ -684,6 +704,7 @@ export function tick(g, dt) {
         inc.status = 'working'
         if (inc.startedAt == null) {
           inc.startedAt = g.t
+          addLog(g, `Alle Kräfte vor Ort, Bearbeitung beginnt (Wartezeit ${fmtMin(g.t - inc.created)}).`, { kind: 'status', inc, quiet: true })
           // Entwicklung (Nachforderung/Eskalation) irgendwann mitten im Einsatz, unabhängig von der Lagemeldung
           inc.devAtT = g.t + inc.type.work * rnd(0.2, 0.7)
           // Lange Wartezeit bis zum Arbeitsbeginn: Lage kann sich zusätzlich verschlimmern (ca. ×1,5)
@@ -699,7 +720,7 @@ export function tick(g, dt) {
         if (text) setSprechwunsch(g, elv, 'nachforderung', text, inc.id)
       }
       const stillOk = Object.keys(matchSlots(inc.need, atScene)).length === 0
-      if (!stillOk) inc.status = 'open' // nachgeforderte Mittel fehlen: Arbeit ruht
+      if (!stillOk) { inc.status = 'open'; addLog(g, `Bearbeitung ruht, es fehlt: ${needText(matchSlots(inc.need, atScene))}.`, { kind: 'status', inc, quiet: true }) } // nachgeforderte Mittel fehlen: Arbeit ruht
       else if (inc.workLeft <= 0) {
         const wait = inc.startedAt - inc.created
         const bonus = wait < inc.type.deadline * 0.5 ? 1.25 : 1
@@ -707,7 +728,7 @@ export function tick(g, dt) {
         g.money += reward
         g.points += inc.type.points
         g.done++
-        addLog(g, `Einsatz erledigt: ${incidentTitle(inc)} (+${fmtMoney(reward)})`)
+        addLog(g, `Einsatz erledigt: ${incidentTitle(inc)} (+${fmtMoney(reward)}${bonus > 1 ? ' mit Schnelligkeitsbonus' : ''}, Dauer ${fmtMin(g.t - inc.created)}, ${g.vehicles.filter((v) => v.incidentId === inc.id).length} Fahrzeuge).`, { inc })
         let patients = inc.type.patient ? (inc.type.rd === 'MANV' ? 4 : 1) : 0
         for (const v of g.vehicles) {
           if (v.incidentId !== inc.id) continue
@@ -717,7 +738,7 @@ export function tick(g, dt) {
             v.incidentId = null
             v.route = null
             requestHospital(g, v, inc.need.NEF ? 3 : inc.type.severity || 1) // mit Notarzt = schwer
-          } else releaseVehicle(v)
+          } else { releaseVehicle(v); addLog(g, `${v.callsign}: Status 1 – frei, Rückfahrt zur Wache.`, { v, inc }) }
         }
         g.incidents = g.incidents.filter((i) => i !== inc)
       }

@@ -1,7 +1,7 @@
-import { fmtClock, LOG_KINDS, sprechwunschList, sprechKindName, incidentTitle } from '../game.js'
+import { fmtClock, LOG_KINDS, LOG_QUIET_KINDS, sprechwunschList, sprechKindName, incidentTitle } from '../game.js'
 
 // Unten rechts: Funk. Oben angeheftet alle Fahrzeuge mit Sprechwunsch (blinkende 5), darunter der Funkverkehr
-// (neueste Meldung oben, ohne „Neuer Einsatz“). Klick auf einen Sprechwunsch öffnet das Sprechwunsch-Overlay.
+// (neueste Meldung oben; stille Protokolleinträge wie Neuer Einsatz, Vermerke, Bau/Kauf stehen nur im Protokoll). Klick auf einen Sprechwunsch öffnet das Sprechwunsch-Overlay.
 export default function FunkPanel({ g, onOpenSprech }) {
   const pending = sprechwunschList(g)
   return (
@@ -25,7 +25,7 @@ export default function FunkPanel({ g, onOpenSprech }) {
       )}
       <div className="scroll">
         <ul className="funk-list">
-          {g.log.filter((l) => l.kind !== 'neu').map((l, i) => {
+          {g.log.filter((l) => !l.quiet && !LOG_QUIET_KINDS.includes(l.kind)).slice(0, 200).map((l, i) => {
             const kind = l.kind || 'info'
             return (
               <li key={i} className={`funk-${kind} ${i === 0 ? 'new' : ''}`}>

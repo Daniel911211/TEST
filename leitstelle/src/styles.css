@@ -167,6 +167,14 @@ textarea.vermerk { width:100%; background:#0f1319; color:var(--text); border:1px
 .funk-list li.funk-neu { border-left-color:#ff6b9a; }
 .funk-list li.funk-erledigt { border-left-color:var(--green); }
 .funk-list li.funk-sprech { border-left-color:#e91e63; }
+.proto-filter { display:flex; flex-wrap:wrap; gap:6px; align-items:center; border-bottom:1px solid var(--line); }
+.proto-filter select { background:#1c222c; color:var(--text); border:1px solid var(--line); border-radius:6px; padding:4px 6px; font-size:12px; }
+.proto-filter .search { flex:1; min-width:140px; margin:0; }
+.tbl.proto td { vertical-align:top; font-size:12px; }
+.tbl.proto tr.funk-lage td { background:#f4a30010; } .tbl.proto tr.funk-nachforderung td { background:#d6282814; } .tbl.proto tr.funk-alarm td { background:#2f6fd614; } .tbl.proto tr.funk-erledigt td { background:#2ecc7110; }
+.link { cursor:pointer; text-decoration:underline dotted; } .link:hover { color:#fff; }
+.tag-alarm { background:#2f6fd6; color:#fff; } .tag-vermerk { background:#5c6bc0; color:#fff; } .tag-bau { background:#607d8b; color:#fff; }
+.vermerk-zeile.funk-lage { border-left:3px solid var(--amber); padding-left:6px; } .vermerk-zeile.funk-nachforderung { border-left:3px solid #ff4d4d; padding-left:6px; } .vermerk-zeile.funk-vermerk { border-left:3px solid #5c6bc0; padding-left:6px; }
 .funk-list li.funk-leitstelle { border-left-color:var(--blue); }
 .tag { display:inline-block; font-size:10px; font-weight:800; text-transform:uppercase; letter-spacing:.04em; padding:0 5px; border-radius:3px; margin:0 2px 0 4px; vertical-align:1px; background:#3a4454; color:#dfe6f0; }
 .tag-lage { background:var(--amber); color:#000; } .tag-nachforderung { background:#ff4d4d; color:#000; } .tag-neu { background:#ff6b9a; color:#000; }

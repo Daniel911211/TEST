@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { ROLES, VEHICLE_TYPES, SLOW, matchSlots, isAvailable, etaSec, dispatch, recommend, recallVehicle, askElw2, requestLagemeldung, addVermerk, incidentTitle, fmtClock, fmtMin, fmtMoney } from '../game.js'
+import { ROLES, VEHICLE_TYPES, SLOW, LOG_KINDS, matchSlots, isAvailable, etaSec, dispatch, recommend, recallVehicle, askElw2, requestLagemeldung, addVermerk, incidentTitle, fmtClock, fmtMin, fmtMoney } from '../game.js'
 import { VEHICLE_GROUPS, groupOf, stationOf } from './helpers.js'
 import Overlay from './Overlay.jsx'
 
@@ -47,7 +47,7 @@ function Fenster({ g, inc, onClose, onLocate, flash, onPrev, onNext }) {
             <span>Belohnung: {fmtMoney(inc.type.reward)}</span>
             {inc.type.water > 0 && <span>Wasser {sum('water')} / {inc.type.water} l · Atemschutztrupps {sum('as')} / {inc.type.as}</span>}
             {elVeh && <span>Einsatzleitung: <b>{elVeh.callsign}</b></span>}
-            {inc.revealed && <span className="muted">Lagemeldung {inc.vermerke?.length ? 'im Tagebuch' : 'liegt vor'}.</span>}
+            {inc.revealed && <span className="muted">Lagemeldung liegt vor (siehe Tagebuch).</span>}
           </div>
           {Object.keys(missing).length > 0 && <div className="ef-miss">Fehlende Fahrzeuge: {needText(missing)}</div>}
           <div className="ef-actions">
@@ -109,17 +109,24 @@ function Fenster({ g, inc, onClose, onLocate, flash, onPrev, onNext }) {
   )
 }
 
-// Einsatztagebuch: Vermerke der Leitstelle (aus Sprechwünschen oder von Hand)
+// Einsatztagebuch: alle Ereignisse des Einsatzes aus dem Protokoll (chronologisch) plus Vermerke der Leitstelle
 function Tagebuch({ g, inc, flash }) {
   const [text, setText] = useState('')
-  const list = inc.vermerke || []
+  const [open, setOpen] = useState(true)
+  const list = g.log.filter((l) => l.inc === inc.id).reverse()
   const add = () => { const r = addVermerk(g, inc.id, text); if (r.ok) setText(''); else flash(r.msg) }
   return (
     <div className="ef-block">
-      <h4>Einsatztagebuch {list.length > 0 && <span className="count">{list.length}</span>}</h4>
-      {list.length === 0 && <small className="muted">Noch keine Vermerke. Lagemeldungen und Nachforderungen kommen als Sprechwunsch im Funk.</small>}
-      {list.map((e, i) => (
-        <div key={i} className="vermerk-zeile"><small className="muted">{fmtClock(e.t)} · {e.by}</small><div>{e.text}</div></div>
+      <div className="ef-row">
+        <h4>Einsatztagebuch {list.length > 0 && <span className="count">{list.length}</span>}</h4>
+        <button className="small" onClick={() => setOpen(!open)}>{open ? 'Einklappen' : 'Ausklappen'}</button>
+      </div>
+      {open && list.length === 0 && <small className="muted">Noch keine Einträge.</small>}
+      {open && list.map((e, i) => (
+        <div key={i} className={`vermerk-zeile funk-${e.kind || 'info'}`}>
+          <small className="muted">{fmtClock(e.t)}{LOG_KINDS[e.kind] ? ` · ${LOG_KINDS[e.kind]}` : ''}</small>
+          <div>{e.text}</div>
+        </div>
       ))}
       <div className="ef-row vermerk-neu">
         <input className="search" style={{ marginLeft: 0, width: '100%' }} placeholder="Vermerk eintragen …" value={text} onChange={(e) => setText(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') add() }} />

@@ -118,9 +118,8 @@ function check() {
     if (seenLog.has(l)) continue
     seenLog.add(l)
     if (/fehlgeschlagen|Panne|NaN|undefined|null/.test(l.text)) note('Funk', l.text)
-    const m = l.text.match(/^Neuer Einsatz: (.+)$/)
-    if (m) typeCount[m[1]] = (typeCount[m[1]] || 0) + 1
-    if (/Nachforderung|erhöht|ELW 2|Erkundung|Sprechwunsch –/.test(l.text)) events.push(l.text)
+    if (l.kind === 'neu' && l.incTitle) typeCount[l.incTitle] = (typeCount[l.incTitle] || 0) + 1
+    if (/Nachforderung|erhöht|ELW 2|Erkundung|Lagemeldung –/.test(l.text) && !/^.*: Sprechwunsch –/.test(l.text)) events.push(l.text)
   }
 }
 
