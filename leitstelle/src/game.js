@@ -273,14 +273,10 @@ function pickEL(atScene) {
   return [...atScene].sort((a, b) => (ELRANK[b.type] || 1) - (ELRANK[a.type] || 1) || (a.arrivedAt ?? 0) - (b.arrivedAt ?? 0))[0]
 }
 
-// Lagemeldung der Einsatzleitung; Nachforderungen werden damit bekannt
+// Lagemeldung der Einsatzleitung: beschreibt nur die Lage (Nachforderungen laufen unabhängig davon)
 function reportLage(g, inc, el) {
   inc.revealed = true
-  const ex = Object.entries(inc.extra)
-  if (ex.length) {
-    inc.need = addNeeds(inc.need, inc.extra)
-    addLog(g, `${el.callsign}: Lagemeldung ${inc.type.name} – ${inc.type.bild}. Nachforderung: ${ex.map(([k, n]) => `${n}× ${ROLES[k].short}`).join(', ')}.`)
-  } else addLog(g, `${el.callsign}: Lagemeldung ${inc.type.name} – ${inc.type.bild}. Keine weiteren Kräfte erforderlich.`)
+  addLog(g, `${el.callsign}: Lagemeldung – ${inc.type.bild}. Einsatz läuft.`)
 }
 
 // Leitstelle fordert bei der Einsatzleitung eine Lagemeldung an
@@ -470,7 +466,11 @@ export function tick(g, dt) {
     if (inc.status === 'open') {
       if (satisfied) {
         inc.status = 'working'
-        if (inc.startedAt == null) inc.startedAt = g.t
+        if (inc.startedAt == null) {
+          inc.startedAt = g.t
+          // Nachforderung der Einsatzleitung irgendwann mitten im Einsatz (unabhängig von der Lagemeldung)
+          inc.nachAt = Object.keys(inc.extra).length ? inc.type.work * rnd(0.2, 0.7) : null
+        }
       } else if (inc.startedAt == null && g.t - inc.created > inc.type.deadline) {
         g.money -= inc.type.penalty
         g.failed++
@@ -480,7 +480,14 @@ export function tick(g, dt) {
       }
     } else if (inc.status === 'working') {
       inc.workLeft -= dt
-      if (!satisfied) inc.status = 'open' // nachgeforderte Mittel fehlen: Arbeit ruht
+      if (inc.nachAt != null && !inc.nachDone && inc.type.work - inc.workLeft >= inc.nachAt) {
+        inc.nachDone = true
+        inc.need = addNeeds(inc.need, inc.extra)
+        const elv = g.vehicles.find((v) => v.id === inc.el) || atScene[0]
+        addLog(g, `${elv.callsign}: Nachforderung ${inc.type.name}: ${Object.entries(inc.extra).map(([k, n]) => `${n}× ${ROLES[k].short}`).join(', ')}.`)
+      }
+      const stillOk = Object.keys(matchSlots(inc.need, atScene)).length === 0
+      if (!stillOk) inc.status = 'open' // nachgeforderte Mittel fehlen: Arbeit ruht
       else if (inc.workLeft <= 0) {
         const wait = inc.startedAt - inc.created
         const bonus = wait < inc.type.deadline * 0.5 ? 1.25 : 1

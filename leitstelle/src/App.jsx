@@ -116,7 +116,7 @@ export default function App() {
                     {elVeh && <><br />Einsatzleitung: <b>{elVeh.callsign}</b></>}
                     {elVeh && !inc.revealed && <><br /><button onClick={() => { const r = requestLagemeldung(g, inc.id); if (!r.ok) flash(r.msg) }}>📻 Lagemeldung anfordern</button></>}
                     {inc.type.elw2Ask && !inc.elw2Asked && elwAtScene && <><br /><button onClick={() => { const r = askElw2(g, inc.id); if (!r.ok) flash(r.msg) }}>📻 ELW 1 anfunken: ELW 2 nötig?</button></>}
-                    {inc.revealed && Object.keys(inc.extra).length > 0 && <><br /><b style={{ color: '#f4a300' }}>Nachforderung erhalten</b></>}
+                    {inc.nachDone && <><br /><b style={{ color: '#f4a300' }}>Nachforderung der Einsatzleitung</b></>}{inc.revealed && <><br /><small className="muted">Lagemeldung liegt vor.</small></>}
                     {inc.type.water > 0 && <><br />Wasser: {sum('water')} / {inc.type.water} l · Atemschutztrupps: {sum('as')} / {inc.type.as}</>}
                     <br />Belohnung: {fmtMoney(inc.type.reward)}</p>
                   {assigned.length > 0 && (
