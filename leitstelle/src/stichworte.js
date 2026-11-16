@@ -138,3 +138,31 @@ export const addNeeds = (a, b) => {
   for (const [k, n] of Object.entries(b)) out[k] = (out[k] || 0) + n
   return out
 }
+
+// --- Einsatzentwicklung ---
+// Grundwahrscheinlichkeit, dass ein Einsatz "wächst" (Nachforderung), nach Stufe des Stichworts.
+const TIERS = {
+  1: ['F1', 'FRWM', 'H1', 'H1Y', 'HUNWETTER1', 'HUNWETTER2', 'R0K', 'R0', 'R1', 'R3', 'HFLUSS', 'HGAS1', 'HELEK'],
+  3: ['F2Y', 'F3', 'F3Y', 'FGAS2', 'FWALD2', 'HGEFAHR2', 'HKLEMM2Y', 'HEINSTY', 'FBUSY', 'FFLUG1Y', 'FSCHIFF2', 'FSCHIFF2Y'],
+  4: ['F4', 'FFLUG2Y', 'FZUGY', 'FSCHIFF2G', 'HRADIO', 'HSCHIFFY2', 'HZUG2Y', 'RMANV'],
+} // alles andere: Stufe 2
+const TIER_P = { 1: 0.03, 2: 0.1, 3: 0.2, 4: 0.35 }
+export const growProb = (id) => TIER_P[Object.entries(TIERS).find(([, l]) => l.includes(id))?.[0] ?? 2]
+
+// Wenn ein Einsatz "eskaliert", steigt das Stichwort in die nächste Stufe.
+export const ESCALATE = {
+  F1: 'F2', FBMA: 'F2', FRWM: 'F2', F2: 'F3', F2Y: 'F3Y', F3: 'F4', F3Y: 'F4',
+  FWALD1: 'FWALD2', FGAS1: 'FGAS2', H1: 'H2', HGAS1: 'HGAS2', HGEFAHR1: 'HGEFAHR2', HKLEMM1Y: 'HKLEMM2Y',
+  FSCHIFF1: 'FSCHIFF2', HFLUSS: 'HFLUSSY', R0K: 'R0', R0: 'R1', R1: 'R2',
+}
+
+export const maxNeeds = (a, b) => {
+  const out = { ...a }
+  for (const [k, n] of Object.entries(b)) out[k] = Math.max(out[k] || 0, n)
+  return out
+}
+export const diffNeeds = (a, b) => {
+  const out = {}
+  for (const [k, n] of Object.entries(a)) if (n > (b[k] || 0)) out[k] = n - (b[k] || 0)
+  return out
+}

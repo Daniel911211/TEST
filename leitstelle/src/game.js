@@ -1,6 +1,6 @@
 import KLINIKEN from './data/kliniken.json'
 // Reine Spiellogik (ohne React/Leaflet)
-import { INCIDENT_TYPES, ROLES, matchSlots, addNeeds } from './stichworte.js'
+import { INCIDENT_TYPES, ROLES, matchSlots, addNeeds, growProb, ESCALATE, maxNeeds, diffNeeds } from './stichworte.js'
 
 export const GAME_SEC_PER_REAL_SEC = 30 // bei 1x: 1 echte Sekunde = 30 Spielsekunden
 export const DETOUR = 1.3 // Umwegfaktor Luftlinie -> Straße
@@ -273,22 +273,75 @@ function pickEL(atScene) {
   return [...atScene].sort((a, b) => (ELRANK[b.type] || 1) - (ELRANK[a.type] || 1) || (a.arrivedAt ?? 0) - (b.arrivedAt ?? 0))[0]
 }
 
-const extraText = (inc) => Object.entries(inc.extra).map(([k, n]) => `${n}× ${ROLES[k].short}`).join(', ')
+const needText = (n) => Object.entries(n).map(([k, c]) => `${c}× ${ROLES[k].short}`).join(', ')
+const DEV_MAX_STEPS = 3
+const isNight = (t) => { const h = Math.floor(t / 3600) % 24; return h >= 22 || h < 6 }
 
-// Nachforderung der Einsatzleitung (zusätzliche Einsatzmittel nach Lage)
-function nachfordern(inc) {
-  inc.nachDone = true
-  inc.need = addNeeds(inc.need, inc.extra)
+// Verdeckter Verlauf: 'waechst' (Nachforderung), 'eskaliert' (Stichwort steigt) oder null (stabil).
+// Jede weitere Stufe der Kette ist nur halb so wahrscheinlich wie die vorherige.
+function rollPlan(inc, mult = 1) {
+  const f = mult * 0.5 ** (inc.devStep || 0)
+  const pG = Math.min(0.6, growProb(inc.type.id) * f)
+  const pE = ESCALATE[inc.type.id] ? Math.min(0.3, growProb(inc.type.id) * 0.2 * f) : 0
+  const u = Math.random()
+  return u < pE ? 'eskaliert' : u < pE + pG ? 'waechst' : null
 }
 
-// Lagemeldung der Einsatzleitung: beschreibt die Lage; nach dem Zufallsprinzip enthält sie auch eine Nachforderung.
-// Nachforderungen kommen außerdem unabhängig davon als eigener Funkspruch mitten im Einsatz.
+function scheduleNext(g, inc) {
+  inc.devStep = (inc.devStep || 0) + 1
+  if (inc.devStep < DEV_MAX_STEPS) {
+    inc.devPlan = rollPlan(inc)
+    inc.devAtT = g.t + inc.type.work * rnd(0.2, 0.5)
+  }
+}
+
+// Setzt den verdeckten Verlauf um. Rückgabe: Meldungstext oder null, wenn nichts passiert.
+function develop(g, inc) {
+  let plan = inc.devPlan
+  inc.devPlan = null
+  let text = null
+  if (plan === 'eskaliert') {
+    const next = INCIDENT_TYPES.find((t) => t.id === ESCALATE[inc.type.id])
+    if (next && Object.keys(matchSlots(next.need, g.vehicles)).length === 0) {
+      const oldName = inc.type.name
+      const newNeed = maxNeeds(inc.need, next.need)
+      const added = diffNeeds(newNeed, inc.need)
+      inc.type = next
+      inc.need = newNeed
+      inc.extra = { ...next.extra }
+      inc.workLeft = Math.max(inc.workLeft, next.work * 0.7)
+      inc.escalated = true
+      if (next.elw2Ask && inc.elw2 == null) inc.elw2 = Math.random() < 0.6 ? 'needed' : 'notneeded'
+      text = `Lage verschärft: ${oldName} wird zu ${next.name}.${Object.keys(added).length ? ` Nachforderung: ${needText(added)}.` : ''}`
+    } else plan = 'waechst'
+  }
+  if (plan === 'waechst') {
+    // 1–2 Rollen aus den möglichen Zusatzmitteln, soweit der Spieler sie überhaupt besitzt
+    let added = {}
+    const roles = Object.keys(inc.extra).sort(() => Math.random() - 0.5)
+    const want = Math.random() < 0.5 ? 1 : 2
+    for (const r of roles) {
+      if (Object.keys(added).length >= want) break
+      const test = addNeeds(addNeeds(inc.need, added), { [r]: inc.extra[r] })
+      if (Object.keys(matchSlots(test, g.vehicles)).length === 0) added = addNeeds(added, { [r]: inc.extra[r] })
+    }
+    if (Object.keys(added).length) {
+      inc.need = addNeeds(inc.need, added)
+      for (const r of Object.keys(added)) delete inc.extra[r]
+      inc.nachDone = true
+      text = `Nachforderung ${inc.type.name}: ${needText(added)}.`
+    }
+  }
+  scheduleNext(g, inc)
+  return text
+}
+
+// Lagemeldung der Einsatzleitung: beschreibt die Lage; nach dem Zufallsprinzip enthält sie den nächsten Entwicklungsschritt
+// (Nachforderung oder Hochstufung). Entwicklungen kommen außerdem unabhängig davon als eigener Funkspruch mitten im Einsatz.
 function reportLage(g, inc, el) {
   inc.revealed = true
-  if (Object.keys(inc.extra).length && !inc.nachDone && Math.random() < 0.5) {
-    nachfordern(inc)
-    addLog(g, `${el.callsign}: Lagemeldung – ${inc.type.bild}. Nachforderung: ${extraText(inc)}.`)
-  } else addLog(g, `${el.callsign}: Lagemeldung – ${inc.type.bild}. Einsatz läuft.`)
+  const dev = inc.devPlan && Math.random() < 0.5 ? develop(g, inc) : null
+  addLog(g, `${el.callsign}: Lagemeldung – ${inc.type.bild}. ${dev || 'Einsatz läuft.'}`)
 }
 
 // Leitstelle fordert bei der Einsatzleitung eine Lagemeldung an
@@ -319,13 +372,9 @@ function spawnIncident(g) {
   const ang = Math.random() * Math.PI * 2
   const dist = rnd(0.8, 5) // km
   const pos = [st.pos[0] + (Math.cos(ang) * dist) / 111, st.pos[1] + (Math.sin(ang) * dist) / (111 * Math.cos((st.pos[0] * Math.PI) / 180))]
-  // Nachforderungen ("zusätzliche Einsatzmittel nach Lage"): erst vor Ort bekannt
-  let extra = {}
-  for (const [role, n] of Object.entries(type.extra)) {
-    if (Math.random() < 0.4 && Object.keys(matchSlots(addNeeds(addNeeds(type.need, extra), { [role]: n }), g.vehicles)).length === 0) extra = addNeeds(extra, { [role]: n })
-  }
   const elw2 = !type.elw2Ask ? null : Object.keys(matchSlots(addNeeds(type.need, { ELW2: 1 }), g.vehicles)).length === 0 && Math.random() < 0.6 ? 'needed' : 'notneeded'
-  const inc = { id: g.nextId++, type, need: { ...type.need }, extra, revealed: false, elw2, elw2Asked: false, pos, created: g.t, status: 'open', workLeft: type.work, startedAt: null, dispatched: false }
+  const inc = { id: g.nextId++, type, need: { ...type.need }, extra: { ...type.extra }, devStep: 0, devPlan: null, devAtT: null, revealed: false, elw2, elw2Asked: false, pos, created: g.t, status: 'open', workLeft: type.work, startedAt: null, dispatched: false }
+  inc.devPlan = rollPlan(inc, isNight(g.t) ? 1.3 : 1)
   g.incidents.push(inc)
   addLog(g, `Neuer Einsatz: ${type.name}`)
 }
@@ -480,8 +529,10 @@ export function tick(g, dt) {
         inc.status = 'working'
         if (inc.startedAt == null) {
           inc.startedAt = g.t
-          // Nachforderung der Einsatzleitung irgendwann mitten im Einsatz (unabhängig von der Lagemeldung)
-          inc.nachAt = Object.keys(inc.extra).length ? inc.type.work * rnd(0.2, 0.7) : null
+          // Entwicklung (Nachforderung/Eskalation) irgendwann mitten im Einsatz, unabhängig von der Lagemeldung
+          inc.devAtT = g.t + inc.type.work * rnd(0.2, 0.7)
+          // Lange Wartezeit bis zum Arbeitsbeginn: Lage kann sich zusätzlich verschlimmern (ca. ×1,5)
+          if (!inc.devPlan && g.t - inc.created > 600) inc.devPlan = rollPlan(inc, 0.5)
         }
       } else if (inc.startedAt == null && g.t - inc.created > inc.type.deadline) {
         g.money -= inc.type.penalty
@@ -492,10 +543,10 @@ export function tick(g, dt) {
       }
     } else if (inc.status === 'working') {
       inc.workLeft -= dt
-      if (inc.nachAt != null && !inc.nachDone && inc.type.work - inc.workLeft >= inc.nachAt) {
-        nachfordern(inc)
+      if (inc.devPlan && inc.devAtT != null && g.t >= inc.devAtT) {
         const elv = g.vehicles.find((v) => v.id === inc.el) || atScene[0]
-        addLog(g, `${elv.callsign}: Nachforderung ${inc.type.name}: ${extraText(inc)}.`)
+        const text = develop(g, inc)
+        if (text) addLog(g, `${elv.callsign}: ${text}`)
       }
       const stillOk = Object.keys(matchSlots(inc.need, atScene)).length === 0
       if (!stillOk) inc.status = 'open' // nachgeforderte Mittel fehlen: Arbeit ruht
