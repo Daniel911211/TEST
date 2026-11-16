@@ -33,18 +33,23 @@ export default function App() {
   const speedRef = useRef(1)
   speedRef.current = speed
 
+  // Spiellogik läuft jeden Frame (flüssige Bewegung), die Oberfläche wird nur ca. 10x je Sekunde neu gezeichnet
   useEffect(() => {
     let last = performance.now()
     let saveAt = 0
-    const id = setInterval(() => {
+    let drawAt = 0
+    let raf = 0
+    const loop = () => {
       const now = performance.now()
       const dt = Math.min((now - last) / 1000, 0.5)
       last = now
       if (speedRef.current > 0) tick(gameRef.current, dt * speedRef.current * GAME_SEC_PER_REAL_SEC)
       if (now - saveAt > 3000) { saveGame(gameRef.current); saveAt = now }
-      force((n) => n + 1)
-    }, 200)
-    return () => clearInterval(id)
+      if (now - drawAt > 100) { drawAt = now; force((n) => n + 1) }
+      raf = requestAnimationFrame(loop)
+    }
+    raf = requestAnimationFrame(loop)
+    return () => cancelAnimationFrame(raf)
   }, [])
 
   const flash = (t) => { setMsg(t); setTimeout(() => setMsg(''), 2500) }
@@ -90,7 +95,7 @@ export default function App() {
         <span>✔ {g.done} ✖ {g.failed}</span>
         {requests > 0 && <span className="alert">📻 {requests} Sprechwunsch{requests > 1 ? 'e' : ''}</span>}
         <span className="spacer" />
-        {[0, 1, 2, 5].map((s) => (
+        {[0, 1, 2, 5, 10].map((s) => (
           <button key={s} className={speed === s ? 'on' : ''} onClick={() => setSpeed(s)}>{s === 0 ? '⏸' : `${s}x`}</button>
         ))}
         <button className={g.spawnPaused ? 'spawn-off' : 'on'} title={g.spawnPaused ? 'Es kommen keine neuen Einsätze. Klicken zum Einschalten.' : 'Neue Einsätze werden erzeugt. Klicken zum Anhalten.'} onClick={() => toggleSpawn(g)}>

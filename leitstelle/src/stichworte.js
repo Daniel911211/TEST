@@ -45,7 +45,7 @@ function mk(id, name, bild, o) {
   const severity = ['R2', 'R3', 'RLEBEL', 'MANV'].includes(o.rd) ? 3 : cat === 'R' ? 1 : 2
   return {
     id, name, bild, need, extra: o.extra || {}, rd: o.rd || null, weight: o.weight,
-    work: o.work, elw2Ask: !!o.elw2Ask, water: o.water || 0, as: o.as || 0,
+    work: o.work, elw2Ask: !!o.elw2Ask, ohneSS: !!o.ohneSS, water: o.water || 0, as: o.as || 0,
     deadline: cat === 'R' ? 600 : cat === 'H' ? 1200 : 900,
     reward, penalty: 0, points: 3 + 2 * size, // vorerst keine Strafe, Einsätze scheitern nicht
     patient: !!o.rd && o.rd !== 'R3', severity,
@@ -105,8 +105,8 @@ export const INCIDENT_TYPES = [
   mk('HUNWETTER2', 'H UNWETTER 2 – Unwetter, Wasserschäden', 'Wasserschäden durch Unwetter / Starkregen', { need: { S: 2 }, weight: 1, work: 420 }),
 
   // --- Rettungsdienst ---
-  mk('R0K', 'R0K – Minderdringlicher Notfall', 'Minderdringlicher Notfalleinsatz (N-KTW)', { need: {}, rd: 'R0K', weight: 2, work: 180 }),
-  mk('R0', 'R0 – Notfall ohne Sondersignal', 'Notfalleinsatz unterhalb der Notarzt-Indikation', { need: {}, rd: 'R0', extra: { NEF: 1 }, weight: 3, work: 240 }),
+  mk('R0K', 'R0K – Minderdringlicher Notfall', 'Minderdringlicher Notfalleinsatz (N-KTW)', { need: {}, rd: 'R0K', ohneSS: true, weight: 2, work: 180 }),
+  mk('R0', 'R0 – Notfall ohne Sondersignal', 'Notfalleinsatz unterhalb der Notarzt-Indikation', { need: {}, rd: 'R0', ohneSS: true, extra: { NEF: 1 }, weight: 3, work: 240 }),
   mk('R1', 'R1 – Notfall mit Sondersignal', 'Dringlicher Notfalleinsatz', { need: {}, rd: 'R1', extra: { NEF: 1 }, weight: 5, work: 240 }),
   mk('R2', 'R2 – Notfall mit Notarzt', 'Akut lebensbedrohliche Situation', { need: {}, rd: 'R2', weight: 3, work: 420 }),
   mk('R3', 'R3 – Notarzt allein', 'Notarzt allein – Nachforderung zu laufendem Einsatz oder bereichsübergreifend', { need: {}, rd: 'R3', weight: 0, work: 300 }),

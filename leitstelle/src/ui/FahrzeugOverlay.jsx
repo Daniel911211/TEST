@@ -1,4 +1,4 @@
-import { VEHICLE_TYPES, STATUS_TEXT, HOSPITALS, repairQuote, sendToWorkshop, recallVehicle, sellPrice, fmtMin, fmtMoney } from '../game.js'
+import { VEHICLE_TYPES, STATUS_TEXT, HOSPITALS, incidentTitle, sondersignal, repairQuote, sendToWorkshop, recallVehicle, sellPrice, fmtMin, fmtMoney } from '../game.js'
 import { vehiclesOf, stationOf } from './helpers.js'
 import Overlay from './Overlay.jsx'
 import { CondBar, incidentOf, sell } from './WachenOverlay.jsx'
@@ -26,7 +26,8 @@ export default function FahrzeugOverlay({ g, vehicleId, onClose, onOpenVehicle, 
       <div className="pad fz-facts">
         <div><span className="muted">Wache</span> <b>{st?.name || '–'}</b></div>
         <div><span className="muted">Status</span> <span className={`st s${v.status}`}>{v.status}</span> {STATUS_TEXT[v.status]}{v.status === 6 ? ` – noch ${fmtMin(v.timer)}` : ''}</div>
-        <div><span className="muted">Einsatz</span> {inc ? <b>{inc.type.name}</b> : '–'}</div>
+        <div><span className="muted">Einsatz</span> {inc ? <b>{incidentTitle(inc)}</b> : '–'}</div>
+        {(v.status === 1 || v.status === 3 || v.status === 7) && <div><span className="muted">Fahrt</span> {sondersignal(g, v) ? <b className="amber">mit Sondersignal</b> : 'ohne Sondersignal (langsamer)'}</div>}
         {hosp && <div><span className="muted">Zielklinik</span> <b>{hosp.name}</b></div>}
         {d.water > 0 && <div><span className="muted">Ausstattung</span> {d.water} l Wasser · {d.as} Atemschutztrupp{d.as !== 1 ? 's' : ''}</div>}
         <div><span className="muted">Höchstgeschwindigkeit</span> {d.speed} km/h</div>

@@ -1,8 +1,11 @@
 import KLINIKEN from './data/kliniken.json'
 // Reine Spiellogik (ohne React/Leaflet)
 import { INCIDENT_TYPES, ROLES, matchSlots, addNeeds, growProb, ESCALATE, maxNeeds, diffNeeds } from './stichworte.js'
+import { pickSzenario, incidentTitle } from './szenarien.js'
+export { incidentTitle, typeCode } from './szenarien.js'
 
-export const GAME_SEC_PER_REAL_SEC = 30 // bei 1x: 1 echte Sekunde = 30 Spielsekunden
+export const GAME_SEC_PER_REAL_SEC = 10 // bei 1x: 1 echte Sekunde = 10 Spielsekunden
+export const SLOW = 0.6 // Tempo ohne Sondersignal (Rückfahrt, Einsätze ohne Sondersignal, leichte Transporte)
 export const DETOUR = 1.3 // Umwegfaktor Luftlinie -> Straße
 export const CENTER = [50.5558, 9.6808] // Fulda
 export const MAX_VEHICLES_PER_STATION = Infinity // Stellplätze vorerst unbegrenzt
@@ -80,7 +83,15 @@ export const km = (a, b) => {
 }
 
 // Schätzung (Luftlinie × Umwegfaktor) – nur für die Anzeige
-export const etaSec = (vehicle, target) => (km(vehicle.pos, target) * DETOUR) / VEHICLE_TYPES[vehicle.type].speed * 3600
+export const etaSec = (vehicle, target, factor = 1) => (km(vehicle.pos, target) * DETOUR) / (VEHICLE_TYPES[vehicle.type].speed * factor) * 3600
+
+// Fährt das Fahrzeug gerade mit Sondersignal? Anfahrt (außer Stichwörter ohne Sondersignal) und Transport schwerer Patienten.
+export function sondersignal(g, v) {
+  if (v.status === 3) { const inc = g.incidents.find((i) => i.id === v.incidentId); return !inc?.type.ohneSS }
+  if (v.status === 7) return (v.patientSeverity || 1) >= 3
+  return false
+}
+export const tempoFactor = (g, v) => (sondersignal(g, v) ? 1 : SLOW)
 
 export const fmtClock = (t) => {
   const s = Math.floor(t) % 86400
@@ -113,8 +124,23 @@ export function newGame() {
 }
 
 const rnd = (a, b) => a + Math.random() * (b - a)
+// Funkmeldungen bekommen eine Art, damit die Oberfläche Lagemeldungen und Nachforderungen hervorheben kann
+export const LOG_KINDS = {
+  lage: 'Lagemeldung', nachforderung: 'Nachforderung', neu: 'Neuer Einsatz', erledigt: 'Erledigt',
+  sprech: 'Sprechwunsch', leitstelle: 'Leitstelle', status: 'Status', info: '',
+}
+const logKind = (text) => {
+  if (/Lagemeldung –/.test(text)) return 'lage'
+  if (/Nachforderung|fordert ELW 2|ELW 2 wird|Erkundung –|Stichwort wird/.test(text)) return 'nachforderung'
+  if (/^Neuer Einsatz/.test(text)) return 'neu'
+  if (/^Einsatz erledigt/.test(text)) return 'erledigt'
+  if (/Status 5/.test(text)) return 'sprech'
+  if (/^Leitstelle/.test(text)) return 'leitstelle'
+  if (/Status [1-8]|Einsatzleitung|rückalarmiert|abgezogen/.test(text)) return 'status'
+  return 'info'
+}
 const addLog = (g, text) => {
-  g.log.unshift({ t: g.t, text })
+  g.log.unshift({ t: g.t, text, kind: logKind(text) })
   if (g.log.length > 60) g.log.length = 60
 }
 
@@ -328,6 +354,7 @@ const isNight = (t) => { const h = Math.floor(t / 3600) % 24; return h >= 22 || 
 // Verdeckter Verlauf: 'waechst' (Nachforderung), 'eskaliert' (Stichwort steigt) oder null (stabil).
 // Jede weitere Stufe der Kette ist nur halb so wahrscheinlich wie die vorherige.
 function rollPlan(inc, mult = 1) {
+  if (inc.szenario?.stabil) return null // harmlose Lage (Fehlalarm, Nachschau): keine Nachforderung, keine Hochstufung
   const f = mult * 0.5 ** (inc.devStep || 0)
   const pG = Math.min(0.6, growProb(inc.type.id) * f)
   const pE = ESCALATE[inc.type.id] ? Math.min(0.3, growProb(inc.type.id) * 0.2 * f) : 0
@@ -358,6 +385,7 @@ function develop(g, inc) {
       const newNeed = maxNeeds(inc.need, next.need)
       const added = diffNeeds(newNeed, inc.need)
       inc.type = next
+      inc.szenario = pickSzenario(next.id) || inc.szenario
       inc.need = newNeed
       inc.extra = { ...next.extra }
       inc.workLeft = Math.max(inc.workLeft, next.work * 0.7)
@@ -394,7 +422,8 @@ function develop(g, inc) {
 function reportLage(g, inc, el) {
   inc.revealed = true
   const dev = inc.devPlan && Math.random() < 0.5 ? develop(g, inc) : null
-  addLog(g, `${el.callsign}: Lagemeldung – ${inc.type.bild}. ${dev || 'Einsatz läuft.'}`)
+  const lage = inc.szenario?.lage || `${inc.type.bild}.`
+  addLog(g, `${el.callsign}: Lagemeldung – ${lage}${dev ? ' Lage ändert sich: ' + dev : ''}`)
 }
 
 // Leitstelle fordert bei der Einsatzleitung eine Lagemeldung an
@@ -442,10 +471,10 @@ function spawnIncident(g) {
   const dist = rnd(0.8, 5) // km
   const pos = [st.pos[0] + (Math.cos(ang) * dist) / 111, st.pos[1] + (Math.sin(ang) * dist) / (111 * Math.cos((st.pos[0] * Math.PI) / 180))]
   const elw2 = !type.elw2Ask ? null : Object.keys(matchSlots(addNeeds(type.need, { ELW2: 1 }), g.vehicles)).length === 0 && Math.random() < 0.6 ? 'needed' : 'notneeded'
-  const inc = { id: g.nextId++, type, need: { ...type.need }, extra: { ...type.extra }, devStep: 0, devPlan: null, devAtT: null, revealed: false, elw2, elw2Asked: false, pos, created: g.t, status: 'open', workLeft: type.work, startedAt: null, dispatched: false }
+  const inc = { id: g.nextId++, type, szenario: pickSzenario(type.id), need: { ...type.need }, extra: { ...type.extra }, devStep: 0, devPlan: null, devAtT: null, revealed: false, elw2, elw2Asked: false, pos, created: g.t, status: 'open', workLeft: type.work, startedAt: null, dispatched: false }
   inc.devPlan = rollPlan(inc, isNight(g.t) ? 1.3 : 1)
   g.incidents.push(inc)
-  addLog(g, `Neuer Einsatz: ${type.name}`)
+  addLog(g, `Neuer Einsatz: ${incidentTitle(inc)}`)
 }
 
 // --- Routing über OSRM (keine Drosselung, kein Luftlinien-Fallback) ---
@@ -486,7 +515,7 @@ function moveAlong(v, dt) {
 function driveTo(g, v, target, dt, onFail) {
   const key = target.join()
   if (v.route && v.route.key === key) {
-    if (!moveAlong(v, dt)) return false
+    if (!moveAlong(v, dt * tempoFactor(g, v))) return false
     v.route = null
     return true
   }
@@ -539,7 +568,7 @@ export function tick(g, dt) {
         })) {
           v.status = 4
           v.arrivedAt = g.t
-          addLog(g, `${v.callsign}: Status 4 – am Einsatzort (${inc.type.name})`)
+          addLog(g, `${v.callsign}: Status 4 – am Einsatzort (${incidentTitle(inc)})`)
         }
         break
       case 7:
@@ -589,7 +618,7 @@ export function tick(g, dt) {
     const el = pickEL(atScene)
     if (el && el.id !== inc.el) {
       inc.el = el.id
-      addLog(g, `${el.callsign} übernimmt die Einsatzleitung (${inc.type.name}).`)
+      addLog(g, `${el.callsign} übernimmt die Einsatzleitung (${incidentTitle(inc)}).`)
       // Erkundung beim Eintreffen: Der Einsatzleiter stellt fest, dass die Lage größer ist, und erhöht das Stichwort
       if (!inc.erkundet) {
         inc.erkundet = true
@@ -599,13 +628,14 @@ export function tick(g, dt) {
         }
       }
       // Wechselt die Einsatzleitung, meldet der neue Leiter ggf. von selbst die Lage (nur solange noch keine Lagemeldung vorliegt)
-      if (!inc.revealed && Math.random() < 0.7) reportLage(g, inc, el)
+      // Rettungsdienstfahrzeuge melden bei Brand/Hilfeleistung keine Lage von selbst (das macht die Feuerwehr nach dem Eintreffen)
+      if (!inc.revealed && Math.random() < 0.7 && (elRank(el) >= 1 || inc.type.id[0] === 'R')) reportLage(g, inc, el)
     }
     // Fordert niemand nach, meldet der ELW 1 den ELW-2-Bedarf nach 10 Minuten selbst
     if (inc.elw2 === 'needed' && !inc.elw2Asked && inc.startedAt != null && g.t - inc.startedAt > 600) {
       inc.elw2Asked = true
       inc.need = addNeeds(inc.need, { ELW2: 1 })
-      addLog(g, `ELW 1 (${inc.type.name}): fordert ELW 2 nach.`)
+      addLog(g, `ELW 1 (${incidentTitle(inc)}): fordert ELW 2 nach.`)
     }
     const satisfied = Object.keys(matchSlots(inc.need, atScene)).length === 0
 
@@ -637,7 +667,7 @@ export function tick(g, dt) {
         g.money += reward
         g.points += inc.type.points
         g.done++
-        addLog(g, `Einsatz erledigt: ${inc.type.name} (+${fmtMoney(reward)})`)
+        addLog(g, `Einsatz erledigt: ${incidentTitle(inc)} (+${fmtMoney(reward)})`)
         let patients = inc.type.patient ? (inc.type.rd === 'MANV' ? 4 : 1) : 0
         for (const v of g.vehicles) {
           if (v.incidentId !== inc.id) continue
@@ -668,7 +698,8 @@ export const loadGame = () => {
     for (const h of HOSPITALS) if (g.hospitals[h.id]?.beds == null) g.hospitals[h.id] = newHospital()
     delete g.bedTimer
     for (const v of g.vehicles) { if (v.condition == null) v.condition = 100 }
-    for (const i of g.incidents) i.type = INCIDENT_TYPES.find((t) => t.id === i.type.id) || i.type
+    for (const l of g.log || []) if (!l.kind) l.kind = logKind(l.text)
+    for (const i of g.incidents) { i.type = INCIDENT_TYPES.find((t) => t.id === i.type.id) || i.type; if (!i.szenario) i.szenario = pickSzenario(i.type.id) }
     return g
   } catch { return null }
 }

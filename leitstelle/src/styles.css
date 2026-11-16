@@ -126,8 +126,17 @@ h5 { font-size:12px; color:var(--muted); margin-top:8px; }
 
 /* Funk */
 .funk-list { list-style:none; margin:0; padding:4px 10px; }
-.funk-list li { padding:3px 0; border-bottom:1px solid var(--line); }
+.funk-list li { padding:3px 6px; border-bottom:1px solid var(--line); border-left:3px solid transparent; }
 .funk-list li.new { color:#fff; }
+.funk-list li.funk-lage { border-left-color:var(--amber); background:#f4a30014; }
+.funk-list li.funk-nachforderung { border-left-color:#ff4d4d; background:#d6282818; }
+.funk-list li.funk-neu { border-left-color:#ff6b9a; }
+.funk-list li.funk-erledigt { border-left-color:var(--green); }
+.funk-list li.funk-sprech { border-left-color:#e91e63; }
+.funk-list li.funk-leitstelle { border-left-color:var(--blue); }
+.tag { display:inline-block; font-size:10px; font-weight:800; text-transform:uppercase; letter-spacing:.04em; padding:0 5px; border-radius:3px; margin:0 2px 0 4px; vertical-align:1px; background:#3a4454; color:#dfe6f0; }
+.tag-lage { background:var(--amber); color:#000; } .tag-nachforderung { background:#ff4d4d; color:#000; } .tag-neu { background:#ff6b9a; color:#000; }
+.tag-erledigt { background:var(--green); color:#000; } .tag-sprech { background:#e91e63; color:#fff; } .tag-leitstelle { background:var(--blue); color:#fff; }
 
 /* Status- und Kartenmarker */
 .st { display:inline-block; min-width:20px; text-align:center; border-radius:4px; color:#000; font-weight:700; background:#9aa; font-size:12px; padding:0 3px; }

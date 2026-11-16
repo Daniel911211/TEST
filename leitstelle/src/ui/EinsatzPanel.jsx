@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { ROLES, VEHICLE_TYPES, matchSlots, isAvailable, etaSec, dispatch, recommend, askElw2, requestLagemeldung, fmtMin, fmtMoney } from '../game.js'
+import { ROLES, VEHICLE_TYPES, SLOW, matchSlots, isAvailable, etaSec, dispatch, recommend, recallVehicle, askElw2, requestLagemeldung, incidentTitle, fmtMin, fmtMoney } from '../game.js'
 import { VEHICLE_GROUPS, groupOf, stationOf } from './helpers.js'
 
 const needText = (need) => Object.entries(need).map(([k, n]) => `${n}× ${ROLES[k].short}`).join(', ')
@@ -26,7 +26,7 @@ export default function EinsatzPanel({ g, selectedId, onSelect, flash }) {
             <div key={i.id} className={`inc ${cls} ${selectedId === i.id ? 'sel' : ''}`} onClick={() => select(i.id)}>
               <div className="inc-title">
                 <span className={`inc-dot ${cls}`} />
-                <b>{i.type.name}</b>
+                <b>{incidentTitle(i)}</b>
                 <small className="muted">{i.status === 'working' ? `noch ${fmtMin(i.workLeft)}` : `seit ${fmtMin(g.t - i.created)}`}</small>
               </div>
               {i.status === 'working' && <div className="bar"><i style={{ width: `${Math.round(100 - (100 * i.workLeft) / i.type.work)}%` }} /></div>}
@@ -44,6 +44,7 @@ export default function EinsatzPanel({ g, selectedId, onSelect, flash }) {
 
 function EinsatzFenster({ g, inc, picked, setPicked, filter, setFilter, flash }) {
   const assigned = g.vehicles.filter((v) => v.incidentId === inc.id)
+  const tf = inc.type.ohneSS ? SLOW : 1 // Fahrzeit ohne Sondersignal
   const onScene = assigned.filter((v) => v.status === 4)
   const sum = (key) => onScene.reduce((a, v) => a + (VEHICLE_TYPES[v.type][key] || 0), 0)
   const missing = matchSlots(inc.need, assigned)
@@ -52,15 +53,15 @@ function EinsatzFenster({ g, inc, picked, setPicked, filter, setFilter, flash })
   const free = g.vehicles
     .filter(isAvailable)
     .filter((v) => filter === 'alle' || groupOf(v.type) === filter)
-    .sort((a, b) => etaSec(a, inc.pos) - etaSec(b, inc.pos))
+    .sort((a, b) => etaSec(a, inc.pos, tf) - etaSec(b, inc.pos, tf))
   const toggle = (id, on) => setPicked(on ? [...picked, id] : picked.filter((x) => x !== id))
   const send = () => { dispatch(g, inc.id, picked); setPicked([]) }
 
   return (
     <div className="einsatz-fenster">
       <div className="ef-head">
-        <h3>{inc.type.name}</h3>
-        <small className="muted">{inc.type.bild}</small>
+        <h3>{incidentTitle(inc)}</h3>
+        <small className="muted">{inc.type.name}{inc.type.ohneSS ? ' · ohne Sondersignal' : ''}</small>
         <div className="ef-facts">
           <span>Benötigt: {needText(inc.need)}</span>
           <span>Belohnung: {fmtMoney(inc.type.reward)}</span>
@@ -85,7 +86,8 @@ function EinsatzFenster({ g, inc, picked, setPicked, filter, setFilter, flash })
                   <td><span className={`st s${v.status}`}>{v.status}</span></td>
                   <td><b>{v.callsign}</b></td>
                   <td className="muted">{stationOf(g, v)?.name}</td>
-                  <td className="muted">{v.status === 3 ? fmtMin(etaSec(v, inc.pos)) : v.status === 4 ? 'vor Ort' : ''}</td>
+                  <td className="muted">{v.status === 3 ? fmtMin(etaSec(v, inc.pos, tf)) : v.status === 4 ? 'vor Ort' : ''}</td>
+                  <td className="nowrap">{(v.status === 3 || v.status === 4) && <button className="small" title={v.status === 4 ? 'Fahrzeug vom Einsatz entlassen (Status 1)' : 'Rückalarmieren (Status 1)'} onClick={() => { const r = recallVehicle(g, v.id); if (!r.ok) flash(r.msg) }}>{v.status === 4 ? 'Entlassen' : 'Rückalarm.'}</button>}</td>
                 </tr>
               ))}
             </tbody>
@@ -111,7 +113,7 @@ function EinsatzFenster({ g, inc, picked, setPicked, filter, setFilter, flash })
                   <td><span className={`st s${v.status}`}>{v.status}</span></td>
                   <td><b>{v.callsign}</b>{v.condition < 30 ? <small className="red"> Panne?</small> : null}</td>
                   <td className="muted">{VEHICLE_TYPES[v.type].name}</td>
-                  <td>{fmtMin(etaSec(v, inc.pos))}</td>
+                  <td>{fmtMin(etaSec(v, inc.pos, tf))}</td>
                   <td className="muted">{stationOf(g, v)?.name}</td>
                 </tr>
               ))}

@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react'
 import L from 'leaflet'
-import { CENTER, HOSPITALS, VEHICLE_TYPES } from './game.js'
+import { CENTER, HOSPITALS, VEHICLE_TYPES, incidentTitle } from './game.js'
 
 const icon = (html, cls, size = 28) =>
   L.divIcon({ html, className: cls, iconSize: [size, size], iconAnchor: [size / 2, size / 2] })
@@ -10,6 +10,8 @@ export default function MapView({ game, sites, selected, buildMode, buildPos, on
   const map = useRef(null)
   const layers = useRef({ st: new Map(), veh: new Map(), inc: new Map() })
   const cb = useRef({})
+  const gameRef = useRef(game)
+  gameRef.current = game
   cb.current = { onMapClick, onSelectIncident, onSelectStation, onSelectVehicle, onSelectHospital, onSiteClick, buildMode }
 
   useEffect(() => {
@@ -28,7 +30,19 @@ export default function MapView({ game, sites, selected, buildMode, buildPos, on
     if (sites.length) m.fitBounds(L.latLngBounds(sites.map((s) => s.pos)).pad(0.05))
     m.on('click', (e) => cb.current.onMapClick([e.latlng.lat, e.latlng.lng]))
     map.current = m
-    return () => m.remove()
+    // Fahrzeugmarker jeden Frame nachführen (flüssige Bewegung unabhängig vom React-Takt)
+    let raf = 0
+    const loop = () => {
+      for (const [id, mk] of layers.current.veh) {
+        const v = gameRef.current.vehicles.find((x) => x.id === id)
+        if (!v) continue
+        const ll = mk.getLatLng()
+        if (ll.lat !== v.pos[0] || ll.lng !== v.pos[1]) mk.setLatLng(v.pos)
+      }
+      raf = requestAnimationFrame(loop)
+    }
+    raf = requestAnimationFrame(loop)
+    return () => { cancelAnimationFrame(raf); m.remove() }
   }, [])
 
   useEffect(() => {
@@ -63,7 +77,7 @@ export default function MapView({ game, sites, selected, buildMode, buildPos, on
       L.marker(i.pos, { icon: icon('!', 'mk mk-inc', 30), zIndexOffset: 500 }).on('click', (e) => {
         L.DomEvent.stopPropagation(e); cb.current.onSelectIncident(i.id)
       }), (mk, i) => {
-        setTip(mk, `${i.type.name}${i.status === 'working' ? ' (wird bearbeitet)' : ''}`)
+        setTip(mk, `${incidentTitle(i)}${i.status === 'working' ? ' (wird bearbeitet)' : ''}`)
         const sel = selected.incidentId === i.id
         const cls = `mk mk-inc ${i.status === 'working' ? 'working' : ''} ${sel ? 'sel' : ''}`
         setIcon(mk, cls, () => icon('!', cls, 30))

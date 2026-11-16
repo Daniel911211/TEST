@@ -1,4 +1,4 @@
-import { VEHICLE_TYPES, STATUS_TEXT, buyVehicle, sellVehicle, sellPrice, repairQuote, sendToWorkshop, buildWorkshop, WORKSHOP_COST, fmtMin, fmtMoney } from '../game.js'
+import { VEHICLE_TYPES, STATUS_TEXT, incidentTitle, buyVehicle, sellVehicle, sellPrice, repairQuote, sendToWorkshop, buildWorkshop, WORKSHOP_COST, fmtMin, fmtMoney } from '../game.js'
 import { VEHICLE_GROUPS, groupOf, vehiclesOf, stationTypeName, shortName } from './helpers.js'
 import Overlay from './Overlay.jsx'
 
@@ -49,7 +49,7 @@ function FahrzeugeTab({ g, station, vehicles, onOpenVehicle, flash, setTab }) {
               <td><span className={`st s${v.status}`} title={STATUS_TEXT[v.status]}>{v.status}</span></td>
               <td title={v.callsign}><b>{shortName(v, station)}</b></td>
               <td>{VEHICLE_TYPES[v.type].name}</td>
-              <td className="muted">{inc ? inc.type.name : v.status === 6 ? `Werkstatt – noch ${fmtMin(v.timer)}` : '–'}</td>
+              <td className="muted">{inc ? incidentTitle(inc) : v.status === 6 ? `Werkstatt – noch ${fmtMin(v.timer)}` : '–'}</td>
               <td style={{ minWidth: 70 }}><CondBar c={v.condition} /></td>
               <td className="nowrap" onClick={(e) => e.stopPropagation()}>
                 {q && <button className="small" title={`${fmtMin(q.duration)}, ${fmtMoney(q.cost)}`} onClick={() => { const r = sendToWorkshop(g, v.id); if (!r.ok) flash(r.msg) }}>Werkstatt</button>}

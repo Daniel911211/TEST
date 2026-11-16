@@ -17,7 +17,8 @@ Gibt Stundenwerte, Käufe, Wartezeiten und Auffälligkeiten aus; `SAVE=` schreib
 
 ## Technik (React 18, Vite 5, Leaflet 1.9)
 - `src/game.js`: reine Spiellogik (Tick, Fahrzeuge, Einsätze, Funk, Werkstatt, Kliniken, Verkauf, Rückalarmieren). Keine UI-Abhängigkeit.
-- `src/stichworte.js`: 52 Einsatzstichworte nach dem Hessen-Erlass (F, H, R), Rollen, Eskalationsketten, Grundwahrscheinlichkeiten nach Stufe.
+- `src/stichworte.js`: 52 Einsatzstichworte nach dem Hessen-Erlass (F, H, R), Rollen, Eskalationsketten, Grundwahrscheinlichkeiten nach Stufe. `ohneSS` = Stichwort ohne Sondersignal (R0, R0K).
+- `src/szenarien.js`: konkrete Szenarien je Stichwort (eigene Texte): `name` wird zum Einsatznamen („H1 – Baum auf Fahrbahn“), `lage` ist die Lagemeldung der Einsatzleitung, `stabil` = harmlose Lage ohne Nachforderung/Hochstufung (Fehlalarm, Nachschau). Beim Hochstufen wird ein Szenario des neuen Stichworts gezogen.
 - `src/App.jsx`: nur Layout-Rahmen und Auswahl-/Overlay-Zustand. `src/MapView.jsx`: Karte, Marker werden zwischengespeichert (kein Neuzeichnen, keine `transform`-Animationen auf Markern, sonst springen sie). Klick auf Wachen-, Fahrzeug- und Einsatzmarker.
 - `src/ui/`: `EinsatzPanel.jsx` (Einsatzliste + Einsatzfenster), `WachenPanel.jsx` (Wachenliste unten links), `SprechwunschPanel.jsx`, `FunkPanel.jsx`,
   `Overlay.jsx` (Rahmen mit Kopf, Reitern, Vor/Zurück), `WachenOverlay.jsx` (Reiter Fahrzeuge, Fahrzeugmarkt, Ausbau; Reiterliste je Wachentyp in `TABS`),
@@ -26,7 +27,11 @@ Gibt Stundenwerte, Käufe, Wartezeiten und Auffälligkeiten aus; `SAVE=` schreib
 - `scripts/fetch-nominatim.py` (Standorte neu holen), `scripts/fetch-feuerwehren.mjs` (Overpass, ging hier nicht). `tools/durchspielen.mjs` (siehe oben).
 
 ## Oberfläche (Stand nach Etappe 1–4)
-- Kopfzeile: Uhr, Geld, Punkte/Rang, erledigt/gescheitert, Sprechwunsch-Zähler, Geschwindigkeit (Pause, 1x, 2x, 5x), Neu.
+- Kopfzeile: Uhr, Geld, Punkte/Rang, erledigt/gescheitert, Sprechwunsch-Zähler, Geschwindigkeit (Pause, 1x, 2x, 5x, 10x), Schalter „Neue Einsätze an/aus“ (hält nur die Einsatzgenerierung an), Neu.
+- Zeit: 1 echte Sekunde = 10 Spielsekunden bei 1x (`GAME_SEC_PER_REAL_SEC`). Spiellogik läuft jeden Frame (requestAnimationFrame), Oberfläche zeichnet ca. 10x je Sekunde, Fahrzeugmarker werden in `MapView.jsx` jeden Frame nachgeführt.
+- Sondersignal: Anfahrt (außer Stichwörter ohne Sondersignal) und Transport schwerer Patienten mit voller Geschwindigkeit, sonst Faktor `SLOW` (0,6): Rückfahrt zur Wache, R0/R0K, leichte und mittlere Transporte.
+- Funk: Meldungen tragen eine Art (`kind`: lage, nachforderung, neu, erledigt, sprech, leitstelle, status, info) und werden farbig gekennzeichnet. Lagemeldung = Szenario-Text, bei Entwicklung mit Zusatz „Lage ändert sich: …“. Rettungsdienstfahrzeuge melden bei F/H-Einsätzen keine Lage von selbst.
+- Fahrzeuge entlassen: im Einsatzfenster unter „Alarmiert“ (Knopf je Fahrzeug) oder im Fahrzeug-Overlay (Rückalarmieren bei Status 3, vom Einsatz abziehen bei Status 4).
 - Oben: Karte links, rechts Einsatzbereich (Liste mit „Fehlt noch: …“, darunter Einsatzfenster mit Alarmiert, Freie Fahrzeuge nach Fahrzeit mit Typfiltern, Empfehlung, Alarmieren).
 - Unten: Wachen (Knopf „Neues Gebäude bauen“, Filter, Suche, Liste mit Fahrzeug-Chips) | Sprechwünsche + Kliniken | Funk.
 - Overlays über der Karte: Wache (Marker oder „Details“), Fahrzeug (Marker, Chip oder Tabellenzeile), Bauformular (Gebäudetyp, Name, Standort per Klick, Bauen).
