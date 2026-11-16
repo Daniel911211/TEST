@@ -64,6 +64,7 @@ export const km = (a, b) => {
   return 2 * R * Math.asin(Math.sqrt(x))
 }
 
+// Schätzung (Luftlinie × Umwegfaktor) – nur für die Anzeige
 export const etaSec = (vehicle, target) => (km(vehicle.pos, target) * DETOUR) / VEHICLE_TYPES[vehicle.type].speed * 3600
 
 export const fmtClock = (t) => {
@@ -171,6 +172,7 @@ export function recommend(g, inc) {
 }
 
 function releaseVehicle(v) {
+  v.route = null
   v.incidentId = null
   v.status = 1
   v.timer = 0
@@ -192,15 +194,55 @@ function spawnIncident(g) {
   addLog(g, `Neuer Einsatz: ${type.name}`)
 }
 
-function moveToward(v, target, dt) {
-  const speed = (VEHICLE_TYPES[v.type].speed / DETOUR) * (dt / 3600) // km in diesem Schritt
-  const d = km(v.pos, target)
-  if (d <= speed) {
-    v.pos = [...target]
+// --- Routing über OSRM (keine Drosselung, kein Luftlinien-Fallback) ---
+const routeCache = new Map()
+const pendingRoutes = new Set()
+const osrmBase = () => {
+  try { const u = localStorage.getItem('osrm-url'); if (u) return u } catch { /* ignore */ }
+  return import.meta.env?.VITE_OSRM_URL || 'https://router.project-osrm.org'
+}
+async function fetchRoute(from, to) {
+  const key = `${from.map((n) => n.toFixed(5))}|${to.map((n) => n.toFixed(5))}`
+  if (routeCache.has(key)) return routeCache.get(key)
+  const res = await fetch(`${osrmBase()}/route/v1/driving/${from[1]},${from[0]};${to[1]},${to[0]}?overview=full&geometries=geojson`)
+  if (!res.ok) throw new Error(`HTTP ${res.status}`)
+  const j = await res.json()
+  if (j.code !== 'Ok') throw new Error(j.code)
+  const pts = j.routes[0].geometry.coordinates.map(([lng, lat]) => [lat, lng])
+  routeCache.set(key, pts)
+  return pts
+}
+
+function moveAlong(v, dt) {
+  let left = VEHICLE_TYPES[v.type].speed * (dt / 3600) // km
+  const r = v.route
+  while (left > 0 && r.i < r.pts.length) {
+    const d = km(v.pos, r.pts[r.i])
+    if (d <= left) { v.pos = [...r.pts[r.i]]; left -= d; r.i++ }
+    else {
+      const f = left / d
+      v.pos = [v.pos[0] + (r.pts[r.i][0] - v.pos[0]) * f, v.pos[1] + (r.pts[r.i][1] - v.pos[1]) * f]
+      left = 0
+    }
+  }
+  return r.i >= r.pts.length
+}
+
+// true, sobald das Ziel erreicht ist
+function driveTo(g, v, target, dt, onFail) {
+  const key = target.join()
+  if (v.route && v.route.key === key) {
+    if (!moveAlong(v, dt)) return false
+    v.route = null
     return true
   }
-  const f = speed / d
-  v.pos = [v.pos[0] + (target[0] - v.pos[0]) * f, v.pos[1] + (target[1] - v.pos[1]) * f]
+  if (!pendingRoutes.has(v.id) && !(v.retryAt > g.t)) {
+    pendingRoutes.add(v.id)
+    fetchRoute(v.pos, target)
+      .then((pts) => { v.route = { key, pts, i: 0 } })
+      .catch((e) => { v.retryAt = g.t + 60; onFail(e) })
+      .finally(() => pendingRoutes.delete(v.id))
+  }
   return false
 }
 
@@ -222,13 +264,16 @@ export function tick(g, dt) {
     switch (v.status) {
       case 3:
         if (!inc) { releaseVehicle(v); break }
-        if (moveToward(v, inc.pos, dt)) {
+        if (driveTo(g, v, inc.pos, dt, (e) => {
+          addLog(g, `${v.callsign}: Routing fehlgeschlagen (${e.message}) – Alarm abgebrochen`)
+          releaseVehicle(v)
+        })) {
           v.status = 4
           addLog(g, `${v.callsign}: Status 4 – am Einsatzort (${inc.type.name})`)
         }
         break
       case 7:
-        if (moveToward(v, v.hospital.pos, dt)) {
+        if (driveTo(g, v, v.hospital.pos, dt, (e) => addLog(g, `${v.callsign}: Routing fehlgeschlagen (${e.message})`))) {
           v.status = 8
           v.timer = 300
         }
@@ -238,7 +283,7 @@ export function tick(g, dt) {
         if (v.timer <= 0) releaseVehicle(v)
         break
       case 1:
-        if (moveToward(v, st.pos, dt)) v.status = 2
+        if (driveTo(g, v, st.pos, dt, (e) => addLog(g, `${v.callsign}: Routing fehlgeschlagen (${e.message})`))) v.status = 2
         break
       default:
         break
