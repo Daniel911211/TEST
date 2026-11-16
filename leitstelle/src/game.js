@@ -459,6 +459,24 @@ function scheduleNext(g, inc) {
   }
 }
 
+// Test-Auslöser (Knopf im Einsatz-Overlay, nur im Entwicklungsmodus): zwingt die Hochstufung des Stichworts.
+// Ist die Einsatzleitung vor Ort, meldet sie die Erkundung sofort per Sprechwunsch; sonst beim Eintreffen.
+export function testEskalation(g, incidentId) {
+  const inc = g.incidents.find((i) => i.id === incidentId)
+  if (!inc) return { ok: false, msg: 'Einsatz nicht gefunden.' }
+  if (!(EINSATZ_BY_ID[inc.einsatz]?.ausbreitung?.length) && !ESCALATE[inc.type.id]) return { ok: false, msg: `Für ${inc.type.name} gibt es keine Hochstufung (keine Folgeeinsätze, keine Kette).` }
+  if (inc.szenario?.stabil) return { ok: false, msg: 'Harmlose Lage (Fehlalarm/Nachschau): hier ist keine Hochstufung vorgesehen.' }
+  inc.devPlan = 'eskaliert'
+  inc.devStep = 0
+  const elv = g.vehicles.find((v) => v.id === inc.el && v.status === 4)
+  if (!elv) { inc.erkundet = false; return { ok: true, msg: 'Hochstufung vorgemerkt: Die Einsatzleitung meldet sie nach dem Eintreffen (Erkundung).' } }
+  if (elv.sprechwunsch) return { ok: false, msg: `${elv.callsign} hat noch einen offenen Sprechwunsch.` }
+  const text = develop(g, inc)
+  if (!text) return { ok: false, msg: 'Keine Hochstufung möglich (Folgeeinsatz nicht freigeschaltet oder Fahrzeugtypen fehlen).' }
+  setSprechwunsch(g, elv, 'folge', folgemeldung(`Erkundung: ${text}`), inc.id)
+  return { ok: true, msg: `${elv.callsign} meldet sich mit der Erkundung.` }
+}
+
 // Setzt den verdeckten Verlauf um. Rückgabe: Meldungstext oder null, wenn nichts passiert.
 function develop(g, inc) {
   let plan = inc.devPlan

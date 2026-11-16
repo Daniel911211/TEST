@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { ROLES, VEHICLE_TYPES, SLOW, LOG_KINDS, matchSlots, isAvailable, etaSec, dispatch, recommend, recallVehicle, askElw2, requestLagemeldung, addVermerk, incidentTitle, fmtClock, fmtMin, fmtMoney } from '../game.js'
+import { ROLES, VEHICLE_TYPES, SLOW, LOG_KINDS, matchSlots, isAvailable, etaSec, dispatch, recommend, recallVehicle, askElw2, requestLagemeldung, testEskalation, addVermerk, incidentTitle, fmtClock, fmtMin, fmtMoney } from '../game.js'
 import { VEHICLE_GROUPS, groupOf, stationOf } from './helpers.js'
 import Overlay from './Overlay.jsx'
 import { ALARM_SOUNDS, defaultAlarm, playAlarm, stopAlarm } from '../sound.js'
@@ -55,6 +55,7 @@ function Fenster({ g, inc, onClose, onLocate, flash, onPrev, onNext }) {
           <div className="ef-actions">
             {elVeh && !inc.revealed && <button onClick={() => { const r = requestLagemeldung(g, inc.id); if (!r.ok) flash(r.msg) }}>📻 Lagemeldung anfordern</button>}
             {inc.type.elw2Ask && !inc.elw2Asked && elwAtScene && <button onClick={() => { const r = askElw2(g, inc.id); if (!r.ok) flash(r.msg) }}>📻 ELW 1 anfunken: ELW 2 nötig?</button>}
+            {import.meta.env.DEV && <button className="test" title="Nur im Entwicklungsmodus: erzwingt die Hochstufung des Stichworts" onClick={() => flash(testEskalation(g, inc.id).msg)}>🧪 Lage ausweiten (Test)</button>}
           </div>
         </div>
 
