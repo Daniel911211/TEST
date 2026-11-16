@@ -155,15 +155,26 @@ export const growProb = (id) => TIER_P[Object.entries(TIERS).find(([, l]) => l.i
 // Wenn ein Einsatz "eskaliert", erhöht der Einsatzleiter vor Ort das Stichwort. Je nach Erkundungsergebnis (why) gibt es mehrere Ziele.
 export const ESCALATE = {
   F1: [{ to: 'F2', why: 'Das Feuer hat bereits auf ein Gebäude übergegriffen' }, { to: 'FWALD1', why: 'Der Brand hat sich auf eine größere Fläche ausgebreitet' }],
-  FBMA: [{ to: 'F2', why: 'Echtbrand im Gebäude festgestellt' }],
+  FBMA: [{ to: 'F2', why: 'Echtbrand im Gebäude festgestellt' }, { to: 'F3', why: 'Echtbrand im Sondergebäude, Ausbreitung über mehrere Räume' }],
   FRWM: [{ to: 'F2', why: 'Wohnungsbrand festgestellt' }],
   F2: [{ to: 'F3', why: 'Brand hat auf Nachbargebäude / ausgedehntes Objekt übergegriffen' }],
   F2Y: [{ to: 'F3Y', why: 'Weitere Personen vermisst, Brand breitet sich aus' }],
   F3: [{ to: 'F4', why: 'Großschadenslage, Brand nicht unter Kontrolle' }],
   F3Y: [{ to: 'F4', why: 'Großschadenslage mit vielen Betroffenen' }],
+  FLKW: [{ to: 'FWALD1', why: 'Brand hat auf die Böschung neben der Fahrbahn übergegriffen' }, { to: 'FGAS2', why: 'Gasflaschen auf der Ladefläche, Brand nicht unter Kontrolle' }],
+  FZUG: [{ to: 'FZUGY', why: 'Noch Fahrgäste im Zug, starke Rauchentwicklung' }],
+  FFLUG1Y: [{ to: 'FFLUG2Y', why: 'Größeres Luftfahrzeug, weitere Personen an Bord' }],
+  FSCHIFF2: [{ to: 'FSCHIFF2G', why: 'Gefahrgut an Bord festgestellt' }],
   FWALD1: [{ to: 'FWALD2', why: 'Flächenbrand breitet sich aus' }],
   FGAS1: [{ to: 'FGAS2', why: 'Gastank beteiligt' }],
   H1: [{ to: 'H2', why: 'Lage komplexer als gemeldet' }],
+  H1Y: [{ to: 'H2', why: 'Zugang nur mit schwerem Gerät möglich' }],
+  H2: [{ to: 'HKLEMM1Y', why: 'Person eingeklemmt festgestellt' }, { to: 'HGEFAHR1', why: 'Gefahrstoff tritt aus' }],
+  HELEK: [{ to: 'F2', why: 'Kabelbrand hat auf das Gebäude übergegriffen' }],
+  HUNWETTER1: [{ to: 'HUNWETTER2', why: 'Weitere Wasserschäden im Umfeld gemeldet' }],
+  HZUG1Y: [{ to: 'HZUG2Y', why: 'Zug entgleist, mehrere Fahrgäste verletzt' }],
+  HSCHIFF: [{ to: 'HSCHIFFY1', why: 'Personen an Bord, Schiff nimmt Wasser' }],
+  HSCHIFFY1: [{ to: 'HSCHIFFY2', why: 'Viele Personen an Bord, Schiff kentert' }],
   HGAS1: [{ to: 'HGAS2', why: 'Gasaustritt größer als gemeldet' }],
   HGEFAHR1: [{ to: 'HGEFAHR2', why: 'Gefahrstoffaustritt größer als gemeldet' }],
   HKLEMM1Y: [{ to: 'HKLEMM2Y', why: 'Weitere Personen eingeklemmt' }],
@@ -171,6 +182,9 @@ export const ESCALATE = {
   HFLUSS: [{ to: 'HFLUSSY', why: 'Person im Wasser gesichtet' }],
   R0K: [{ to: 'R0', why: 'Zustand des Patienten hat sich verschlechtert' }],
   R0: [{ to: 'R1', why: 'Zustand des Patienten hat sich verschlechtert' }],
+  R1: [{ to: 'R2', why: 'Patient instabil, Notarzt erforderlich' }],
+  R3: [{ to: 'R2', why: 'Patient muss transportiert werden' }],
+  RKTP: [{ to: 'R0', why: 'Zustand des Patienten hat sich verschlechtert, Rettungswagen erforderlich' }],
 }
 
 export const maxNeeds = (a, b) => {

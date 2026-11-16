@@ -55,7 +55,7 @@ function Fenster({ g, inc, onClose, onLocate, flash, onPrev, onNext }) {
           <div className="ef-actions">
             {elVeh && !inc.revealed && <button onClick={() => { const r = requestLagemeldung(g, inc.id); if (!r.ok) flash(r.msg) }}>📻 Lagemeldung anfordern</button>}
             {inc.type.elw2Ask && !inc.elw2Asked && elwAtScene && <button onClick={() => { const r = askElw2(g, inc.id); if (!r.ok) flash(r.msg) }}>📻 ELW 1 anfunken: ELW 2 nötig?</button>}
-            {import.meta.env.DEV && <button className="test" title="Nur im Entwicklungsmodus: erzwingt die Hochstufung des Stichworts" onClick={() => flash(testEskalation(g, inc.id).msg)}>🧪 Lage ausweiten (Test)</button>}
+            {import.meta.env.DEV && <button className="test" title="Nur im Entwicklungsmodus: erzwingt die Hochstufung des Stichworts" onClick={() => flash(testEskalation(g, inc.id).msg, 7000)}>🧪 Lage ausweiten (Test)</button>}
           </div>
         </div>
 

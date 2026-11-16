@@ -61,7 +61,7 @@ export default function App() {
     return () => clearInterval(id)
   }, [])
 
-  const flash = (t) => { setMsg(t); setTimeout(() => setMsg(''), 2500) }
+  const flash = (t, ms = 2500) => { setMsg(t); setTimeout(() => setMsg(''), ms) }
   const siteMode = (k) => SITES.some((s) => (s.kind || 'FW') === k)
   const openStation = (id, tab) => { setWsel({ stationId: id, vehicleId: null }); setOverlay((o) => ({ kind: 'station', id, tab: tab || (o?.kind === 'station' ? o.tab : 'fahrzeuge') })) }
   const openVehicle = (id) => { const v = g.vehicles.find((x) => x.id === id); setWsel({ stationId: v?.stationId ?? null, vehicleId: id }); setOverlay({ kind: 'vehicle', id }) }
