@@ -53,7 +53,7 @@ function brauche(inc, assigned, missing, added) {
   }
   // Noch Fahrzeuge auf Anfahrt: Einsatzleiter fragt allgemein nach (er sieht sie noch nicht)
   if (assigned.some((v) => v.status === 3)) parts.push('Frage: Weitere Kräfte auf Anfahrt?')
-  else parts.push(inc.szenario?.stabil ? 'Meldebild bestätigt, Kräfte ausreichend.' : 'Kräfte ausreichend, keine Nachforderung.')
+  else parts.push(inc.szenario?.stabil ? 'Meldebild bestätigt, Kräfte ausreichend.' : 'Kräfte ausreichend.')
   return join(parts)
 }
 
