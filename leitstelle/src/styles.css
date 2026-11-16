@@ -150,7 +150,7 @@ button.alarm.dispatched { border-color:#6a5a1a; background:#3d3414; color:#ffe9a
 .sprech-pin small { margin-left:auto; text-align:right; }
 .st.blink { animation:blink5 .9s steps(1) infinite; }
 @keyframes blink5 { 50% { background:#fff; color:#e91e63; } }
-.tag-sprech-lage { background:var(--amber); color:#000; } .tag-sprech-nachforderung { background:#ff4d4d; color:#000; } .tag-sprech-klinik { background:#e91e63; color:#fff; }
+.tag-sprech-lage { background:var(--amber); color:#000; } .tag-sprech-folge { background:#ff8c42; color:#000; } .tag-sprech-nachforderung { background:#ff4d4d; color:#000; } .tag-sprech-abschluss { background:var(--green); color:#000; } .tag-sprech-klinik { background:#e91e63; color:#fff; }
 header .alert.click { cursor:pointer; text-decoration:underline dotted; }
 .funkspruch { background:#0f1319; border-left:3px solid var(--amber); padding:8px 10px; border-radius:0 6px 6px 0; margin:4px 0 10px; font-style:italic; line-height:1.5; }
 textarea.vermerk { width:100%; background:#0f1319; color:var(--text); border:1px solid var(--line); border-radius:6px; padding:6px 8px; font:inherit; resize:vertical; margin-bottom:6px; }

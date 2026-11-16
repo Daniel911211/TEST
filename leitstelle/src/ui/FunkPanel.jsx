@@ -17,7 +17,7 @@ export default function FunkPanel({ g, onOpenSprech }) {
                 <span className="st s5 blink">5</span>
                 <b>{v.callsign}</b>
                 <span className={`tag tag-sprech-${kind}`}>{sprechKindName(kind)}</span>
-                <small className="muted">{inc ? incidentTitle(inc) : kind === 'klinik' ? 'Patient an Bord' : ''}</small>
+                <small className="muted">{inc ? incidentTitle(inc) : kind === 'klinik' ? 'Patient an Bord' : v.sprechwunsch?.incTitle || ''}</small>
               </div>
             )
           })}

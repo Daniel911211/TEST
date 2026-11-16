@@ -2,6 +2,7 @@ import KLINIKEN from './data/kliniken.json'
 // Reine Spiellogik (ohne React/Leaflet)
 import { INCIDENT_TYPES, ROLES, matchSlots, addNeeds, growProb, ESCALATE, maxNeeds, diffNeeds } from './stichworte.js'
 import { pickSzenario, incidentTitle } from './szenarien.js'
+import { rollAnforderung, ersteLagemeldung, folgemeldung, nachforderungsmeldung, abschlussmeldung } from './lagemeldung.js'
 export { incidentTitle, typeCode } from './szenarien.js'
 
 export const GAME_SEC_PER_REAL_SEC = 10 // bei 1x: 1 echte Sekunde = 10 Spielsekunden
@@ -135,8 +136,8 @@ export const LOG_KINDS = {
 // Arten, die nicht zum Funkverkehr gehören (nur Protokoll und Tagebuch)
 export const LOG_QUIET_KINDS = ['neu', 'vermerk', 'bau']
 const logKind = (text) => {
-  if (/Lagemeldung –/.test(text)) return 'lage'
-  if (/Nachforderung|fordert ELW 2|ELW 2 wird|Erkundung –|Stichwort wird|Bedarf erhöht|Stichwort erhöht/.test(text)) return 'nachforderung'
+  if (/Lagemeldung –|Abschlussmeldung –/.test(text)) return 'lage'
+  if (/Folgemeldung –|Nachforderung|fordert ELW 2|ELW 2 wird|Erkundung –|Stichwort wird|Bedarf erhöht|Stichwort erhöht/.test(text)) return 'nachforderung'
   if (/^Neuer Einsatz/.test(text)) return 'neu'
   if (/^Einsatz erledigt/.test(text)) return 'erledigt'
   if (/Status 5|Sprechwunsch –/.test(text)) return 'sprech'
@@ -149,6 +150,7 @@ const addLog = (g, text, meta = {}) => {
   const e = { t: g.t, text, kind: meta.kind || logKind(text) }
   if (meta.v) e.v = meta.v.id
   if (meta.inc) { e.inc = meta.inc.id; e.incTitle = incidentTitle(meta.inc) }
+  else if (meta.incId != null) { e.inc = meta.incId; e.incTitle = meta.incTitle }
   if (meta.quiet) e.quiet = true
   g.log.unshift(e)
   if (g.log.length > LOG_MAX) g.log.length = LOG_MAX
@@ -400,12 +402,16 @@ function develop(g, inc) {
       const added = diffNeeds(newNeed, inc.need)
       inc.type = next
       inc.szenario = pickSzenario(next.id) || inc.szenario
+      inc.anford = rollAnforderung(inc.szenario, (r) => canStaff(g, r))
+      inc.anfordDone = true
+      for (const r of Object.keys(inc.anford)) if (r !== '__verletzte' && !newNeed[r]) newNeed[r] = 1
       inc.need = newNeed
       inc.extra = { ...next.extra }
       inc.workLeft = Math.max(inc.workLeft, next.work * 0.7)
       inc.escalated = true
       if (next.elw2Ask && inc.elw2 == null) inc.elw2 = Math.random() < 0.6 ? 'needed' : 'notneeded'
-      text = `${opt.why}. Stichwort wird von ${oldName} auf ${next.name} erhöht.${Object.keys(added).length ? ` Nachforderung: ${needText(added)}.` : ''}`
+      const gruende = Object.keys(added).map((r) => inc.anford?.[r]).filter(Boolean)
+      text = `${opt.why}. Stichwort wird von ${oldName} auf ${next.name} erhöht.${Object.keys(added).length ? ` Nachforderung: ${needText(added)}${gruende.length ? ' (' + gruende.join(', ') + ')' : ''}.` : ''}`
       addLog(g, `Stichwort erhöht: ${oldName} → ${next.name}${Object.keys(added).length ? `, Bedarf erhöht um ${needText(added)}` : ''} (Meldung folgt per Sprechwunsch).`, { kind: 'nachforderung', inc, quiet: true })
     } else plan = 'waechst'
   }
@@ -425,7 +431,7 @@ function develop(g, inc) {
       inc.nachDone = true
       text = inc.type.rd && added.NEF && Object.keys(added).length === 1
         ? `Notarzt-Nachforderung (R3): ${needText(added)} – Patient akut lebensbedrohlich.`
-        : `Nachforderung ${inc.type.name}: ${needText(added)}.`
+        : `Lage hat sich ausgeweitet. Nachforderung: ${needText(added)}.`
       addLog(g, `Bedarf erhöht um ${needText(added)} (Meldung folgt per Sprechwunsch).`, { kind: 'nachforderung', inc, quiet: true })
     }
   }
@@ -435,12 +441,37 @@ function develop(g, inc) {
 
 // Lagemeldung der Einsatzleitung: beschreibt die Lage; nach dem Zufallsprinzip enthält sie den nächsten Entwicklungsschritt
 // (Nachforderung oder Hochstufung). Entwicklungen kommen außerdem unabhängig davon als eigener Funkspruch mitten im Einsatz.
+// Kann der Spieler die Rolle überhaupt besetzen? (sonst keine Nachforderung, der Einsatz bliebe hängen)
+const canStaff = (g, role) => g.vehicles.some((v) => ROLES[role]?.types.includes(v.type))
+// Gewürfelte Szenario-Anforderung anwenden: fehlende Rollen in den Bedarf übernehmen. Rückgabe: neu nachgeforderte Rollen.
+function applyAnforderung(g, inc) {
+  if (inc.anfordDone) return {}
+  inc.anfordDone = true
+  const assigned = g.vehicles.filter((v) => v.incidentId === inc.id)
+  const added = {}
+  for (const r of Object.keys(inc.anford || {})) {
+    if (r === '__verletzte' || !ROLES[r]) continue
+    const have = assigned.filter((v) => ROLES[r].types.includes(v.type)).length
+    if ((inc.need[r] || 0) > 0 || have > 0) continue // Stichwort verlangt die Rolle schon oder sie ist bereits alarmiert
+    if (!canStaff(g, r)) continue
+    added[r] = 1
+  }
+  if (Object.keys(added).length) {
+    inc.need = addNeeds(inc.need, added)
+    inc.nachDone = true
+    addLog(g, `Bedarf erhöht um ${needText(added)} (Anforderung der Einsatzleitung, Meldung folgt per Sprechwunsch).`, { kind: 'nachforderung', inc, quiet: true })
+  }
+  return added
+}
 function reportLage(g, inc, el) {
   inc.revealed = true
+  const added = applyAnforderung(g, inc)
+  const assigned = g.vehicles.filter((v) => v.incidentId === inc.id)
+  const missing = matchSlots(inc.need, assigned)
   const dev = inc.devPlan && Math.random() < 0.5 ? develop(g, inc) : null
-  const lage = inc.szenario?.lage || `${inc.type.bild}.`
-  inc.lage = lage
-  setSprechwunsch(g, el, 'lage', `Lagemeldung – ${lage}${dev ? ' Lage ändert sich: ' + dev : ''}`, inc.id)
+  const text = ersteLagemeldung(inc, assigned, missing, added, dev)
+  inc.lage = text
+  setSprechwunsch(g, el, 'lage', text, inc.id)
 }
 
 // Leitstelle fordert bei der Einsatzleitung eine Lagemeldung an
@@ -474,14 +505,15 @@ export function recallVehicle(g, vehicleId) {
 
 // Sprechwunsch: Das Fahrzeug meldet sich bei der Leitstelle (blinkende 5). Inhalt (Lagemeldung, Nachforderung) sieht die
 // Leitstelle erst beim Annehmen im Overlay und trägt ihn als Vermerk in den Einsatz ein. Spiellogisch gilt die Änderung sofort.
-const SPRECH_KIND = { lage: 'Lagemeldung', nachforderung: 'Nachforderung', klinik: 'Zielklinik' }
+const SPRECH_KIND = { lage: 'Lagemeldung', folge: 'Folgemeldung', nachforderung: 'Nachforderung', abschluss: 'Abschlussmeldung', klinik: 'Zielklinik' }
 export const sprechKindName = (k) => SPRECH_KIND[k] || 'Sprechwunsch'
 function setSprechwunsch(g, v, kind, text, incidentId) {
+  const inc = g.incidents.find((i) => i.id === incidentId)
   if (v.sprechwunsch && v.sprechwunsch.incidentId === incidentId) {
     v.sprechwunsch.text += ' ' + text
-    if (kind === 'nachforderung') v.sprechwunsch.kind = 'nachforderung'
-  } else v.sprechwunsch = { kind, text, incidentId, since: g.t }
-  addLog(g, `${v.callsign}: Sprechwunsch – ${SPRECH_KIND[kind]}.`, { v, inc: g.incidents.find((i) => i.id === incidentId) })
+    if (kind === 'nachforderung' || kind === 'folge') v.sprechwunsch.kind = kind
+  } else v.sprechwunsch = { kind, text, incidentId, incTitle: inc ? incidentTitle(inc) : null, since: g.t }
+  addLog(g, `${v.callsign}: Sprechwunsch – ${SPRECH_KIND[kind]}.`, { v, inc })
 }
 export const hasSprechwunsch = (v) => !!v.sprechwunsch || v.status === 5
 export const sprechwunschList = (g) => g.vehicles.filter(hasSprechwunsch).sort((a, b) => (a.sprechwunsch?.since ?? a.request?.since ?? 0) - (b.sprechwunsch?.since ?? b.request?.since ?? 0))
@@ -502,11 +534,12 @@ export function answerSprechwunsch(g, vehicleId, note) {
   if (!v?.sprechwunsch) return { ok: false, msg: 'Kein offener Sprechwunsch.' }
   const sw = v.sprechwunsch
   const inc = g.incidents.find((i) => i.id === sw.incidentId)
+  const meta = inc ? { v, inc } : { v, incId: sw.incidentId, incTitle: sw.incTitle }
   v.sprechwunsch = null
   // Inhalt des Funkspruchs kommt erst jetzt ins Protokoll (vorher kennt ihn die Leitstelle nicht)
-  addLog(g, `${v.callsign}: ${sw.text}`, { v, inc })
-  if (note?.trim()) addVermerk(g, sw.incidentId, note, `Leitstelle (${v.callsign})`)
-  addLog(g, `Leitstelle an ${v.callsign}: ${SPRECH_KIND[sw.kind]} aufgenommen.`, { v, inc })
+  addLog(g, `${v.callsign}: ${sw.text}`, meta)
+  if (note?.trim()) { if (inc) addVermerk(g, sw.incidentId, note, `Leitstelle (${v.callsign})`); else addLog(g, `Vermerk (Leitstelle (${v.callsign})): ${note.trim()}`, { ...meta, kind: 'vermerk', quiet: true }) }
+  addLog(g, `Leitstelle an ${v.callsign}: ${SPRECH_KIND[sw.kind]} aufgenommen.`, meta)
   return { ok: true }
 }
 
@@ -529,7 +562,8 @@ function spawnIncident(g) {
   const dist = rnd(0.8, 5) // km
   const pos = [st.pos[0] + (Math.cos(ang) * dist) / 111, st.pos[1] + (Math.sin(ang) * dist) / (111 * Math.cos((st.pos[0] * Math.PI) / 180))]
   const elw2 = !type.elw2Ask ? null : Object.keys(matchSlots(addNeeds(type.need, { ELW2: 1 }), g.vehicles)).length === 0 && Math.random() < 0.6 ? 'needed' : 'notneeded'
-  const inc = { id: g.nextId++, type, szenario: pickSzenario(type.id), need: { ...type.need }, extra: { ...type.extra }, devStep: 0, devPlan: null, devAtT: null, revealed: false, elw2, elw2Asked: false, pos, created: g.t, status: 'open', workLeft: type.work, startedAt: null, dispatched: false }
+  const szenario = pickSzenario(type.id)
+  const inc = { id: g.nextId++, type, szenario, anford: rollAnforderung(szenario, (r) => canStaff(g, r)), anfordDone: false, need: { ...type.need }, extra: { ...type.extra }, devStep: 0, devPlan: null, devAtT: null, revealed: false, elw2, elw2Asked: false, pos, created: g.t, status: 'open', workLeft: type.work, startedAt: null, dispatched: false }
   inc.devPlan = rollPlan(inc, isNight(g.t) ? 1.3 : 1)
   g.incidents.push(inc)
   addLog(g, `Neuer Einsatz: ${incidentTitle(inc)} (${type.name}; benötigt ${needText(inc.need)}; Meldung über ${st.name}).`, { kind: 'neu', inc })
@@ -682,19 +716,25 @@ export function tick(g, dt) {
         inc.erkundet = true
         if (inc.devPlan === 'eskaliert') {
           const t = develop(g, inc)
-          if (t) setSprechwunsch(g, el, 'nachforderung', `Erkundung – ${t}`, inc.id)
+          if (t) setSprechwunsch(g, el, 'folge', folgemeldung(`Erkundung: ${t}`), inc.id)
         }
       }
       // Wechselt die Einsatzleitung, meldet der neue Leiter ggf. von selbst die Lage (nur solange noch keine Lagemeldung vorliegt)
       // Rettungsdienstfahrzeuge melden bei Brand/Hilfeleistung keine Lage von selbst (das macht die Feuerwehr nach dem Eintreffen)
       if (!inc.revealed && Math.random() < 0.7 && (elRank(el) >= 1 || inc.type.id[0] === 'R')) reportLage(g, inc, el)
+      else if (elRank(el) >= 1 || inc.type.id[0] === 'R') {
+        // Ohne Lagemeldung setzt die Einsatzleitung die gewürfelte Szenario-Anforderung als eigene Nachforderung ab
+        // (bei F/H erst, wenn ein Feuerwehrfahrzeug die Leitung hat)
+        const added = applyAnforderung(g, inc)
+        if (Object.keys(added).length) setSprechwunsch(g, el, 'nachforderung', nachforderungsmeldung(inc, added), inc.id)
+      }
     }
     // Fordert niemand nach, meldet der ELW 1 den ELW-2-Bedarf nach 10 Minuten selbst
     if (inc.elw2 === 'needed' && !inc.elw2Asked && inc.startedAt != null && g.t - inc.startedAt > 600) {
       inc.elw2Asked = true
       inc.need = addNeeds(inc.need, { ELW2: 1 })
       const elw = g.vehicles.find((v) => v.incidentId === inc.id && v.type === 'ELW1' && v.status === 4)
-      if (elw) setSprechwunsch(g, elw, 'nachforderung', 'Nachforderung: ELW 2 wird benötigt.', inc.id)
+      if (elw) setSprechwunsch(g, elw, 'folge', folgemeldung('Lage erfordert eine erweiterte Einsatzleitung. Nachforderung: 1× ELW 2.'), inc.id)
       else addLog(g, `ELW 1 (${incidentTitle(inc)}): fordert ELW 2 nach.`, { inc })
     }
     const satisfied = Object.keys(matchSlots(inc.need, atScene)).length === 0
@@ -717,7 +757,7 @@ export function tick(g, dt) {
       if (inc.devPlan && inc.devAtT != null && g.t >= inc.devAtT) {
         const elv = g.vehicles.find((v) => v.id === inc.el) || atScene[0]
         const text = develop(g, inc)
-        if (text) setSprechwunsch(g, elv, 'nachforderung', text, inc.id)
+        if (text && elv) setSprechwunsch(g, elv, 'folge', folgemeldung(text), inc.id)
       }
       const stillOk = Object.keys(matchSlots(inc.need, atScene)).length === 0
       if (!stillOk) { inc.status = 'open'; addLog(g, `Bearbeitung ruht, es fehlt: ${needText(matchSlots(inc.need, atScene))}.`, { kind: 'status', inc, quiet: true }) } // nachgeforderte Mittel fehlen: Arbeit ruht
@@ -728,7 +768,8 @@ export function tick(g, dt) {
         g.money += reward
         g.points += inc.type.points
         g.done++
-        addLog(g, `Einsatz erledigt: ${incidentTitle(inc)} (+${fmtMoney(reward)}${bonus > 1 ? ' mit Schnelligkeitsbonus' : ''}, Dauer ${fmtMin(g.t - inc.created)}, ${g.vehicles.filter((v) => v.incidentId === inc.id).length} Fahrzeuge).`, { inc })
+        const count = g.vehicles.filter((v) => v.incidentId === inc.id).length
+        addLog(g, `Einsatz erledigt: ${incidentTitle(inc)} (+${fmtMoney(reward)}${bonus > 1 ? ' mit Schnelligkeitsbonus' : ''}, Dauer ${fmtMin(g.t - inc.created)}, ${count} Fahrzeuge).`, { inc })
         let patients = inc.type.patient ? (inc.type.rd === 'MANV' ? 4 : 1) : 0
         for (const v of g.vehicles) {
           if (v.incidentId !== inc.id) continue
@@ -739,6 +780,11 @@ export function tick(g, dt) {
             v.route = null
             requestHospital(g, v, inc.need.NEF ? 3 : inc.type.severity || 1) // mit Notarzt = schwer
           } else { releaseVehicle(v); addLog(g, `${v.callsign}: Status 1 – frei, Rückfahrt zur Wache.`, { v, inc }) }
+        }
+        const elv = g.vehicles.find((v) => v.id === inc.el)
+        if (elv && elv.status === 1 && inc.type.id[0] !== 'R') {
+          elv.sprechwunsch = { kind: 'abschluss', text: abschlussmeldung(inc, count), incidentId: inc.id, incTitle: incidentTitle(inc), since: g.t }
+          addLog(g, `${elv.callsign}: Sprechwunsch – Abschlussmeldung.`, { v: elv, inc })
         }
         g.incidents = g.incidents.filter((i) => i !== inc)
       }
@@ -760,7 +806,7 @@ export const loadGame = () => {
     delete g.bedTimer
     for (const v of g.vehicles) { if (v.condition == null) v.condition = 100 }
     for (const l of g.log || []) if (!l.kind) l.kind = logKind(l.text)
-    for (const i of g.incidents) { i.type = INCIDENT_TYPES.find((t) => t.id === i.type.id) || i.type; if (!i.szenario) i.szenario = pickSzenario(i.type.id) }
+    for (const i of g.incidents) { i.type = INCIDENT_TYPES.find((t) => t.id === i.type.id) || i.type; if (!i.szenario || i.szenario.lage) i.szenario = pickSzenario(i.type.id); if (!i.anford) { i.anford = {}; i.anfordDone = true } }
     return g
   } catch { return null }
 }
