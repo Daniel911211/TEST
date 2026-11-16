@@ -20,7 +20,7 @@ export default function SprechwunschOverlay({ g, vehicleId, onClose, onOpenSprec
     <Overlay
       title={<><span className="st s5">5</span> {v.callsign}</>}
       sub={`Sprechwunsch · ${sprechKindName(kind)}${inc ? ` · ${incidentTitle(inc)}` : ''}${sw ? ` · wartet seit ${fmtMin(g.t - sw.since)}` : ''} · Spiel angehalten`}
-      head={inc && <button className="small" onClick={() => { onSelectIncident(inc.id); onClose() }}>Zum Einsatz</button>}
+      head={inc && <button className="small" onClick={() => onSelectIncident(inc.id)}>Zum Einsatz</button>}
       onClose={onClose} onPrev={list.length > 1 ? () => go(-1) : null} onNext={list.length > 1 ? () => go(1) : null}
     >
       <div className="pad">

@@ -1,154 +1,54 @@
 import { useState } from 'react'
-import { ROLES, VEHICLE_TYPES, SLOW, matchSlots, isAvailable, etaSec, dispatch, recommend, recallVehicle, askElw2, requestLagemeldung, addVermerk, incidentTitle, fmtClock, fmtMin, fmtMoney } from '../game.js'
-import { VEHICLE_GROUPS, groupOf, stationOf } from './helpers.js'
+import { ROLES, matchSlots, incidentTitle, fmtMin } from '../game.js'
 
 const needText = (need) => Object.entries(need).map(([k, n]) => `${n}× ${ROLES[k].short}`).join(', ')
 
-// Rechte Spalte: Einsatzliste oben, darunter das Einsatzfenster des gewählten Einsatzes
-export default function EinsatzPanel({ g, selectedId, onSelect, onLocate, flash }) {
-  const [picked, setPicked] = useState([])
-  const [filter, setFilter] = useState('alle')
-  const inc = g.incidents.find((i) => i.id === selectedId)
-
-  const select = (id) => { setPicked([]); onSelect(id) }
-
+// Rechte Spalte: Suchfeld, darunter scrollbare Einsatzkarten. Jede Karte hat eine Kopfzeile mit Knopf „Alarm“
+// (öffnet das Einsatz-Overlay) und darunter Statusstreifen, Fortschrittsbalken und Hinweise.
+// Die Karte selbst reagiert nicht auf Klicks.
+export default function EinsatzPanel({ g, selectedId, onOpenIncident, onOpenSprech }) {
+  const [q, setQ] = useState('')
+  const list = g.incidents.filter((i) => !q.trim() || `${incidentTitle(i)} ${i.type.name}`.toLowerCase().includes(q.trim().toLowerCase()))
   return (
     <section className="panel einsatz">
       <div className="panel-head">Einsätze <span className="count">{g.incidents.length}</span>{g.spawnPaused && <small className="red">· keine neuen Einsätze</small>}</div>
-      <div className="einsatz-liste">
+      <div className="einsatz-such"><input className="search" placeholder="🔍 Einsätze durchsuchen …" value={q} onChange={(e) => setQ(e.target.value)} /></div>
+      <div className="einsatz-liste scroll">
         {!g.incidents.length && <p className="muted pad">{g.stations.length ? 'Keine offenen Einsätze. Warte auf den nächsten Alarm …' : 'Baue zuerst eine Wache (unten links).'}</p>}
-        {g.incidents.map((i) => {
+        {g.incidents.length > 0 && !list.length && <p className="muted pad">Kein Einsatz passt zur Suche.</p>}
+        {list.map((i) => {
           const assigned = g.vehicles.filter((v) => v.incidentId === i.id)
           const missing = matchSlots(i.need, assigned)
           const miss = Object.keys(missing).length > 0
           const cls = i.status === 'working' ? 'working' : i.dispatched ? 'dispatched' : 'open'
+          const sprech = assigned.find((v) => v.sprechwunsch || v.status === 5)
+          const enRoute = assigned.filter((v) => v.status === 3).length
+          const pct = i.status === 'working' ? Math.round(100 - (100 * i.workLeft) / i.type.work) : 0
           return (
-            <div key={i.id} className={`inc ${cls} ${selectedId === i.id ? 'sel' : ''}`} onClick={() => select(i.id)}>
-              <div className="inc-title">
+            <div key={i.id} className={`inc-card ${cls} ${selectedId === i.id ? 'sel' : ''}`}>
+              <div className="inc-head">
+                <button className={`alarm ${cls}`} title="Einsatz öffnen und Fahrzeuge alarmieren" onClick={() => onOpenIncident(i.id)}>Alarm</button>
                 <span className={`inc-dot ${cls}`} />
-                <b>{incidentTitle(i)}</b>
-                <small className="muted">{i.status === 'working' ? `noch ${fmtMin(i.workLeft)}` : `seit ${fmtMin(g.t - i.created)}`}</small>
+                <span className="inc-t"><b>{incidentTitle(i)}</b><small className="muted">{i.type.name}</small></span>
+                <small className="muted right">{i.status === 'working' ? `noch ${fmtMin(i.workLeft)}` : `seit ${fmtMin(g.t - i.created)}`}</small>
               </div>
-              {i.status === 'working' && <div className="bar"><i style={{ width: `${Math.round(100 - (100 * i.workLeft) / i.type.work)}%` }} /></div>}
-              {miss && <div className="inc-miss">Fehlt noch: {needText(missing)}</div>}
-              {i.nachDone && !miss && <div className="inc-note">Nachforderung erfüllt</div>}
-              {i.escalated && <div className="inc-note red">Stichwort hochgestuft</div>}
+              <div className="inc-body">
+                <div className="inc-strip" title={cls === 'working' ? 'In Bearbeitung' : cls === 'dispatched' ? 'Kräfte alarmiert' : 'Offen'}>
+                  <span>{cls === 'working' ? '🛠' : cls === 'dispatched' ? '🚒' : '🔔'}</span>
+                </div>
+                <div className="inc-content">
+                  <div className="bar" title={i.status === 'working' ? `Bearbeitung ${pct} %` : enRoute ? `${enRoute} Fahrzeug${enRoute > 1 ? 'e' : ''} auf Anfahrt` : 'Noch keine Bearbeitung'}><i style={{ width: `${pct}%` }} /></div>
+                  {miss && <div className="inc-box red">Fehlt noch: {needText(missing)}</div>}
+                  {sprech && <div className="inc-box red click" onClick={() => onOpenSprech(sprech.id)}>📻 {sprech.callsign} hat einen Sprechwunsch.</div>}
+                  {i.nachDone && !miss && <div className="inc-box amber">Nachforderung erfüllt</div>}
+                  {i.escalated && <div className="inc-box amber">Stichwort hochgestuft</div>}
+                  {assigned.length > 0 && <div className="inc-veh muted">{assigned.map((v) => <span key={v.id}><span className={`st s${v.status}`}>{v.status}</span> {v.callsign}</span>)}</div>}
+                </div>
+              </div>
             </div>
           )
         })}
       </div>
-      {inc && <EinsatzFenster g={g} inc={inc} picked={picked} setPicked={setPicked} filter={filter} setFilter={setFilter} onLocate={onLocate} flash={flash} />}
     </section>
-  )
-}
-
-function EinsatzFenster({ g, inc, picked, setPicked, filter, setFilter, onLocate, flash }) {
-  const assigned = g.vehicles.filter((v) => v.incidentId === inc.id)
-  const tf = inc.type.ohneSS ? SLOW : 1 // Fahrzeit ohne Sondersignal
-  const onScene = assigned.filter((v) => v.status === 4)
-  const sum = (key) => onScene.reduce((a, v) => a + (VEHICLE_TYPES[v.type][key] || 0), 0)
-  const missing = matchSlots(inc.need, assigned)
-  const elVeh = g.vehicles.find((v) => v.id === inc.el && v.incidentId === inc.id && v.status === 4)
-  const elwAtScene = onScene.some((v) => v.type === 'ELW1')
-  const free = g.vehicles
-    .filter(isAvailable)
-    .filter((v) => filter === 'alle' || groupOf(v.type) === filter)
-    .sort((a, b) => etaSec(a, inc.pos, tf) - etaSec(b, inc.pos, tf))
-  const toggle = (id, on) => setPicked(on ? [...picked, id] : picked.filter((x) => x !== id))
-  const send = () => { dispatch(g, inc.id, picked); setPicked([]) }
-
-  return (
-    <div className="einsatz-fenster">
-      <div className="ef-head">
-        <h3>{incidentTitle(inc)}</h3>
-        <small className="muted">{inc.type.name}{inc.type.ohneSS ? ' · ohne Sondersignal' : ''}</small>
-        <div className="ef-facts">
-          <span>Benötigt: {needText(inc.need)}</span>
-          <span>Belohnung: {fmtMoney(inc.type.reward)}</span>
-          {inc.type.water > 0 && <span>Wasser {sum('water')} / {inc.type.water} l · Atemschutztrupps {sum('as')} / {inc.type.as}</span>}
-          {elVeh && <span>Einsatzleitung: <b>{elVeh.callsign}</b></span>}
-          {inc.revealed && <span className="muted">Lagemeldung {inc.vermerke?.length ? 'im Tagebuch' : 'liegt vor'}.</span>}
-        </div>
-        {Object.keys(missing).length > 0 && <div className="ef-miss">Fehlende Fahrzeuge: {needText(missing)}</div>}
-        <div className="ef-actions">
-          {elVeh && !inc.revealed && <button onClick={() => { const r = requestLagemeldung(g, inc.id); if (!r.ok) flash(r.msg) }}>📻 Lagemeldung anfordern</button>}
-          {inc.type.elw2Ask && !inc.elw2Asked && elwAtScene && <button onClick={() => { const r = askElw2(g, inc.id); if (!r.ok) flash(r.msg) }}>📻 ELW 1 anfunken: ELW 2 nötig?</button>}
-        </div>
-      </div>
-
-      <Tagebuch g={g} inc={inc} flash={flash} />
-
-      {assigned.length > 0 && (
-        <div className="ef-block">
-          <h4>Alarmiert</h4>
-          <table className="tbl">
-            <tbody>
-              {assigned.map((v) => (
-                <tr key={v.id}>
-                  <td><span className={`st s${v.status}`}>{v.status}</span></td>
-                  <td><b>{v.callsign}</b> <span className="pin" title="Auf der Karte zeigen" onClick={() => onLocate(v.id)}>📍</span></td>
-                  <td className="muted">{stationOf(g, v)?.name}</td>
-                  <td className="muted">{v.status === 3 ? fmtMin(etaSec(v, inc.pos, tf)) : v.status === 4 ? 'vor Ort' : ''}</td>
-                  <td className="nowrap">{(v.status === 3 || v.status === 4) && <button className="small" title={v.status === 4 ? 'Fahrzeug vom Einsatz entlassen (Status 1)' : 'Rückalarmieren (Status 1)'} onClick={() => { const r = recallVehicle(g, v.id); if (!r.ok) flash(r.msg) }}>{v.status === 4 ? 'Entlassen' : 'Rückalarm.'}</button>}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
-
-      {inc.status === 'open' && (
-        <div className="ef-block grow">
-          <div className="ef-row">
-            <h4>Freie Fahrzeuge</h4>
-            <button onClick={() => setPicked(recommend(g, inc))}>Empfehlung</button>
-          </div>
-          <div className="chips">
-            {VEHICLE_GROUPS.map(([k, l]) => <button key={k} className={filter === k ? 'on' : ''} onClick={() => setFilter(k)}>{l}</button>)}
-          </div>
-          <table className="tbl">
-            <thead><tr><th /><th /><th>Fahrzeug</th><th>Typ</th><th>Fahrzeit</th><th>Wache</th></tr></thead>
-            <tbody>
-              {free.map((v) => (
-                <tr key={v.id} className={picked.includes(v.id) ? 'sel' : ''} onClick={() => toggle(v.id, !picked.includes(v.id))}>
-                  <td><input type="checkbox" checked={picked.includes(v.id)} onChange={(e) => toggle(v.id, e.target.checked)} onClick={(e) => e.stopPropagation()} /></td>
-                  <td><span className={`st s${v.status}`}>{v.status}</span></td>
-                  <td><b>{v.callsign}</b>{v.condition < 30 ? <small className="red"> Panne?</small> : null} <span className="pin" title="Auf der Karte zeigen" onClick={(e) => { e.stopPropagation(); onLocate(v.id) }}>📍</span></td>
-                  <td className="muted">{VEHICLE_TYPES[v.type].name}</td>
-                  <td>{fmtMin(etaSec(v, inc.pos, tf))}</td>
-                  <td className="muted">{stationOf(g, v)?.name}</td>
-                </tr>
-              ))}
-              {!free.length && <tr><td colSpan={6} className="muted">Keine freien Fahrzeuge.</td></tr>}
-            </tbody>
-          </table>
-        </div>
-      )}
-      {inc.status === 'open' && (
-        <div className="ef-foot">
-          <button className="primary" disabled={!picked.length} onClick={send}>Alarmieren ({picked.length})</button>
-        </div>
-      )}
-    </div>
-  )
-}
-
-// Einsatztagebuch: Vermerke der Leitstelle (aus Sprechwünschen oder von Hand)
-function Tagebuch({ g, inc, flash }) {
-  const [text, setText] = useState('')
-  const list = inc.vermerke || []
-  const add = () => { const r = addVermerk(g, inc.id, text); if (r.ok) setText(''); else flash(r.msg) }
-  return (
-    <div className="ef-block">
-      <h4>Einsatztagebuch {list.length > 0 && <span className="count">{list.length}</span>}</h4>
-      {list.length === 0 && <small className="muted">Noch keine Vermerke. Lagemeldungen und Nachforderungen kommen als Sprechwunsch im Funk.</small>}
-      {list.map((e, i) => (
-        <div key={i} className="vermerk-zeile"><small className="muted">{fmtClock(e.t)} · {e.by}</small><div>{e.text}</div></div>
-      ))}
-      <div className="ef-row vermerk-neu">
-        <input className="search" style={{ marginLeft: 0, width: '100%' }} placeholder="Vermerk eintragen …" value={text} onChange={(e) => setText(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') add() }} />
-        <button className="small" disabled={!text.trim()} onClick={add}>Eintragen</button>
-      </div>
-    </div>
   )
 }

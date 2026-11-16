@@ -9,6 +9,7 @@ import FahrzeugOverlay from './ui/FahrzeugOverlay.jsx'
 import BauFormular from './ui/BauFormular.jsx'
 import KlinikOverlay from './ui/KlinikOverlay.jsx'
 import SprechwunschOverlay from './ui/SprechwunschOverlay.jsx'
+import EinsatzOverlay from './ui/EinsatzOverlay.jsx'
 import OSM_SITES from './data/feuerwehren.json'
 import EXTRA_SITES from './data/zusatz-standorte.json'
 import {
@@ -27,10 +28,10 @@ export default function App() {
   const [, force] = useState(0)
   const [speed, setSpeed] = useState(1)
   const [build, setBuild] = useState(null) // Bauformular: { kind:'FW'|'RW', pos, site, name } | null
-  const [incidentId, setIncidentId] = useState(null)
   const [wsel, setWsel] = useState({ stationId: null, vehicleId: null })
   const [focus, setFocus] = useState(null) // { pos, vehicleId, n } für 📍
-  const [overlay, setOverlay] = useState(null) // { kind:'station', id, tab } | { kind:'vehicle', id } | null
+  const [overlay, setOverlay] = useState(null) // { kind:'station', id, tab } | { kind:'vehicle'|'hospital'|'sprech'|'incident', id } | null
+  const incidentId = overlay?.kind === 'incident' ? overlay.id : null // gewählter Einsatz = offenes Einsatz-Overlay
   const [msg, setMsg] = useState('')
   const speedRef = useRef(1)
   speedRef.current = speed
@@ -61,6 +62,7 @@ export default function App() {
   const openVehicle = (id) => { const v = g.vehicles.find((x) => x.id === id); setWsel({ stationId: v?.stationId ?? null, vehicleId: id }); setOverlay({ kind: 'vehicle', id }) }
   const openHospital = (id) => setOverlay({ kind: 'hospital', id })
   const openSprech = (vehicleId) => setOverlay({ kind: 'sprech', id: vehicleId })
+  const openIncident = (id) => setOverlay({ kind: 'incident', id })
   // 📍 Fahrzeug auf der Karte zeigen: Overlay schließen, Karte zentrieren, Marker einige Sekunden hervorheben
   const locateVehicle = (id) => {
     const v = g.vehicles.find((x) => x.id === id)
@@ -94,7 +96,7 @@ export default function App() {
   const requests = sprechwunschList(g).length
   const reset = () => {
     if (!confirm('Spielstand wirklich löschen?')) return
-    clearSave(); gameRef.current = newGame(); setIncidentId(null); setWsel({ stationId: null, vehicleId: null }); setOverlay(null)
+    clearSave(); gameRef.current = newGame(); setWsel({ stationId: null, vehicleId: null }); setOverlay(null)
   }
 
   return (
@@ -118,7 +120,7 @@ export default function App() {
       </header>
       <div className="top">
         <div className="map-wrap">
-          <MapView game={g} sites={SITES} selected={{ incidentId, stationId: wsel.stationId }} focus={focus} buildMode={build?.kind || null} buildPos={build?.pos || null} onSiteClick={onSiteClick} onMapClick={onMapClick} onSelectIncident={setIncidentId} onSelectStation={selectStation} onSelectVehicle={selectVehicle} onSelectHospital={(id) => { if (!build) openHospital(id) }} />
+          <MapView game={g} sites={SITES} selected={{ incidentId, stationId: wsel.stationId }} focus={focus} buildMode={build?.kind || null} buildPos={build?.pos || null} onSiteClick={onSiteClick} onMapClick={onMapClick} onSelectIncident={(id) => { if (!build) openIncident(id) }} onSelectStation={selectStation} onSelectVehicle={selectVehicle} onSelectHospital={(id) => { if (!build) openHospital(id) }} />
           {build && <BauFormular g={g} build={build} setBuild={setBuild} siteMode={siteMode} onBuild={doBuild} />}
           {overlay?.kind === 'station' && (
             <WachenOverlay g={g} stationId={overlay.id} tab={overlay.tab} setTab={(tab) => setOverlay({ ...overlay, tab })} onClose={closeOverlay} onOpenStation={openStation} onOpenVehicle={openVehicle} flash={flash} />
@@ -127,14 +129,17 @@ export default function App() {
             <KlinikOverlay g={g} hospitalId={overlay.id} onClose={closeOverlay} onOpenHospital={openHospital} flash={flash} />
           )}
           {overlay?.kind === 'sprech' && (
-            <SprechwunschOverlay g={g} vehicleId={overlay.id} onClose={closeOverlay} onOpenSprech={openSprech} onSelectIncident={setIncidentId} flash={flash} />
+            <SprechwunschOverlay g={g} vehicleId={overlay.id} onClose={closeOverlay} onOpenSprech={openSprech} onSelectIncident={openIncident} flash={flash} />
+          )}
+          {overlay?.kind === 'incident' && (
+            <EinsatzOverlay g={g} incidentId={overlay.id} onClose={closeOverlay} onOpenIncident={openIncident} onLocate={locateVehicle} flash={flash} />
           )}
           {overlay?.kind === 'vehicle' && (
             <FahrzeugOverlay g={g} vehicleId={overlay.id} onClose={closeOverlay} onOpenVehicle={openVehicle} onOpenStation={openStation} onLocate={locateVehicle} flash={flash} />
           )}
           {msg && <div className="toast">{msg}</div>}
         </div>
-        <EinsatzPanel g={g} selectedId={incidentId} onSelect={setIncidentId} onLocate={locateVehicle} flash={flash} />
+        <EinsatzPanel g={g} selectedId={incidentId} onOpenIncident={openIncident} onOpenSprech={openSprech} />
       </div>
       <div className="bottom">
         <WachenPanel g={g} building={!!build} onStartBuild={startBuild} sel={wsel} setSel={setWsel} onOpenStation={openStation} onOpenVehicle={openVehicle} onLocate={locateVehicle} />
