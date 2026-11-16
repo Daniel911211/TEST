@@ -5,7 +5,7 @@ Karte links und Einsätze rechts, unten Bereiche wie im Vorbild (Wachen, Funk), 
 Erweiterungen, Stufen und Stellplatzgrenzen kommen später. Ziel dieser Runde: das jetzige Spiel im neuen Aufbau
 einmal durchspielbar machen. Nur Struktur übernehmen, keine Grafiken oder Texte des Vorbilds.
 
-## Etappe 1: Neues Grundlayout
+## Etappe 1: Neues Grundlayout (erledigt 16.11.2026)
 
 Kopfzeile wie bisher (Uhr, Geld, Punkte/Rang, Geschwindigkeit, Neu).
 
@@ -28,7 +28,7 @@ Unterer Bereich, drei Spalten:
 
 Der bisherige Reiter „Fahrzeuge“ (Zustand, Werkstatt, Verkauf) wandert ins Wachen-Overlay (Etappe 2).
 
-## Etappe 2: Wachen-Overlay
+## Etappe 2: Wachen-Overlay (erledigt 16.11.2026)
 
 Öffnet sich über der Karte bei Klick auf den Wachen-Marker oder auf „Details“.
 - Kopf: Name, Typ, Fahrzeuge (Anzahl), Werkstatt (ja/nein), Knopf „Fahrzeugmarkt“.
@@ -40,7 +40,7 @@ Der bisherige Reiter „Fahrzeuge“ (Zustand, Werkstatt, Verkauf) wandert ins W
   - Ausbau: vorerst nur Werkstatt (Kosten, Bauzeit in Spielzeit). Platz für spätere Erweiterungen.
 - Fuß: Schließen. Vor/Zurück zur nächsten Wache.
 
-## Etappe 3: Fahrzeug-Overlay
+## Etappe 3: Fahrzeug-Overlay (erledigt 16.11.2026)
 
 Klick auf ein Fahrzeug auf der Karte oder in einer Liste: Wache, Typ, Status, Zustand, Laufleistung,
 aktueller Einsatz, Besatzung; Knöpfe Rückalarmieren (Status 1), Werkstatt, Verkaufen.

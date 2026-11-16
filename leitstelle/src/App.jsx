@@ -4,6 +4,8 @@ import EinsatzPanel from './ui/EinsatzPanel.jsx'
 import WachenPanel from './ui/WachenPanel.jsx'
 import SprechwunschPanel from './ui/SprechwunschPanel.jsx'
 import FunkPanel from './ui/FunkPanel.jsx'
+import WachenOverlay from './ui/WachenOverlay.jsx'
+import FahrzeugOverlay from './ui/FahrzeugOverlay.jsx'
 import OSM_SITES from './data/feuerwehren.json'
 import EXTRA_SITES from './data/zusatz-standorte.json'
 import {
@@ -13,7 +15,8 @@ import {
 
 const SITES = [...OSM_SITES, ...EXTRA_SITES]
 
-// Layout-Rahmen: Kopfzeile, oben Karte + Einsatzbereich, unten Wachen + Sprechwünsche + Funk
+// Layout-Rahmen: Kopfzeile, oben Karte + Einsatzbereich, unten Wachen + Sprechwünsche + Funk.
+// Overlays (Wache, Fahrzeug) liegen über der Karte.
 export default function App() {
   const gameRef = useRef(null)
   if (!gameRef.current) gameRef.current = loadGame() || newGame()
@@ -23,6 +26,7 @@ export default function App() {
   const [build, setBuild] = useState(null) // 'FW' | 'RW' | null
   const [incidentId, setIncidentId] = useState(null)
   const [wsel, setWsel] = useState({ stationId: null, vehicleId: null })
+  const [overlay, setOverlay] = useState(null) // { kind:'station', id, tab } | { kind:'vehicle', id } | null
   const [msg, setMsg] = useState('')
   const speedRef = useRef(1)
   speedRef.current = speed
@@ -43,7 +47,10 @@ export default function App() {
 
   const flash = (t) => { setMsg(t); setTimeout(() => setMsg(''), 2500) }
   const siteMode = (k) => SITES.some((s) => (s.kind || 'FW') === k)
-  const built = (r) => { if (!r.ok) flash(r.msg); else { setBuild(null); setWsel({ stationId: r.station.id, vehicleId: null }) } }
+  const openStation = (id, tab) => { setWsel({ stationId: id, vehicleId: null }); setOverlay((o) => ({ kind: 'station', id, tab: tab || (o?.kind === 'station' ? o.tab : 'fahrzeuge') })) }
+  const openVehicle = (id) => { const v = g.vehicles.find((x) => x.id === id); setWsel({ stationId: v?.stationId ?? null, vehicleId: id }); setOverlay({ kind: 'vehicle', id }) }
+  const closeOverlay = () => { setOverlay(null); setWsel((s) => ({ ...s, vehicleId: null })) }
+  const built = (r) => { if (!r.ok) flash(r.msg); else { setBuild(null); openStation(r.station.id, 'markt') } }
   const onSiteClick = (site) => {
     const k = site.kind || 'FW'
     if (build !== k) { flash(`Wähle zuerst „${STATION_TYPES[k].name} bauen“.`); return }
@@ -54,9 +61,14 @@ export default function App() {
     if (siteMode(build)) { flash(`${STATION_TYPES[build].name}n können nur an den markierten Standorten gebaut werden.`); return }
     built(buildStation(g, build, pos))
   }
-  const selectStation = (id) => { if (!build) setWsel({ stationId: id, vehicleId: null }) }
+  const selectStation = (id) => { if (!build) openStation(id) }
+  const selectVehicle = (id) => { if (!build) openVehicle(id) }
   const next = nextRank(g.points)
   const requests = g.vehicles.filter((v) => v.status === 5).length
+  const reset = () => {
+    if (!confirm('Spielstand wirklich löschen?')) return
+    clearSave(); gameRef.current = newGame(); setIncidentId(null); setWsel({ stationId: null, vehicleId: null }); setOverlay(null)
+  }
 
   return (
     <div className="app">
@@ -71,18 +83,24 @@ export default function App() {
         {[0, 1, 2, 5].map((s) => (
           <button key={s} className={speed === s ? 'on' : ''} onClick={() => setSpeed(s)}>{s === 0 ? '⏸' : `${s}x`}</button>
         ))}
-        <button onClick={() => { if (confirm('Spielstand wirklich löschen?')) { clearSave(); gameRef.current = newGame(); setIncidentId(null); setWsel({ stationId: null, vehicleId: null }) } }}>Neu</button>
+        <button onClick={reset}>Neu</button>
       </header>
       <div className="top">
         <div className="map-wrap">
-          <MapView game={g} sites={SITES} selected={{ incidentId, stationId: wsel.stationId }} buildMode={build} onSiteClick={onSiteClick} onMapClick={onMapClick} onSelectIncident={setIncidentId} onSelectStation={selectStation} />
+          <MapView game={g} sites={SITES} selected={{ incidentId, stationId: wsel.stationId }} buildMode={build} onSiteClick={onSiteClick} onMapClick={onMapClick} onSelectIncident={setIncidentId} onSelectStation={selectStation} onSelectVehicle={selectVehicle} />
           {build && <div className="banner">{siteMode(build) ? 'Klicke auf einen markierten Standort' : 'Klicke auf die Karte'}, um eine {STATION_TYPES[build].name} zu bauen ({fmtMoney(STATION_TYPES[build].cost)}) <button onClick={() => setBuild(null)}>Abbrechen</button></div>}
+          {overlay?.kind === 'station' && (
+            <WachenOverlay g={g} stationId={overlay.id} tab={overlay.tab} setTab={(tab) => setOverlay({ ...overlay, tab })} onClose={closeOverlay} onOpenStation={openStation} onOpenVehicle={openVehicle} flash={flash} />
+          )}
+          {overlay?.kind === 'vehicle' && (
+            <FahrzeugOverlay g={g} vehicleId={overlay.id} onClose={closeOverlay} onOpenVehicle={openVehicle} onOpenStation={openStation} flash={flash} />
+          )}
           {msg && <div className="toast">{msg}</div>}
         </div>
         <EinsatzPanel g={g} selectedId={incidentId} onSelect={setIncidentId} flash={flash} />
       </div>
       <div className="bottom">
-        <WachenPanel g={g} build={build} setBuild={setBuild} sel={wsel} setSel={setWsel} flash={flash} />
+        <WachenPanel g={g} build={build} setBuild={setBuild} sel={wsel} setSel={setWsel} onOpenStation={openStation} onOpenVehicle={openVehicle} />
         <SprechwunschPanel g={g} flash={flash} />
         <FunkPanel g={g} />
       </div>

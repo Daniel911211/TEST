@@ -377,6 +377,17 @@ export function requestLagemeldung(g, incidentId) {
   return { ok: true }
 }
 
+// Rückalarmieren: Fahrzeug auf Anfahrt (Status 3) wieder freigeben
+export function recallVehicle(g, vehicleId) {
+  const v = g.vehicles.find((x) => x.id === vehicleId)
+  if (!v || v.status !== 3) return { ok: false, msg: 'Nur Fahrzeuge auf Anfahrt (Status 3) können rückalarmiert werden.' }
+  const inc = g.incidents.find((i) => i.id === v.incidentId)
+  releaseVehicle(v)
+  if (inc) inc.dispatched = g.vehicles.some((x) => x.incidentId === inc.id)
+  addLog(g, `${v.callsign}: rückalarmiert, Status 1.`)
+  return { ok: true }
+}
+
 function releaseVehicle(v) {
   v.route = null
   v.incidentId = null

@@ -83,6 +83,26 @@ h5 { font-size:12px; color:var(--muted); margin-top:8px; }
 .buy { display:flex; flex-direction:column; align-items:flex-start; text-align:left; margin:0 !important; }
 .buy small { color:var(--muted); }
 
+/* Overlays über der Karte (Wache, Fahrzeug) */
+.overlay-back { position:absolute; inset:0; z-index:1100; background:#0009; display:flex; align-items:center; justify-content:center; padding:16px; }
+.overlay { width:min(780px, 100%); max-height:100%; display:flex; flex-direction:column; background:var(--panel); border:1px solid var(--line); border-radius:10px; box-shadow:0 10px 40px #000a; overflow:hidden; }
+.ov-head { display:flex; align-items:center; gap:10px; padding:10px 12px; background:var(--panel2); border-bottom:1px solid var(--line); }
+.ov-title h3 { font-size:16px; display:flex; align-items:center; gap:6px; }
+.ov-title small { display:block; margin-top:2px; }
+.ov-tabs { display:flex; gap:2px; padding:6px 12px 0; border-bottom:1px solid var(--line); background:var(--panel2); }
+.ov-tabs button { border-radius:6px 6px 0 0; border-bottom:none; background:#1c222c; }
+.ov-tabs button.on { background:var(--panel); border-color:var(--line); color:#fff; font-weight:700; }
+.ov-body { min-height:160px; }
+.ov-body .tbl th, .ov-body .tbl td { padding:5px 8px; }
+.ov-body .tbl thead th { position:sticky; top:0; background:var(--panel); }
+.ov-foot { display:flex; align-items:center; gap:6px; padding:8px 12px; background:var(--panel2); border-top:1px solid var(--line); }
+.tbl tr.click { cursor:pointer; }
+.nowrap { white-space:nowrap; } .nowrap button { margin-left:4px; }
+.markt-gruppe + .markt-gruppe { margin-top:12px; }
+.fz-facts { display:flex; flex-direction:column; gap:6px; }
+.fz-facts > div > .muted:first-child { display:inline-block; min-width:170px; }
+.fz-facts .cond { max-width:300px; }
+
 /* Sprechwünsche */
 .card.req { border-color:#e91e63; } .card.req button { display:block; width:100%; margin:6px 0 0; text-align:left; }
 .card.req button.primary { text-align:center; }

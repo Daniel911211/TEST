@@ -5,12 +5,12 @@ import { CENTER, HOSPITALS, VEHICLE_TYPES } from './game.js'
 const icon = (html, cls, size = 28) =>
   L.divIcon({ html, className: cls, iconSize: [size, size], iconAnchor: [size / 2, size / 2] })
 
-export default function MapView({ game, sites, selected, buildMode, onMapClick, onSelectIncident, onSelectStation, onSiteClick }) {
+export default function MapView({ game, sites, selected, buildMode, onMapClick, onSelectIncident, onSelectStation, onSelectVehicle, onSiteClick }) {
   const el = useRef(null)
   const map = useRef(null)
   const layers = useRef({ st: new Map(), veh: new Map(), inc: new Map() })
   const cb = useRef({})
-  cb.current = { onMapClick, onSelectIncident, onSelectStation, onSiteClick, buildMode }
+  cb.current = { onMapClick, onSelectIncident, onSelectStation, onSelectVehicle, onSiteClick, buildMode }
 
   useEffect(() => {
     const m = L.map(el.current, { zoomControl: true }).setView(CENTER, 12)
@@ -67,7 +67,9 @@ export default function MapView({ game, sites, selected, buildMode, onMapClick, 
         setIcon(mk, cls, () => icon('!', cls, 30))
       })
     sync(veh, game.vehicles.filter((v) => v.status !== 2), (v) =>
-      L.marker(v.pos, { icon: icon('', 'mk mk-veh', 24), zIndexOffset: 300 }), (mk, v) => {
+      L.marker(v.pos, { icon: icon('', 'mk mk-veh', 24), zIndexOffset: 300 }).on('click', (e) => {
+        L.DomEvent.stopPropagation(e); cb.current.onSelectVehicle?.(v.id)
+      }), (mk, v) => {
         const ll = mk.getLatLng()
         if (ll.lat !== v.pos[0] || ll.lng !== v.pos[1]) mk.setLatLng(v.pos)
         const cls = `mk mk-veh t-${VEHICLE_TYPES[v.type].kind}`
