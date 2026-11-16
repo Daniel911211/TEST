@@ -92,6 +92,7 @@ function Fenster({ g, inc, onClose, onLocate, flash, onPrev, onNext }) {
                 <button className="small" title="Ton anhalten" onClick={stopAlarm}>■</button>
               </span>
               <small className="muted">Stichwort-Auswahl folgt später.</small>
+              <button className="primary alarm-knopf" disabled={!picked.length} onClick={send}>Alarmieren ({picked.length})</button>
             </div>
           </div>
         )}
