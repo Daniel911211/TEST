@@ -332,7 +332,9 @@ function develop(g, inc) {
       inc.need = addNeeds(inc.need, added)
       for (const r of Object.keys(added)) delete inc.extra[r]
       inc.nachDone = true
-      text = `Nachforderung ${inc.type.name}: ${needText(added)}.`
+      text = inc.type.rd && added.NEF && Object.keys(added).length === 1
+        ? `Notarzt-Nachforderung (R3): ${needText(added)} – Patient akut lebensbedrohlich.`
+        : `Nachforderung ${inc.type.name}: ${needText(added)}.`
     }
   }
   scheduleNext(g, inc)
@@ -577,7 +579,7 @@ export function tick(g, dt) {
             patients--
             v.incidentId = null
             v.route = null
-            requestHospital(g, v, inc.type.severity || 1)
+            requestHospital(g, v, inc.need.NEF ? 3 : inc.type.severity || 1) // mit Notarzt = schwer
           } else releaseVehicle(v)
         }
         g.incidents = g.incidents.filter((i) => i !== inc)

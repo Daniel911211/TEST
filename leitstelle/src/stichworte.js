@@ -106,10 +106,10 @@ export const INCIDENT_TYPES = [
 
   // --- Rettungsdienst ---
   mk('R0K', 'R0K – Minderdringlicher Notfall', 'Minderdringlicher Notfalleinsatz (N-KTW)', { need: {}, rd: 'R0K', weight: 2, work: 180 }),
-  mk('R0', 'R0 – Notfall ohne Sondersignal', 'Notfalleinsatz unterhalb der Notarzt-Indikation', { need: {}, rd: 'R0', weight: 3, work: 240 }),
-  mk('R1', 'R1 – Notfall mit Sondersignal', 'Dringlicher Notfalleinsatz', { need: {}, rd: 'R1', weight: 5, work: 240 }),
+  mk('R0', 'R0 – Notfall ohne Sondersignal', 'Notfalleinsatz unterhalb der Notarzt-Indikation', { need: {}, rd: 'R0', extra: { NEF: 1 }, weight: 3, work: 240 }),
+  mk('R1', 'R1 – Notfall mit Sondersignal', 'Dringlicher Notfalleinsatz', { need: {}, rd: 'R1', extra: { NEF: 1 }, weight: 5, work: 240 }),
   mk('R2', 'R2 – Notfall mit Notarzt', 'Akut lebensbedrohliche Situation', { need: {}, rd: 'R2', weight: 3, work: 420 }),
-  mk('R3', 'R3 – Notarzt allein', 'Notarzteinsatz allein (z. B. Nachforderung)', { need: {}, rd: 'R3', weight: 1, work: 300 }),
+  mk('R3', 'R3 – Notarzt allein', 'Notarzt allein – Nachforderung zu laufendem Einsatz oder bereichsübergreifend', { need: {}, rd: 'R3', weight: 0, work: 300 }),
   mk('RLEBEL', 'R LEBEL – Lebensbedrohliche Einsatzlage', 'Lebensbedrohliche Lage für Einsatzpersonal (bewaffnete Täter)', { need: {}, rd: 'RLEBEL', weight: 0.1, work: 600 }),
   mk('RMANV', 'R MANV – Massenanfall von Verletzten', 'Große Anzahl von Verletzten', { need: {}, rd: 'MANV', weight: 0.1, work: 1200 }),
 ]
@@ -142,7 +142,7 @@ export const addNeeds = (a, b) => {
 // --- Einsatzentwicklung ---
 // Grundwahrscheinlichkeit, dass ein Einsatz "wächst" (Nachforderung), nach Stufe des Stichworts.
 const TIERS = {
-  1: ['F1', 'FRWM', 'H1', 'H1Y', 'HUNWETTER1', 'HUNWETTER2', 'R0K', 'R0', 'R1', 'R3', 'HFLUSS', 'HGAS1', 'HELEK'],
+  1: ['F1', 'FRWM', 'H1', 'H1Y', 'HUNWETTER1', 'HUNWETTER2', 'R0K', 'R0', 'R3', 'HFLUSS', 'HGAS1', 'HELEK'],
   3: ['F2Y', 'F3', 'F3Y', 'FGAS2', 'FWALD2', 'HGEFAHR2', 'HKLEMM2Y', 'HEINSTY', 'FBUSY', 'FFLUG1Y', 'FSCHIFF2', 'FSCHIFF2Y'],
   4: ['F4', 'FFLUG2Y', 'FZUGY', 'FSCHIFF2G', 'HRADIO', 'HSCHIFFY2', 'HZUG2Y', 'RMANV'],
 } // alles andere: Stufe 2
@@ -168,7 +168,6 @@ export const ESCALATE = {
   HFLUSS: [{ to: 'HFLUSSY', why: 'Person im Wasser gesichtet' }],
   R0K: [{ to: 'R0', why: 'Zustand des Patienten hat sich verschlechtert' }],
   R0: [{ to: 'R1', why: 'Zustand des Patienten hat sich verschlechtert' }],
-  R1: [{ to: 'R2', why: 'Patient akut lebensbedrohlich' }],
 }
 
 export const maxNeeds = (a, b) => {
