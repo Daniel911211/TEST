@@ -4,15 +4,10 @@ import { VEHICLE_TYPES, STATION_TYPES } from '../game.js'
 // Fahrzeuggruppen für Filterknöpfe
 export const VEHICLE_GROUPS = [
   ['alle', 'Alle'],
-  ['loesch', 'Löschfahrzeuge'],
-  ['sonder', 'Sonderfahrzeuge'],
+  ['fw', 'Feuerwehr'],
   ['rd', 'Rettungsdienst'],
 ]
-export const groupOf = (type) => {
-  const d = VEHICLE_TYPES[type]
-  if (d.kind === 'RW') return 'rd'
-  return d.water > 0 ? 'loesch' : 'sonder'
-}
+export const groupOf = (type) => (VEHICLE_TYPES[type].kind === 'RW' ? 'rd' : 'fw')
 export const groupName = (key) => VEHICLE_GROUPS.find(([k]) => k === key)?.[1] || key
 
 export const stationOf = (g, v) => g.stations.find((s) => s.id === v.stationId)
