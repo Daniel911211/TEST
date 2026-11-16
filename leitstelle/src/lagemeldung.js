@@ -40,21 +40,20 @@ function mache(inc, assigned) {
   return join(parts)
 }
 
-// Teil „Was brauche ich“: Nachforderung mit Begründung, nicht alarmierte Kräfte, oder „Kräfte ausreichend“
+// Teil „Was brauche ich“: Nachforderung (szenariobedingt mit Begründung und/oder laut AAO noch nicht alarmiert),
+// sonst Rückfrage bei Fahrzeugen auf Anfahrt, sonst „Kräfte ausreichend“. Bei einer Nachforderung entfällt die Rückfrage.
 function brauche(inc, assigned, missing, added) {
   const parts = []
-  if (added && Object.keys(added).length) {
-    const gruende = Object.keys(added).map((r) => inc.anford?.[r]).filter(Boolean)
-    parts.push(`Erbitte ${needText(added)}${gruende.length ? ': ' + gruende.join(', ') : ''}.`)
+  const alle = { ...(added || {}) }
+  for (const [r, n] of Object.entries(missing)) if (!alle[r]) alle[r] = n
+  if (Object.keys(alle).length) {
+    const gruende = Object.keys(added || {}).map((r) => inc.anford?.[r]).filter(Boolean)
+    parts.push(`Nachforderung: ${needText(alle)} zur Einsatzstelle!${gruende.length ? ' Grund: ' + gruende.join(', ') + '.' : ''}`)
+    return join(parts)
   }
-  const rest = Object.fromEntries(Object.entries(missing).filter(([r]) => !added?.[r]))
-  // Fahrzeuge, die laut AAO zum Stichwort gehören, aber noch nicht alarmiert sind → Nachforderung des Einsatzleiters
-  if (Object.keys(rest).length) parts.push(`Nachforderung: ${needText(rest)} zur Einsatzstelle!`)
   // Noch Fahrzeuge auf Anfahrt: Einsatzleiter fragt allgemein nach (er sieht sie noch nicht)
-  const frage = assigned.some((v) => v.status === 3) ? 'Frage: Weitere Kräfte auf Anfahrt?' : ''
-  // Solange Fahrzeuge noch anfahren, reichen die Kräfte vor Ort nicht – dann keine „Kräfte ausreichend“-Meldung
-  if (!parts.length) parts.push(frage ? frage : inc.szenario?.stabil ? 'Meldebild bestätigt, Kräfte ausreichend.' : 'Kräfte ausreichend, keine Nachforderung.')
-  else if (frage) parts.push(frage)
+  if (assigned.some((v) => v.status === 3)) parts.push('Frage: Weitere Kräfte auf Anfahrt?')
+  else parts.push(inc.szenario?.stabil ? 'Meldebild bestätigt, Kräfte ausreichend.' : 'Kräfte ausreichend, keine Nachforderung.')
   return join(parts)
 }
 
@@ -70,7 +69,7 @@ export const folgemeldung = (text) => `Folgemeldung – ${text}`
 // Nachforderung ohne Lagemeldung (wenn die Einsatzleitung von selbst keine Lage meldet)
 export const nachforderungsmeldung = (inc, added) => {
   const gruende = Object.keys(added).map((r) => inc.anford?.[r]).filter(Boolean)
-  return `Nachforderung – Erbitte ${needText(added)}${gruende.length ? ': ' + gruende.join(', ') : ''}.`
+  return `Nachforderung: ${needText(added)} zur Einsatzstelle!${gruende.length ? ' Grund: ' + gruende.join(', ') + '.' : ''}`
 }
 
 // Abschlussmeldung: je Stichwortgruppe ein eigener Abschluss, Szenario kann ihn überschreiben
