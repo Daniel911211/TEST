@@ -11,6 +11,7 @@ import KlinikOverlay from './ui/KlinikOverlay.jsx'
 import SprechwunschOverlay from './ui/SprechwunschOverlay.jsx'
 import EinsatzOverlay from './ui/EinsatzOverlay.jsx'
 import ProtokollOverlay from './ui/ProtokollOverlay.jsx'
+import { soundOn, setSoundOn, stopAlarm } from './sound.js'
 import OSM_SITES from './data/feuerwehren.json'
 import EXTRA_SITES from './data/zusatz-standorte.json'
 import {
@@ -28,6 +29,7 @@ export default function App() {
   const g = gameRef.current
   const [, force] = useState(0)
   const [speed, setSpeed] = useState(1)
+  const [sound, setSound] = useState(soundOn()) // Alarmton an/aus (Schalter in der Kopfzeile)
   const [build, setBuild] = useState(null) // Bauformular: { kind:'FW'|'RW', pos, site, name } | null
   const [wsel, setWsel] = useState({ stationId: null, vehicleId: null })
   const [focus, setFocus] = useState(null) // { pos, vehicleId, n } für 📍
@@ -119,6 +121,7 @@ export default function App() {
           {g.spawnPaused ? '🚫 Neue Einsätze aus' : '🚨 Neue Einsätze an'}
         </button>
         <button onClick={openProtokoll} title="Protokoll aller Ereignisse">📋 Protokoll</button>
+        <button className={sound ? 'on' : ''} title={sound ? 'Alarmton ist an. Klicken zum Ausschalten.' : 'Alarmton ist aus. Klicken zum Einschalten.'} onClick={() => { const on = !sound; setSoundOn(on); setSound(on); if (!on) stopAlarm() }}>{sound ? '🔊 Ton an' : '🔇 Ton aus'}</button>
         <button onClick={reset}>Neu</button>
       </header>
       <div className="top">

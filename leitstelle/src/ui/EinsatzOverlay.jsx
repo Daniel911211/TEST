@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { ROLES, VEHICLE_TYPES, SLOW, LOG_KINDS, matchSlots, isAvailable, etaSec, dispatch, recommend, recallVehicle, askElw2, requestLagemeldung, addVermerk, incidentTitle, fmtClock, fmtMin, fmtMoney } from '../game.js'
 import { VEHICLE_GROUPS, groupOf, stationOf } from './helpers.js'
 import Overlay from './Overlay.jsx'
+import { playAlarm } from '../sound.js'
 
 const needText = (need) => Object.entries(need).map(([k, n]) => `${n}× ${ROLES[k].short}`).join(', ')
 
@@ -30,7 +31,7 @@ function Fenster({ g, inc, onClose, onLocate, flash, onPrev, onNext }) {
     .filter((v) => groupOf(v.type) === filter)
     .sort((a, b) => etaSec(a, inc.pos, tf) - etaSec(b, inc.pos, tf))
   const toggle = (id, on) => setPicked(on ? [...picked, id] : picked.filter((x) => x !== id))
-  const send = () => { dispatch(g, inc.id, picked); setPicked([]) }
+  const send = () => { const r = dispatch(g, inc.id, picked); if (r?.ok !== false && picked.length) playAlarm(); setPicked([]) }
   const state = inc.status === 'working' ? `in Bearbeitung · noch ${fmtMin(inc.workLeft)}` : inc.dispatched ? 'Kräfte alarmiert' : 'offen'
 
   return (
