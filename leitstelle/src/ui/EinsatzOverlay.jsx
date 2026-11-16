@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { ROLES, VEHICLE_TYPES, SLOW, LOG_KINDS, matchSlots, isAvailable, etaSec, dispatch, recommend, recallVehicle, askElw2, requestLagemeldung, addVermerk, incidentTitle, fmtClock, fmtMin, fmtMoney } from '../game.js'
 import { VEHICLE_GROUPS, groupOf, stationOf } from './helpers.js'
 import Overlay from './Overlay.jsx'
-import { playAlarm } from '../sound.js'
+import { ALARM_SOUNDS, defaultAlarm, playAlarm, stopAlarm } from '../sound.js'
 
 const needText = (need) => Object.entries(need).map(([k, n]) => `${n}× ${ROLES[k].short}`).join(', ')
 
@@ -19,6 +19,7 @@ export default function EinsatzOverlay({ g, incidentId, onClose, onOpenIncident,
 function Fenster({ g, inc, onClose, onLocate, flash, onPrev, onNext }) {
   const [picked, setPicked] = useState([])
   const [filter, setFilter] = useState(inc.type.id[0] === 'R' ? 'rd' : 'fw') // Rettungsdienst-Einsätze starten beim Rettungsdienst
+  const [ton, setTon] = useState(defaultAlarm(inc.type.id)) // Alarmton der Alarmierungsmaske (Vorgabe nach Einsatzart)
   const assigned = g.vehicles.filter((v) => v.incidentId === inc.id)
   const tf = inc.type.ohneSS ? SLOW : 1 // Fahrzeit ohne Sondersignal
   const onScene = assigned.filter((v) => v.status === 4)
@@ -31,7 +32,7 @@ function Fenster({ g, inc, onClose, onLocate, flash, onPrev, onNext }) {
     .filter((v) => groupOf(v.type) === filter)
     .sort((a, b) => etaSec(a, inc.pos, tf) - etaSec(b, inc.pos, tf))
   const toggle = (id, on) => setPicked(on ? [...picked, id] : picked.filter((x) => x !== id))
-  const send = () => { const r = dispatch(g, inc.id, picked); if (r?.ok !== false && picked.length) playAlarm(inc.type.id[0] === 'R' ? 'rd' : 'fw'); setPicked([]) }
+  const send = () => { const r = dispatch(g, inc.id, picked); if (r?.ok !== false && picked.length) playAlarm(ton); setPicked([]) }
   const state = inc.status === 'working' ? `in Bearbeitung · noch ${fmtMin(inc.workLeft)}` : inc.dispatched ? 'Kräfte alarmiert' : 'offen'
 
   return (
@@ -75,6 +76,24 @@ function Fenster({ g, inc, onClose, onLocate, flash, onPrev, onNext }) {
                 ))}
               </tbody>
             </table>
+          </div>
+        )}
+
+        {inc.status === 'open' && (
+          <div className="ef-block alarm-maske">
+            <h4>Alarmierung</h4>
+            <div className="ef-row">
+              <label>Alarmton
+                <select value={ton} onChange={(e) => setTon(e.target.value)}>
+                  {ALARM_SOUNDS.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+                </select>
+              </label>
+              <span className="nowrap">
+                <button className="small" disabled={ton === 'none'} title="Gewählten Ton anhören" onClick={() => playAlarm(ton, true)}>▶ Anhören</button>
+                <button className="small" title="Ton anhalten" onClick={stopAlarm}>■</button>
+              </span>
+              <small className="muted">Stichwort-Auswahl folgt später.</small>
+            </div>
           </div>
         )}
 
