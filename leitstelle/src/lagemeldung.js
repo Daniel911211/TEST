@@ -3,6 +3,7 @@
 //   erste Lagemeldung nach dem Eintreffen, Folgemeldung bei Änderung der Lage, Abschlussmeldung am Ende.
 // Texte kommen aus den Szenario-Bausteinen (szenarien.js); fremde Kräfte werden nur genannt, wenn sie am Einsatz sind.
 import { ROLES } from './stichworte.js'
+import { VEHICLE_TYPES } from './game.js'
 
 const rnd = (a, b) => a + Math.random() * (b - a)
 export const needText = (n) => Object.entries(n).map(([k, c]) => `${c}× ${ROLES[k].short}`).join(', ')
@@ -48,9 +49,15 @@ function brauche(inc, assigned, missing, added) {
     parts.push(`Erbitte ${needText(added)}${gruende.length ? ': ' + gruende.join(', ') : ''}.`)
   }
   const rest = Object.fromEntries(Object.entries(missing).filter(([r]) => !added?.[r]))
-  if (Object.keys(rest).length) parts.push(`Noch nicht alarmiert: ${needText(rest)}.`)
-  const enRoute = assigned.filter((v) => v.status === 3).length
-  if (!parts.length) parts.push(inc.szenario?.stabil ? 'Meldebild bestätigt, Kräfte ausreichend.' : enRoute ? `Kräfte ausreichend, ${enRoute} Fahrzeug${enRoute > 1 ? 'e' : ''} noch auf Anfahrt.` : 'Kräfte ausreichend, keine Nachforderung.')
+  // Fahrzeuge, die laut AAO zum Stichwort gehören, aber noch nicht alarmiert sind → Nachforderung des Einsatzleiters
+  if (Object.keys(rest).length) parts.push(`Nachforderung: ${needText(rest)} zur Einsatzstelle!`)
+  // Noch auf Anfahrt: Einsatzleiter fragt nach, ob die Fahrzeuge alarmiert sind (er sieht sie noch nicht)
+  const unterwegs = {}
+  for (const v of assigned) if (v.status === 3) { const n = VEHICLE_TYPES[v.type]?.name || v.type; unterwegs[n] = (unterwegs[n] || 0) + 1 }
+  const enRoute = Object.values(unterwegs).reduce((a, c) => a + c, 0)
+  const frage = enRoute ? `Frage: ${Object.entries(unterwegs).map(([n, c]) => `${c}× ${n}`).join(', ')} ${enRoute > 1 ? 'sind' : 'ist'} alarmiert?` : ''
+  if (!parts.length) parts.push(inc.szenario?.stabil ? 'Meldebild bestätigt, Kräfte ausreichend.' : frage ? `Kräfte ausreichend. ${frage}` : 'Kräfte ausreichend, keine Nachforderung.')
+  else if (frage) parts.push(frage)
   return join(parts)
 }
 
