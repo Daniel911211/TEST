@@ -5,6 +5,7 @@ import { INCIDENT_TYPES, ROLES, matchSlots, addNeeds, growProb, ESCALATE, maxNee
 import { pickSzenario, incidentTitle } from './szenarien.js'
 import { rollAnforderung, ersteLagemeldung, folgemeldung, nachforderungsmeldung, abschlussmeldung } from './lagemeldung.js'
 import { EINSAETZE, EINSATZ_BY_ID, EINSATZ_BY_NAME, VERGUETUNG_FAKTOR, saisonAktiv } from './data/einsaetze.js'
+import { ANTWORTEN, QUITTUNGEN, NACHFRAGEN, pick, fill } from './data/funk-antworten.js'
 export { incidentTitle, typeCode } from './szenarien.js'
 
 export const GAME_SEC_PER_REAL_SEC = 10 // bei 1x: 1 echte Sekunde = 10 Spielsekunden
@@ -140,7 +141,7 @@ const rnd = (a, b) => a + Math.random() * (b - a)
 export const LOG_MAX = 5000
 export const LOG_KINDS = {
   lage: 'Lagemeldung', nachforderung: 'Nachforderung', neu: 'Neuer Einsatz', alarm: 'Alarmierung', erledigt: 'Erledigt',
-  sprech: 'Sprechwunsch', leitstelle: 'Leitstelle', status: 'Status', vermerk: 'Vermerk', bau: 'Bau/Kauf', info: '',
+  sprech: 'Sprechwunsch', leitstelle: 'Leitstelle', quittung: 'Quittung', status: 'Status', vermerk: 'Vermerk', bau: 'Bau/Kauf', info: '',
 }
 // Arten, die nicht zum Funkverkehr gehören (nur Protokoll und Tagebuch)
 export const LOG_QUIET_KINDS = ['neu', 'vermerk', 'bau']
@@ -616,7 +617,46 @@ export function addVermerk(g, incidentId, text, by = 'Leitstelle') {
 }
 
 // Sprechwunsch (Lage/Nachforderung) beantworten, optional mit Vermerk
-export function answerSprechwunsch(g, vehicleId, note) {
+// --- Antwort der Leitstelle auf einen Sprechwunsch (Texte in data/funk-antworten.js) ---
+// Vorschläge aus der Lage (Fahrzeuge auf Anfahrt, fehlende Rollen), Quittung des Fahrzeugs im Funk; bei einer Zusage
+// („… wird alarmiert“) hakt die Einsatzleitung nach 5 Spielminuten nach, wenn die Kräfte noch nicht alarmiert sind.
+const typeCounts = (vs) => { const m = {}; for (const v of vs) { const n = VEHICLE_TYPES[v.type].name; m[n] = (m[n] || 0) + 1 } return Object.entries(m).map(([n, c]) => `${c}× ${n}`).join(', ') }
+export function answerOptions(g, vehicleId) {
+  const v = g.vehicles.find((x) => x.id === vehicleId)
+  const sw = v?.sprechwunsch
+  if (!sw) return []
+  const inc = g.incidents.find((i) => i.id === sw.incidentId)
+  const out = []
+  if (sw.kind === 'abschluss') out.push({ text: ANTWORTEN.abschluss, zusage: false })
+  if (inc) {
+    const assigned = g.vehicles.filter((x) => x.incidentId === inc.id)
+    const enRoute = assigned.filter((x) => x.status === 3)
+    const missing = matchSlots(inc.need, assigned)
+    if (enRoute.length) {
+      const eta = Math.max(...enRoute.map((x) => etaSec(x, inc.pos, tempoFactor(g, x))))
+      out.push({ text: fill(ANTWORTEN.anfahrt, { kraefte: typeCounts(enRoute), eta: fmtMin(eta) }), zusage: false })
+    }
+    if (Object.keys(missing).length) out.push({ text: fill(ANTWORTEN.zusage, { kraefte: needText(missing) }), zusage: true })
+    if (!enRoute.length && sw.kind !== 'abschluss') out.push({ text: ANTWORTEN.keine, zusage: false })
+  }
+  out.push({ text: fill(ANTWORTEN.aufgenommen, { art: SPRECH_KIND[sw.kind] || 'Meldung' }), zusage: false })
+  return out
+}
+// Reaktion des Fahrzeugs auf die Antwort der Leitstelle (zusage: true/false aus einem Vorschlag, null = aus dem Text erkennen)
+function quittung(g, inc, sw, text, zusage) {
+  if (sw.kind === 'abschluss') return pick(QUITTUNGEN.abschluss)
+  if (!inc) return pick(QUITTUNGEN.standard)
+  const missing = matchSlots(inc.need, g.vehicles.filter((x) => x.incidentId === inc.id))
+  const fehlt = Object.keys(missing).length > 0
+  const kraefte = needText(missing)
+  const promised = zusage ?? (fehlt && /alarmier|unterwegs|schick|kommt|auf dem weg/i.test(text))
+  if (promised && fehlt) { inc.zusage = { roles: { ...missing }, at: g.t }; return fill(pick(QUITTUNGEN.zusage), { kraefte }) }
+  if (/^ja\b|anfahrt|eintreffen/i.test(text)) return pick(QUITTUNGEN.anfahrt)
+  if (/^nein\b|keine weiteren/i.test(text)) return fehlt ? fill(pick(QUITTUNGEN.keineFehlt), { kraefte }) : pick(QUITTUNGEN.keineOk)
+  return pick(QUITTUNGEN.standard)
+}
+// answer = Antwort der Leitstelle (leer = nur quittieren)
+export function answerSprechwunsch(g, vehicleId, answer = '', zusage = null) {
   const v = g.vehicles.find((x) => x.id === vehicleId)
   if (!v?.sprechwunsch) return { ok: false, msg: 'Kein offener Sprechwunsch.' }
   const sw = v.sprechwunsch
@@ -625,8 +665,11 @@ export function answerSprechwunsch(g, vehicleId, note) {
   v.sprechwunsch = null
   // Inhalt des Funkspruchs kommt erst jetzt ins Protokoll (vorher kennt ihn die Leitstelle nicht)
   addLog(g, `${v.callsign}: ${sw.text}`, meta)
-  if (note?.trim()) { if (inc) addVermerk(g, sw.incidentId, note, `Leitstelle (${v.callsign})`); else addLog(g, `Vermerk (Leitstelle (${v.callsign})): ${note.trim()}`, { ...meta, kind: 'vermerk', quiet: true }) }
-  addLog(g, `Leitstelle an ${v.callsign}: ${SPRECH_KIND[sw.kind]} aufgenommen.`, meta)
+  const text = (answer || '').trim()
+  if (!text) { addLog(g, `Leitstelle an ${v.callsign}: ${SPRECH_KIND[sw.kind]} aufgenommen.`, { ...meta, kind: 'leitstelle' }); return { ok: true } }
+  // Antwort steht als Leitstellen-Eintrag im Funk und im Einsatztagebuch, das Fahrzeug quittiert
+  addLog(g, `Leitstelle an ${v.callsign}: ${text}`, { ...meta, kind: 'leitstelle' })
+  addLog(g, `${v.callsign}: ${quittung(g, inc, sw, text, zusage)}`, { ...meta, kind: 'quittung' })
   return { ok: true }
 }
 
@@ -865,6 +908,15 @@ export function tick(g, dt) {
   // Einsätze
   for (const inc of [...g.incidents]) {
     const atScene = g.vehicles.filter((v) => v.incidentId === inc.id && v.status === 4)
+
+    // Zugesagte Kräfte („wird alarmiert“): nach 5 Spielminuten hakt die Einsatzleitung nach, wenn sie noch fehlen
+    if (inc.zusage && g.t - inc.zusage.at > 300) {
+      const missing = matchSlots(inc.need, g.vehicles.filter((v) => v.incidentId === inc.id))
+      const open = Object.fromEntries(Object.entries(inc.zusage.roles).filter(([r]) => missing[r]))
+      const elv = g.vehicles.find((v) => v.id === inc.el && v.status === 4)
+      if (Object.keys(open).length && elv && !elv.sprechwunsch) setSprechwunsch(g, elv, 'nachforderung', fill(pick(NACHFRAGEN), { kraefte: needText(open) }), inc.id)
+      inc.zusage = null
+    }
 
     // Einsatzleitung: erstes Fahrzeug, dann ELW 1, dann ELW 2 (ELW 2 hat Vorrang vor ELW 1)
     const el = pickEL(atScene)

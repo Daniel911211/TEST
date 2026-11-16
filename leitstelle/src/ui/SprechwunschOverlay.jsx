@@ -1,20 +1,21 @@
 import { useState } from 'react'
-import { SEVERITY_TEXT, sprechwunschList, sprechKindName, incidentTitle, transportOptions, confirmTransport, answerSprechwunsch, fmtMin } from '../game.js'
+import { SEVERITY_TEXT, sprechwunschList, sprechKindName, incidentTitle, transportOptions, confirmTransport, answerSprechwunsch, answerOptions, fmtMin } from '../game.js'
 import Overlay from './Overlay.jsx'
 
 // Overlay eines Sprechwunschs: Lagemeldung oder Nachforderung lesen und als Vermerk in den Einsatz eintragen,
 // bei Status 5 mit Patient die Zielklinik festlegen. Vor/Zurück blättert durch alle offenen Sprechwünsche.
 export default function SprechwunschOverlay({ g, vehicleId, onClose, onOpenSprech, onSelectIncident, flash }) {
   const v = g.vehicles.find((x) => x.id === vehicleId)
-  const [note, setNote] = useState('')
+  const [note, setNote] = useState('') // Antwort der Leitstelle
+  const [zusage, setZusage] = useState(null) // true/false aus einem Vorschlag, null = aus dem Text erkennen
   if (!v || (!v.sprechwunsch && v.status !== 5)) return null
   const list = sprechwunschList(g)
   const idx = list.indexOf(v)
-  const go = (d) => { setNote(''); onOpenSprech(list[(idx + d + list.length) % list.length].id) }
+  const go = (d) => { setNote(''); setZusage(null); onOpenSprech(list[(idx + d + list.length) % list.length].id) }
   const sw = v.sprechwunsch
   const inc = sw ? g.incidents.find((i) => i.id === sw.incidentId) : null
   const kind = sw?.kind || 'klinik'
-  const next = () => { const rest = sprechwunschList(g).filter((x) => x.id !== v.id); setNote(''); if (rest.length) onOpenSprech(rest[0].id); else onClose() }
+  const next = () => { const rest = sprechwunschList(g).filter((x) => x.id !== v.id); setNote(''); setZusage(null); if (rest.length) onOpenSprech(rest[0].id); else onClose() }
 
   return (
     <Overlay compact
@@ -28,12 +29,14 @@ export default function SprechwunschOverlay({ g, vehicleId, onClose, onOpenSprec
           <>
             <h4>Funkspruch</h4>
             <div className="funkspruch">„{sw.text}“</div>
-            <h4>Vermerk für den Einsatz</h4>
-            <textarea className="vermerk" rows={4} placeholder="Was die Leitstelle zum Einsatz einträgt …" value={note} onChange={(e) => setNote(e.target.value)} />
+            <h4>Antwort der Leitstelle</h4>
+            <div className="chips antwort-vorschlaege">
+              {answerOptions(g, v.id).map((o) => <button key={o.text} className={note === o.text ? 'on' : ''} onClick={() => { setNote(o.text); setZusage(o.zusage) }}>{o.text}</button>)}
+            </div>
+            <textarea className="vermerk" rows={3} placeholder="Antwort an das Fahrzeug (Vorschlag anklicken oder selbst schreiben; steht danach im Funk und im Einsatztagebuch) …" value={note} onChange={(e) => { setNote(e.target.value); setZusage(null) }} />
             <div className="ef-actions">
-              <button onClick={() => setNote(sw.text)}>Funkspruch übernehmen</button>
-              <button className="primary" style={{ width: 'auto' }} disabled={!note.trim()} onClick={() => { const r = answerSprechwunsch(g, v.id, note); if (r.ok) { flash('Vermerk eingetragen.'); next() } else flash(r.msg) }}>Eintragen und beantworten</button>
-              <button onClick={() => { answerSprechwunsch(g, v.id, ''); next() }}>Ohne Vermerk beantworten</button>
+              <button className="primary" style={{ width: 'auto' }} disabled={!note.trim()} onClick={() => { const r = answerSprechwunsch(g, v.id, note, zusage); if (r.ok) { flash('Antwort gesendet.'); next() } else flash(r.msg) }}>Antworten</button>
+              <button onClick={() => { answerSprechwunsch(g, v.id, ''); next() }}>Nur quittieren</button>
             </div>
           </>
         ) : <KlinikWahl g={g} v={v} flash={flash} onDone={next} />}
