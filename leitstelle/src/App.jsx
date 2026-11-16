@@ -34,24 +34,25 @@ export default function App() {
   const [msg, setMsg] = useState('')
   const speedRef = useRef(1)
   speedRef.current = speed
+  // Solange ein Sprechwunsch bearbeitet wird, steht das Spiel (sonst ist der Einsatz beim Tippen schon vorbei)
+  const holdRef = useRef(false)
+  holdRef.current = overlay?.kind === 'sprech'
 
-  // Spiellogik läuft jeden Frame (flüssige Bewegung), die Oberfläche wird nur ca. 10x je Sekunde neu gezeichnet
+  // Spiellogik läuft 20x je Sekunde (auch wenn der Tab im Hintergrund ist; requestAnimationFrame stünde dann still),
+  // die Oberfläche wird ca. 10x je Sekunde neu gezeichnet, die Fahrzeugmarker führt MapView jeden Frame nach.
   useEffect(() => {
     let last = performance.now()
     let saveAt = 0
     let drawAt = 0
-    let raf = 0
-    const loop = () => {
+    const id = setInterval(() => {
       const now = performance.now()
       const dt = Math.min((now - last) / 1000, 0.5)
       last = now
-      if (speedRef.current > 0) tick(gameRef.current, dt * speedRef.current * GAME_SEC_PER_REAL_SEC)
+      if (speedRef.current > 0 && !holdRef.current) tick(gameRef.current, dt * speedRef.current * GAME_SEC_PER_REAL_SEC)
       if (now - saveAt > 3000) { saveGame(gameRef.current); saveAt = now }
       if (now - drawAt > 100) { drawAt = now; force((n) => n + 1) }
-      raf = requestAnimationFrame(loop)
-    }
-    raf = requestAnimationFrame(loop)
-    return () => cancelAnimationFrame(raf)
+    }, 50)
+    return () => clearInterval(id)
   }, [])
 
   const flash = (t) => { setMsg(t); setTimeout(() => setMsg(''), 2500) }
@@ -106,6 +107,7 @@ export default function App() {
         <span>✔ {g.done} ✖ {g.failed}</span>
         {requests > 0 && <span className="alert click" onClick={() => openSprech(sprechwunschList(g)[0].id)}>📻 {requests} Sprechwunsch{requests > 1 ? 'e' : ''}</span>}
         <span className="spacer" />
+        {holdRef.current && <span className="alert" title="Das Spiel steht, bis der Sprechwunsch beantwortet oder geschlossen ist.">⏸ Sprechwunsch</span>}
         {[0, 1, 2, 5, 10].map((s) => (
           <button key={s} className={speed === s ? 'on' : ''} onClick={() => setSpeed(s)}>{s === 0 ? '⏸' : `${s}x`}</button>
         ))}
