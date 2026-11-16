@@ -1,0 +1,6 @@
+[
+  { "id": "k-fulda", "name": "Klinikum Fulda", "pos": [50.54669, 9.70493], "capacity": 10 },
+  { "id": "k-herzjesu", "name": "Herz-Jesu-Krankenhaus Fulda", "pos": [50.5634, 9.67327], "capacity": 6 },
+  { "id": "k-huenfeld", "name": "Helios St. Elisabeth Klinik Hünfeld", "pos": [50.66287, 9.76659], "capacity": 5 },
+  { "id": "k-gersfeld", "name": "Rhön Klinik Gersfeld", "pos": [50.45655, 9.91858], "capacity": 3 }
+]

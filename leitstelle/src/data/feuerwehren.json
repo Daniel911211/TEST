@@ -37,6 +37,15 @@
  },
  {
   "kind": "FW",
+  "id": "n9734588352",
+  "name": "10 Höhenstraße Schweben",
+  "pos": [
+   50.42602,
+   9.60134
+  ]
+ },
+ {
+  "kind": "FW",
   "id": "w171686807",
   "name": "11a Heubacher Straße Uttrichshausen",
   "pos": [
@@ -730,15 +739,6 @@
  },
  {
   "kind": "FW",
-  "id": "n253931156",
-  "name": "Freiwillige Feuerwehr Fulda-Mitte",
-  "pos": [
-   50.54754,
-   9.66359
-  ]
- },
- {
-  "kind": "FW",
   "id": "n4137958794",
   "name": "Freiwillige Feuerwehr Gackenhof",
   "pos": [
@@ -1081,20 +1081,20 @@
  },
  {
   "kind": "FW",
+  "id": "w1279855172",
+  "name": "Hauptfeuerwache Fulda",
+  "pos": [
+   50.54738,
+   9.66411
+  ]
+ },
+ {
+  "kind": "FW",
   "id": "n559373931",
   "name": "Herrleinweg Hosenfeld Landkreis Fulda",
   "pos": [
    50.50285,
    9.47976
-  ]
- },
- {
-  "kind": "FW",
-  "id": "n9734588352",
-  "name": "Höhenstraße Schweben Flieden",
-  "pos": [
-   50.42602,
-   9.60134
   ]
  },
  {

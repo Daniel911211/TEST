@@ -18,7 +18,8 @@ export default function MapView({ game, sites, selected, buildMode, onMapClick, 
       maxZoom: 19,
       attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
     }).addTo(m)
-    for (const h of HOSPITALS) L.marker(h.pos, { icon: icon('H', 'mk mk-hosp', 24) }).bindTooltip(h.name).addTo(m)
+    layers.current.hosp = new Map()
+    for (const h of HOSPITALS) layers.current.hosp.set(h.id, L.marker(h.pos, { icon: icon('H', 'mk mk-hosp', 24) }).bindTooltip(h.name).addTo(m))
     const siteLayer = L.layerGroup().addTo(m)
     siteLayer.sites = new Map()
     layers.current.siteLayer = siteLayer
@@ -35,6 +36,7 @@ export default function MapView({ game, sites, selected, buildMode, onMapClick, 
   useEffect(() => {
     const m = map.current
     const { st, veh, inc } = layers.current
+    for (const h of HOSPITALS) layers.current.hosp?.get(h.id)?.setTooltipContent(`${h.name} – freie Betten: ${game.hospitals[h.id]?.free ?? 0}/${h.capacity}`)
     const sync = (store, items, make, update) => {
       const ids = new Set(items.map((i) => i.id))
       for (const [id, mk] of store) if (!ids.has(id)) { mk.remove(); store.delete(id) }

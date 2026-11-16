@@ -6,7 +6,7 @@ import json, time, urllib.parse, urllib.request, pathlib
 
 UA = 'leitstelle-private-game'
 BBOX = (9.35, 50.30, 10.00, 50.76)  # W, S, O, N
-KINDS = {'FW': ['[amenity=fire_station]'], 'RW': ['[emergency=ambulance_station]', '[amenity=ambulance_station]']}
+KINDS = {'FW': ['[amenity=fire_station]'], 'RW': ['[emergency=ambulance_station]', '[amenity=ambulance_station]'], 'KH': ['[amenity=hospital]']}
 found, calls = {}, 0
 
 def query(q, w, s, e, n):
@@ -52,7 +52,9 @@ unique = []
 for s in found.values():
     if not any(u['kind'] == s['kind'] and near(u['pos'], s['pos']) for u in unique):
         unique.append(s)
-sites = sorted(unique, key=lambda s: (s['kind'], s['name']))
+hospitals = sorted([s for s in unique if s['kind'] == 'KH'], key=lambda s: s['name'])
+sites = sorted([s for s in unique if s['kind'] != 'KH'], key=lambda s: (s['kind'], s['name']))
 out = pathlib.Path(__file__).resolve().parent.parent / 'src' / 'data' / 'feuerwehren.json'
 out.write_text(json.dumps(sites, ensure_ascii=False, indent=1) + '\n', encoding='utf8')
-print(f"{calls} Anfragen: {sum(s['kind']=='FW' for s in sites)} Feuerwachen, {sum(s['kind']=='RW' for s in sites)} Rettungswachen")
+(out.parent / 'kliniken-roh.json').write_text(json.dumps(hospitals, ensure_ascii=False, indent=1) + '\n', encoding='utf8')
+print(f"{len(hospitals)} Kliniken; {calls} Anfragen: {sum(s['kind']=='FW' for s in sites)} Feuerwachen, {sum(s['kind']=='RW' for s in sites)} Rettungswachen")

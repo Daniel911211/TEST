@@ -7,7 +7,7 @@ const SITES = [...OSM_SITES, ...EXTRA_SITES]
 import {
   GAME_SEC_PER_REAL_SEC, STATION_TYPES, VEHICLE_TYPES, STATUS_TEXT, MAX_VEHICLES_PER_STATION,
   newGame, loadGame, saveGame, clearSave, tick, buildStation, buyVehicle, dispatch, recommend,
-  isAvailable, etaSec, fmtClock, fmtMin, fmtMoney, rankOf, nextRank,
+  isAvailable, etaSec, HOSPITALS, hospitalFree, transportOptions, confirmTransport, repairQuote, sendToWorkshop, buildWorkshop, WORKSHOP_COST, fmtClock, fmtMin, fmtMoney, rankOf, nextRank,
 } from './game.js'
 
 export default function App() {
@@ -65,6 +65,8 @@ export default function App() {
   const free = inc ? g.vehicles.filter(isAvailable).sort((a, b) => etaSec(a, inc.pos) - etaSec(b, inc.pos)) : []
   const send = () => { dispatch(g, inc.id, picked); setPicked([]) }
   const next = nextRank(g.points)
+  const requests = g.vehicles.filter((v) => v.status === 5)
+  const doConfirm = (vid, hid) => { const r = confirmTransport(g, vid, hid); if (!r.ok) flash(r.msg) }
 
   return (
     <div className="app">
@@ -86,7 +88,7 @@ export default function App() {
         {msg && <div className="toast">{msg}</div>}
         <aside>
           <nav>
-            {[['einsaetze', `Einsätze (${g.incidents.length})`], ['wachen', 'Wachen'], ['fahrzeuge', 'Fahrzeuge'], ['log', 'Funk']].map(([k, l]) => (
+            {[['einsaetze', `Einsätze (${g.incidents.length})`], ['wachen', 'Wachen'], ['fahrzeuge', 'Fahrzeuge'], ['log', `Funk${requests.length ? ` (${requests.length}❗)` : ''}`]].map(([k, l]) => (
               <button key={k} className={tab === k ? 'on' : ''} onClick={() => setTab(k)}>{l}</button>
             ))}
           </nav>
@@ -118,7 +120,7 @@ export default function App() {
                           <li key={v.id}>
                             <label>
                               <input type="checkbox" checked={picked.includes(v.id)} onChange={(e) => setPicked(e.target.checked ? [...picked, v.id] : picked.filter((x) => x !== v.id))} />
-                              {v.callsign} · S{v.status} · {fmtMin(etaSec(v, inc.pos))}
+                              {v.callsign} · S{v.status} · {Math.round(v.condition)} % · {fmtMin(etaSec(v, inc.pos))}
                             </label>
                           </li>
                         ))}
@@ -151,6 +153,10 @@ export default function App() {
               {station && (
                 <div className="card">
                   <h3>{station.name}</h3>
+                  <h4>Werkstatt</h4>
+                  {station.workshop ? <p className="muted">Eigene Werkstatt vorhanden: Reparatur 40 % günstiger und doppelt so schnell.</p> : (
+                    <button disabled={g.money < WORKSHOP_COST} onClick={() => { const r = buildWorkshop(g, station.id); if (!r.ok) flash(r.msg) }}>Werkstatt bauen – {fmtMoney(WORKSHOP_COST)}</button>
+                  )}
                   <h4>Fahrzeug kaufen</h4>
                   {Object.entries(VEHICLE_TYPES).filter(([, d]) => d.kind === station.kind).map(([k, d]) => (
                     <button key={k} disabled={g.money < d.cost} onClick={() => { const r = buyVehicle(g, station.id, k); if (!r.ok) flash(r.msg) }}>
@@ -166,7 +172,16 @@ export default function App() {
             <div className="pane">
               <ul className="list">
                 {g.vehicles.map((v) => (
-                  <li key={v.id}><span className={`st s${v.status}`}>{v.status}</span> <b>{v.callsign}</b><small>{STATUS_TEXT[v.status]}</small></li>
+                  <li key={v.id}>
+                    <span><span className={`st s${v.status}`}>{v.status}</span> <b>{v.callsign}</b></span>
+                    <small>{STATUS_TEXT[v.status]}{v.status === 6 ? ` – noch ${fmtMin(v.timer)}` : ''}</small>
+                    <div className="cond"><i style={{ width: `${Math.round(v.condition)}%`, background: v.condition < 30 ? '#d62828' : v.condition < 60 ? '#f4a300' : '#4caf50' }} /></div>
+                    <small>Zustand {Math.round(v.condition)} %{v.condition < 30 ? ' – Pannengefahr!' : ''}</small>
+                    {v.status === 2 && v.condition < 100 && (() => { const q = repairQuote(g, v); return (
+                      <button onClick={(e) => { e.stopPropagation(); const r = sendToWorkshop(g, v.id); if (!r.ok) flash(r.msg) }}>
+                        In Werkstatt ({fmtMin(q.duration)}, {fmtMoney(q.cost)})
+                      </button>) })()}
+                  </li>
                 ))}
                 {!g.vehicles.length && <p className="muted">Noch keine Fahrzeuge.</p>}
               </ul>
@@ -175,6 +190,28 @@ export default function App() {
 
           {tab === 'log' && (
             <div className="pane">
+              {requests.map((v) => {
+                const opts = transportOptions(g, v)
+                const wish = opts.find((h) => h.id === v.request.wishId)
+                return (
+                  <div className="card req" key={v.id}>
+                    <h3>📻 {v.callsign} – Status 5</h3>
+                    {wish ? (
+                      <p>„Patient möchte nach <b>{wish.name}</b>.“<br />Kapazität: {wish.free > 0 ? <b style={{ color: '#4caf50' }}>{wish.free} Betten frei</b> : <b style={{ color: '#d62828' }}>keine Kapazität</b>}</p>
+                    ) : <p>„Erbitte Zielklinik für den Patienten.“</p>}
+                    {wish && wish.free > 0 && <button className="primary" onClick={() => doConfirm(v.id, wish.id)}>Wunschklinik bestätigen</button>}
+                    <h4>{wish && wish.free <= 0 ? 'Gegenvorschlag der Leitstelle' : 'Andere Klinik'}</h4>
+                    {opts.filter((h) => h.id !== wish?.id || wish.free <= 0).map((h) => (
+                      <button key={h.id} disabled={h.free <= 0 || h.id === wish?.id} onClick={() => doConfirm(v.id, h.id)}>
+                        {h.name} · {h.dist.toFixed(1)} km · {h.free > 0 ? `${h.free} frei` : 'voll'}
+                      </button>
+                    ))}
+                  </div>
+                )
+              })}
+              <h4 className="muted">Kliniken (freie Betten)</h4>
+              <ul className="mini">{HOSPITALS.map((h) => <li key={h.id}>{h.name}: <b>{hospitalFree(g, h.id)}</b>/{h.capacity}</li>)}</ul>
+              <h4 className="muted">Funkverkehr</h4>
               <ul className="mini">{g.log.map((l, i) => <li key={i}><small>{fmtClock(l.t)}</small> {l.text}</li>)}</ul>
             </div>
           )}
