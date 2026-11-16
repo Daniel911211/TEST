@@ -71,6 +71,12 @@ function ki() {
       else if (!st) note('Kauf', `keine ${kind}-Wache für ${type} (${inc.type.name})`)
     }
   }
+  // Kliniken ausbauen, wenn Status-5-Fahrzeuge keine freien Betten finden
+  if (g.vehicles.some((v) => v.status === 5) && !G.HOSPITALS.some((h) => G.hospitalFree(g, h.id) > 0) && g.money >= G.BED_COST) {
+    const h = G.HOSPITALS[0]
+    const r = G.expandHospital(g, h.id)
+    if (r.ok) purchases.push(`${G.fmtClock(g.t)} +${G.BED_STEP} Betten ${h.name}`)
+  }
   // Lagemeldung anfordern
   for (const inc of g.incidents) if (inc.status === 'working' && !inc.revealed && inc.el) G.requestLagemeldung(g, inc.id)
   // ELW-2-Rückfrage
@@ -147,6 +153,7 @@ console.log('== Käufe ==\n' + purchases.join('\n'))
 console.log('== Fehlende Rollen (Einsätze ohne passendes Fahrzeug) ==', missing)
 console.log('== Wartezeiten ==', { n: waitStats.n, maxMin: Math.round(waitStats.max / 60), ueberFrist: waitStats.over })
 console.log('== Fahrzeuge je Typ ==', Object.fromEntries(Object.keys(G.VEHICLE_TYPES).map((t) => [t, g.vehicles.filter((v) => v.type === t).length]).filter(([, n]) => n)))
+console.log('== Kliniken ==', Object.fromEntries(G.HOSPITALS.map((h) => [h.name, `${G.hospitalFree(g, h.id)}/${G.hospitalBeds(g, h.id)} frei, ${G.hospitalPatients(g, h.id).length} in Behandlung`])))
 console.log('== Einsätze je Stichwort ==', typeCount)
 console.log(`== Entwicklungen (${events.length}) ==\n` + events.slice(0, 25).join('\n'))
 console.log('== Auffälligkeiten ==\n' + (issues.length ? issues.join('\n') : 'keine'))

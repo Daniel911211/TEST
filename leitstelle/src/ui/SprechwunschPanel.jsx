@@ -1,7 +1,7 @@
-import { HOSPITALS, SEVERITY_TEXT, hospitalFree, transportOptions, confirmTransport } from '../game.js'
+import { HOSPITALS, SEVERITY_TEXT, hospitalFree, hospitalBeds, transportOptions, confirmTransport } from '../game.js'
 
-// Unten Mitte: Sprechwünsche (Status 5, Klinikwahl) und Bettenlage der Kliniken
-export default function SprechwunschPanel({ g, flash }) {
+// Unten Mitte: Sprechwünsche (Status 5, Klinikwahl) und Bettenlage der Kliniken (Klick öffnet das Klinik-Overlay)
+export default function SprechwunschPanel({ g, flash, onOpenHospital }) {
   const requests = g.vehicles.filter((v) => v.status === 5)
   const doConfirm = (vid, hid) => { const r = confirmTransport(g, vid, hid); if (!r.ok) flash(r.msg) }
   return (
@@ -28,12 +28,17 @@ export default function SprechwunschPanel({ g, flash }) {
             </div>
           )
         })}
-        <h5 className="muted pad">Kliniken (freie Betten)</h5>
+        <h5 className="muted pad">Kliniken (freie Betten) – Klick für Details und Ausbau</h5>
         <table className="tbl">
           <tbody>
             {HOSPITALS.map((h) => {
               const free = hospitalFree(g, h.id)
-              return <tr key={h.id}><td>{h.name}</td><td className={free > 0 ? 'green' : 'red'}><b>{free}</b> / {h.capacity}</td></tr>
+              return (
+                <tr key={h.id} className="click" onClick={() => onOpenHospital(h.id)}>
+                  <td>{h.name}</td>
+                  <td className={free > 0 ? 'green' : 'red'}><b>{free}</b> / {hospitalBeds(g, h.id)}</td>
+                </tr>
+              )
             })}
           </tbody>
         </table>

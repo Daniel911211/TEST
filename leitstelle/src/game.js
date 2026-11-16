@@ -37,6 +37,13 @@ export const VEHICLE_TYPES = {
 export { INCIDENT_TYPES, ROLES, matchSlots }
 
 export const HOSPITALS = KLINIKEN
+// Klinikbetten: reiner Zähler. Jede Klinik startet mit 5 Betten, Ausbau in 5er-Schritten gegen Geld.
+// Ein Bett wird mit der Anmeldung (Status 5 -> 7) belegt und nach der Behandlungszeit wieder frei.
+export const START_BEDS = 5
+export const BED_STEP = 5
+export const BED_COST = 2500
+export const TREATMENT_SEC = { 1: 2 * 3600, 2: 3 * 3600, 3: 5 * 3600 } // nach Schwere: leicht, mittel, schwer
+const newHospital = () => ({ beds: START_BEDS, free: START_BEDS, patients: [] })
 
 export const RANKS = [
   [0, 'Anwärter'],
@@ -97,8 +104,7 @@ export function newGame() {
     failed: 0,
     nextId: 1,
     spawnIn: 120,
-    bedTimer: 600,
-    hospitals: Object.fromEntries(HOSPITALS.map((h) => [h.id, { free: Math.max(1, Math.round(h.capacity * (0.3 + Math.random() * 0.5))) }])),
+    hospitals: Object.fromEntries(HOSPITALS.map((h) => [h.id, newHospital()])),
     stations: [],
     vehicles: [],
     incidents: [],
@@ -221,6 +227,21 @@ export function askElw2(g, incidentId) {
 }
 
 export const hospitalFree = (g, id) => g.hospitals[id]?.free ?? 0
+export const hospitalBeds = (g, id) => g.hospitals[id]?.beds ?? 0
+export const hospitalPatients = (g, id) => g.hospitals[id]?.patients ?? []
+
+// Klinik um 5 Betten erweitern
+export function expandHospital(g, hospitalId) {
+  const h = HOSPITALS.find((x) => x.id === hospitalId)
+  const st = h && g.hospitals[h.id]
+  if (!st) return { ok: false, msg: 'Klinik fehlt.' }
+  if (g.money < BED_COST) return { ok: false, msg: 'Nicht genug Geld.' }
+  g.money -= BED_COST
+  st.beds += BED_STEP
+  st.free += BED_STEP
+  addLog(g, `${h.name}: um ${BED_STEP} Betten erweitert (jetzt ${st.beds}).`)
+  return { ok: true }
+}
 
 export function buildWorkshop(g, stationId) {
   const st = g.stations.find((x) => x.id === stationId)
@@ -262,9 +283,10 @@ export function confirmTransport(g, vehicleId, hospitalId) {
   if (!v || v.status !== 5 || !h) return { ok: false, msg: 'Kein offener Sprechwunsch.' }
   if (hospitalFree(g, h.id) <= 0) return { ok: false, msg: `${h.name} meldet keine Kapazität – bitte anderes Haus wählen.` }
   const wish = v.request?.wishId
-  g.hospitals[h.id].free-- // Bett wird mit der Anmeldung reserviert
+  g.hospitals[h.id].free-- // Bett wird mit der Anmeldung belegt
   v.status = 7
   v.hospital = h
+  v.patientSeverity = v.request?.severity || 1
   v.route = null
   v.request = null
   if (wish && wish === h.id) { g.money += 60; addLog(g, `Leitstelle an ${v.callsign}: Wunschklinik ${h.name} bestätigt (+60 €).`) }
@@ -484,14 +506,16 @@ export function tick(g, dt) {
     if (g.stations.length && open < 2 + g.stations.length && g.vehicles.some(isAvailable)) spawnIncident(g)
   }
 
-  // Klinikbetten schwanken
-  g.bedTimer -= dt
-  if (g.bedTimer <= 0) {
-    g.bedTimer = rnd(500, 900)
-    for (const h of HOSPITALS) {
-      const st = g.hospitals[h.id]
-      st.free = Math.max(0, Math.min(h.capacity, st.free + (Math.random() < 0.45 ? -1 : 1)))
-    }
+  // Klinikbetten: Patienten nach Behandlungszeit entlassen, Bett wird wieder frei
+  for (const h of HOSPITALS) {
+    const st = g.hospitals[h.id]
+    if (!st?.patients?.length) continue
+    const done = st.patients.filter((p) => p.until <= g.t)
+    if (!done.length) continue
+    st.patients = st.patients.filter((p) => p.until > g.t)
+    const was = st.free
+    st.free = Math.min(st.beds, st.free + done.length)
+    if (was <= 0 && st.free > 0) addLog(g, `${h.name} meldet wieder freie Betten (${st.free}).`)
   }
 
   // Fahrzeuge
@@ -515,6 +539,10 @@ export function tick(g, dt) {
           v.status = 8
           v.timer = 300
           g.money += 80
+          // Bett bleibt für die Behandlungszeit belegt
+          const sev = v.patientSeverity || 1
+          g.hospitals[v.hospital.id]?.patients.push({ until: g.t + TREATMENT_SEC[sev], severity: sev, admitted: g.t, by: v.callsign })
+          v.patientSeverity = null
           addLog(g, `${v.callsign}: Status 8 – Patient übergeben in ${v.hospital.name} (+80 €)`)
         }
         break
@@ -628,8 +656,9 @@ export const loadGame = () => {
     const g = JSON.parse(raw)
     // Einsatztypen sind Objekte -> aus id wiederherstellen
     g.hospitals = g.hospitals || {}
-    for (const h of HOSPITALS) g.hospitals[h.id] = g.hospitals[h.id] || { free: Math.max(1, Math.round(h.capacity * 0.5)) }
-    g.bedTimer = g.bedTimer || 600
+    // Alte Spielstände (zufällige Bettenlage) auf den Bettenzähler umstellen
+    for (const h of HOSPITALS) if (g.hospitals[h.id]?.beds == null) g.hospitals[h.id] = newHospital()
+    delete g.bedTimer
     for (const v of g.vehicles) { if (v.condition == null) v.condition = 100 }
     for (const i of g.incidents) i.type = INCIDENT_TYPES.find((t) => t.id === i.type.id) || i.type
     return g

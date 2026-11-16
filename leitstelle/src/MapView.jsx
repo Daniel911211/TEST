@@ -5,12 +5,12 @@ import { CENTER, HOSPITALS, VEHICLE_TYPES } from './game.js'
 const icon = (html, cls, size = 28) =>
   L.divIcon({ html, className: cls, iconSize: [size, size], iconAnchor: [size / 2, size / 2] })
 
-export default function MapView({ game, sites, selected, buildMode, buildPos, onMapClick, onSelectIncident, onSelectStation, onSelectVehicle, onSiteClick }) {
+export default function MapView({ game, sites, selected, buildMode, buildPos, onMapClick, onSelectIncident, onSelectStation, onSelectVehicle, onSelectHospital, onSiteClick }) {
   const el = useRef(null)
   const map = useRef(null)
   const layers = useRef({ st: new Map(), veh: new Map(), inc: new Map() })
   const cb = useRef({})
-  cb.current = { onMapClick, onSelectIncident, onSelectStation, onSelectVehicle, onSiteClick, buildMode }
+  cb.current = { onMapClick, onSelectIncident, onSelectStation, onSelectVehicle, onSelectHospital, onSiteClick, buildMode }
 
   useEffect(() => {
     const m = L.map(el.current, { zoomControl: true }).setView(CENTER, 12)
@@ -19,7 +19,9 @@ export default function MapView({ game, sites, selected, buildMode, buildPos, on
       attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
     }).addTo(m)
     layers.current.hosp = new Map()
-    for (const h of HOSPITALS) layers.current.hosp.set(h.id, L.marker(h.pos, { icon: icon('H', 'mk mk-hosp', 24) }).bindTooltip(h.name).addTo(m))
+    for (const h of HOSPITALS) layers.current.hosp.set(h.id, L.marker(h.pos, { icon: icon('H', 'mk mk-hosp', 24) }).bindTooltip(h.name).on('click', (e) => {
+      L.DomEvent.stopPropagation(e); cb.current.onSelectHospital?.(h.id)
+    }).addTo(m))
     const siteLayer = L.layerGroup().addTo(m)
     siteLayer.sites = new Map()
     layers.current.siteLayer = siteLayer
@@ -38,7 +40,7 @@ export default function MapView({ game, sites, selected, buildMode, buildPos, on
     const { st, veh, inc } = layers.current
     for (const h of HOSPITALS) {
       const mk = layers.current.hosp?.get(h.id)
-      const txt = `${h.name} – freie Betten: ${game.hospitals[h.id]?.free ?? 0}/${h.capacity}`
+      const txt = `${h.name} – freie Betten: ${game.hospitals[h.id]?.free ?? 0}/${game.hospitals[h.id]?.beds ?? 0}`
       if (mk && mk._txt !== txt) { mk._txt = txt; mk.setTooltipContent(txt) }
     }
     // Marker nur anfassen, wenn sich wirklich etwas geändert hat (sonst flackert die Karte)

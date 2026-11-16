@@ -21,7 +21,7 @@ Gibt Stundenwerte, Käufe, Wartezeiten und Auffälligkeiten aus; `SAVE=` schreib
 - `src/App.jsx`: nur Layout-Rahmen und Auswahl-/Overlay-Zustand. `src/MapView.jsx`: Karte, Marker werden zwischengespeichert (kein Neuzeichnen, keine `transform`-Animationen auf Markern, sonst springen sie). Klick auf Wachen-, Fahrzeug- und Einsatzmarker.
 - `src/ui/`: `EinsatzPanel.jsx` (Einsatzliste + Einsatzfenster), `WachenPanel.jsx` (Wachenliste unten links), `SprechwunschPanel.jsx`, `FunkPanel.jsx`,
   `Overlay.jsx` (Rahmen mit Kopf, Reitern, Vor/Zurück), `WachenOverlay.jsx` (Reiter Fahrzeuge, Fahrzeugmarkt, Ausbau; Reiterliste je Wachentyp in `TABS`),
-  `FahrzeugOverlay.jsx`, `BauFormular.jsx` („Neues Gebäude bauen“), `helpers.js` (Fahrzeuggruppen, Kurznamen).
+  `FahrzeugOverlay.jsx`, `KlinikOverlay.jsx` (Bettenzähler, Belegung, Ausbau), `BauFormular.jsx` („Neues Gebäude bauen“), `helpers.js` (Fahrzeuggruppen, Kurznamen).
 - `src/data/feuerwehren.json` (Feuer- und Rettungswachen aus OSM/Nominatim), `zusatz-standorte.json`, `kliniken.json` (4 Kliniken mit Bettenkapazität).
 - `scripts/fetch-nominatim.py` (Standorte neu holen), `scripts/fetch-feuerwehren.mjs` (Overpass, ging hier nicht). `tools/durchspielen.mjs` (siehe oben).
 
@@ -39,7 +39,8 @@ Gibt Stundenwerte, Käufe, Wartezeiten und Auffälligkeiten aus; `SAVE=` schreib
 - ELW 2: ab F4-Klasse Pflicht, bei F3/F3Y u. ä. per Funk-Rückfrage an den ELW 1.
 - Erkundung beim Eintreffen: Einsatzleiter erhöht ggf. das Stichwort. Entwicklung in Ketten, jede Stufe halb so wahrscheinlich.
 - R-Stichwörter: R1 = RTW, R2 = RTW + Notarzt, R3 = Notarzt allein (nur als Nachforderung).
-- Klinik: Patient hat nur bei leichten Fällen einen Wunsch, die Leitstelle prüft die Kapazität und macht ggf. einen Gegenvorschlag. Bett wird bei Bestätigung reserviert.
+- Klinik: Patient hat nur bei leichten Fällen einen Wunsch, die Leitstelle prüft die Kapazität und macht ggf. einen Gegenvorschlag.
+- Klinikbetten sind ein reiner Zähler (keine zufälligen Schwankungen): jede Klinik startet mit 5 Betten, Ausbau um 5 Betten für 2.500 € (fest) im Klinik-Overlay (Klick auf H-Marker oder Kliniken-Tabelle). Ein Bett wird bei der Bestätigung der Zielklinik belegt und nach der Behandlungszeit wieder frei (leicht 2 h, mittel 3 h, schwer 5 h Spielzeit). Konstanten `START_BEDS`, `BED_STEP`, `BED_COST`, `TREATMENT_SEC` in `game.js`.
 
 ## Erkenntnisse aus dem Durchspielen (48–72 Spielstunden)
 - Logik stabil: keine NaN, keine hängenden Fahrzeuge, Eskalationen/ELW 2/MANV/Notarzt-Nachforderung laufen.
