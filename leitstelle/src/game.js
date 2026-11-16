@@ -446,7 +446,8 @@ function rollPlan(inc, mult = 1) {
   if (inc.szenario?.stabil) return null // harmlose Lage (Fehlalarm, Nachschau): keine Nachforderung, keine Hochstufung
   const f = mult * 0.5 ** (inc.devStep || 0)
   const pG = Math.min(0.6, growProb(inc.type.id) * f)
-  const pE = ESCALATE[inc.type.id] ? Math.min(0.3, growProb(inc.type.id) * 0.2 * f) : 0
+  // Hochstufung: halbe Grundwahrscheinlichkeit, mindestens 2 % (F1/H1/R0 2 %, Stufe 2 5 %, Stufe 3 10 %, Stufe 4 17,5 %)
+  const pE = ESCALATE[inc.type.id] ? Math.min(0.3, Math.max(0.02, growProb(inc.type.id) * 0.5) * f) : 0
   const u = Math.random()
   return u < pE ? 'eskaliert' : u < pE + pG ? 'waechst' : null
 }
