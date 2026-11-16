@@ -4,7 +4,7 @@ import Overlay from './Overlay.jsx'
 import { CondBar, incidentOf, sell } from './WachenOverlay.jsx'
 
 // Overlay eines Fahrzeugs: Wache, Typ, Status, Zustand, Einsatz; Rückalarmieren, Werkstatt, Verkaufen
-export default function FahrzeugOverlay({ g, vehicleId, onClose, onOpenVehicle, onOpenStation, flash }) {
+export default function FahrzeugOverlay({ g, vehicleId, onClose, onOpenVehicle, onOpenStation, onLocate, flash }) {
   const v = g.vehicles.find((x) => x.id === vehicleId)
   if (!v) return null
   const d = VEHICLE_TYPES[v.type]
@@ -20,7 +20,10 @@ export default function FahrzeugOverlay({ g, vehicleId, onClose, onOpenVehicle, 
   return (
     <Overlay
       title={v.callsign} sub={`${d.name} · ${d.kind === 'RW' ? 'Rettungsdienst' : d.water > 0 ? 'Löschfahrzeug' : 'Sonderfahrzeug'}`}
-      head={st && <button className="small" onClick={() => onOpenStation(st.id)}>Zur Wache</button>}
+      head={<>
+        <button className="small" title="Auf der Karte zeigen" onClick={() => onLocate(v.id)}>📍 Auf Karte</button>
+        {st && <button className="small" onClick={() => onOpenStation(st.id)}>Zur Wache</button>}
+      </>}
       onClose={onClose} onPrev={siblings.length > 1 ? () => go(-1) : null} onNext={siblings.length > 1 ? () => go(1) : null}
     >
       <div className="pad fz-facts">

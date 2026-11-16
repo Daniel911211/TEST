@@ -3,7 +3,7 @@ import { STATION_TYPES, STATUS_TEXT } from '../game.js'
 import { vehiclesOf, stationTypeName, shortName } from './helpers.js'
 
 // Unten links: Wachenliste mit Fahrzeugen und Bauknöpfe. Details öffnen das Wachen- bzw. Fahrzeug-Overlay über der Karte.
-export default function WachenPanel({ g, building, onStartBuild, sel, setSel, onOpenStation, onOpenVehicle }) {
+export default function WachenPanel({ g, building, onStartBuild, sel, setSel, onOpenStation, onOpenVehicle, onLocate }) {
   const [typ, setTyp] = useState('alle')
   const [q, setQ] = useState('')
   const list = g.stations
@@ -38,6 +38,7 @@ export default function WachenPanel({ g, building, onStartBuild, sel, setSel, on
                 <div key={v.id} className={`fz ${sel.vehicleId === v.id ? 'sel' : ''}`} title={`${v.callsign} – ${STATUS_TEXT[v.status]}`} onClick={() => onOpenVehicle(v.id)}>
                   <span className={`st s${v.status}`}>{v.status}</span>
                   <span className="fz-name">{shortName(v, s)}</span>
+                  <span className="pin" title="Auf der Karte zeigen" onClick={(e) => { e.stopPropagation(); onLocate(v.id) }}>📍</span>
                 </div>
               ))}
             </div>

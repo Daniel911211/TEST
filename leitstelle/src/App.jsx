@@ -28,6 +28,7 @@ export default function App() {
   const [build, setBuild] = useState(null) // Bauformular: { kind:'FW'|'RW', pos, site, name } | null
   const [incidentId, setIncidentId] = useState(null)
   const [wsel, setWsel] = useState({ stationId: null, vehicleId: null })
+  const [focus, setFocus] = useState(null) // { pos, vehicleId, n } für 📍
   const [overlay, setOverlay] = useState(null) // { kind:'station', id, tab } | { kind:'vehicle', id } | null
   const [msg, setMsg] = useState('')
   const speedRef = useRef(1)
@@ -57,6 +58,14 @@ export default function App() {
   const openStation = (id, tab) => { setWsel({ stationId: id, vehicleId: null }); setOverlay((o) => ({ kind: 'station', id, tab: tab || (o?.kind === 'station' ? o.tab : 'fahrzeuge') })) }
   const openVehicle = (id) => { const v = g.vehicles.find((x) => x.id === id); setWsel({ stationId: v?.stationId ?? null, vehicleId: id }); setOverlay({ kind: 'vehicle', id }) }
   const openHospital = (id) => setOverlay({ kind: 'hospital', id })
+  // 📍 Fahrzeug auf der Karte zeigen: Overlay schließen, Karte zentrieren, Marker einige Sekunden hervorheben
+  const locateVehicle = (id) => {
+    const v = g.vehicles.find((x) => x.id === id)
+    if (!v) return
+    setOverlay(null)
+    setFocus({ pos: [...v.pos], vehicleId: id, n: Date.now() })
+    setTimeout(() => setFocus((f) => (f?.vehicleId === id ? null : f)), 4000)
+  }
   const closeOverlay = () => { setOverlay(null); setWsel((s) => ({ ...s, vehicleId: null })) }
   const startBuild = () => setBuild(build ? null : { kind: 'FW', pos: null, site: null, name: '' })
   // Standort wählen: markierter Standort (Feuerwachen) oder freier Kartenpunkt; gebaut wird erst mit „Bauen“ im Formular
@@ -105,7 +114,7 @@ export default function App() {
       </header>
       <div className="top">
         <div className="map-wrap">
-          <MapView game={g} sites={SITES} selected={{ incidentId, stationId: wsel.stationId }} buildMode={build?.kind || null} buildPos={build?.pos || null} onSiteClick={onSiteClick} onMapClick={onMapClick} onSelectIncident={setIncidentId} onSelectStation={selectStation} onSelectVehicle={selectVehicle} onSelectHospital={(id) => { if (!build) openHospital(id) }} />
+          <MapView game={g} sites={SITES} selected={{ incidentId, stationId: wsel.stationId }} focus={focus} buildMode={build?.kind || null} buildPos={build?.pos || null} onSiteClick={onSiteClick} onMapClick={onMapClick} onSelectIncident={setIncidentId} onSelectStation={selectStation} onSelectVehicle={selectVehicle} onSelectHospital={(id) => { if (!build) openHospital(id) }} />
           {build && <BauFormular g={g} build={build} setBuild={setBuild} siteMode={siteMode} onBuild={doBuild} />}
           {overlay?.kind === 'station' && (
             <WachenOverlay g={g} stationId={overlay.id} tab={overlay.tab} setTab={(tab) => setOverlay({ ...overlay, tab })} onClose={closeOverlay} onOpenStation={openStation} onOpenVehicle={openVehicle} flash={flash} />
@@ -114,14 +123,14 @@ export default function App() {
             <KlinikOverlay g={g} hospitalId={overlay.id} onClose={closeOverlay} onOpenHospital={openHospital} flash={flash} />
           )}
           {overlay?.kind === 'vehicle' && (
-            <FahrzeugOverlay g={g} vehicleId={overlay.id} onClose={closeOverlay} onOpenVehicle={openVehicle} onOpenStation={openStation} flash={flash} />
+            <FahrzeugOverlay g={g} vehicleId={overlay.id} onClose={closeOverlay} onOpenVehicle={openVehicle} onOpenStation={openStation} onLocate={locateVehicle} flash={flash} />
           )}
           {msg && <div className="toast">{msg}</div>}
         </div>
-        <EinsatzPanel g={g} selectedId={incidentId} onSelect={setIncidentId} flash={flash} />
+        <EinsatzPanel g={g} selectedId={incidentId} onSelect={setIncidentId} onLocate={locateVehicle} flash={flash} />
       </div>
       <div className="bottom">
-        <WachenPanel g={g} building={!!build} onStartBuild={startBuild} sel={wsel} setSel={setWsel} onOpenStation={openStation} onOpenVehicle={openVehicle} />
+        <WachenPanel g={g} building={!!build} onStartBuild={startBuild} sel={wsel} setSel={setWsel} onOpenStation={openStation} onOpenVehicle={openVehicle} onLocate={locateVehicle} />
         <SprechwunschPanel g={g} flash={flash} onOpenHospital={openHospital} />
         <FunkPanel g={g} />
       </div>

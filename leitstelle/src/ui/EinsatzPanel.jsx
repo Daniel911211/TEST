@@ -5,7 +5,7 @@ import { VEHICLE_GROUPS, groupOf, stationOf } from './helpers.js'
 const needText = (need) => Object.entries(need).map(([k, n]) => `${n}× ${ROLES[k].short}`).join(', ')
 
 // Rechte Spalte: Einsatzliste oben, darunter das Einsatzfenster des gewählten Einsatzes
-export default function EinsatzPanel({ g, selectedId, onSelect, flash }) {
+export default function EinsatzPanel({ g, selectedId, onSelect, onLocate, flash }) {
   const [picked, setPicked] = useState([])
   const [filter, setFilter] = useState('alle')
   const inc = g.incidents.find((i) => i.id === selectedId)
@@ -37,12 +37,12 @@ export default function EinsatzPanel({ g, selectedId, onSelect, flash }) {
           )
         })}
       </div>
-      {inc && <EinsatzFenster g={g} inc={inc} picked={picked} setPicked={setPicked} filter={filter} setFilter={setFilter} flash={flash} />}
+      {inc && <EinsatzFenster g={g} inc={inc} picked={picked} setPicked={setPicked} filter={filter} setFilter={setFilter} onLocate={onLocate} flash={flash} />}
     </section>
   )
 }
 
-function EinsatzFenster({ g, inc, picked, setPicked, filter, setFilter, flash }) {
+function EinsatzFenster({ g, inc, picked, setPicked, filter, setFilter, onLocate, flash }) {
   const assigned = g.vehicles.filter((v) => v.incidentId === inc.id)
   const tf = inc.type.ohneSS ? SLOW : 1 // Fahrzeit ohne Sondersignal
   const onScene = assigned.filter((v) => v.status === 4)
@@ -84,7 +84,7 @@ function EinsatzFenster({ g, inc, picked, setPicked, filter, setFilter, flash })
               {assigned.map((v) => (
                 <tr key={v.id}>
                   <td><span className={`st s${v.status}`}>{v.status}</span></td>
-                  <td><b>{v.callsign}</b></td>
+                  <td><b>{v.callsign}</b> <span className="pin" title="Auf der Karte zeigen" onClick={() => onLocate(v.id)}>📍</span></td>
                   <td className="muted">{stationOf(g, v)?.name}</td>
                   <td className="muted">{v.status === 3 ? fmtMin(etaSec(v, inc.pos, tf)) : v.status === 4 ? 'vor Ort' : ''}</td>
                   <td className="nowrap">{(v.status === 3 || v.status === 4) && <button className="small" title={v.status === 4 ? 'Fahrzeug vom Einsatz entlassen (Status 1)' : 'Rückalarmieren (Status 1)'} onClick={() => { const r = recallVehicle(g, v.id); if (!r.ok) flash(r.msg) }}>{v.status === 4 ? 'Entlassen' : 'Rückalarm.'}</button>}</td>
@@ -111,7 +111,7 @@ function EinsatzFenster({ g, inc, picked, setPicked, filter, setFilter, flash })
                 <tr key={v.id} className={picked.includes(v.id) ? 'sel' : ''} onClick={() => toggle(v.id, !picked.includes(v.id))}>
                   <td><input type="checkbox" checked={picked.includes(v.id)} onChange={(e) => toggle(v.id, e.target.checked)} onClick={(e) => e.stopPropagation()} /></td>
                   <td><span className={`st s${v.status}`}>{v.status}</span></td>
-                  <td><b>{v.callsign}</b>{v.condition < 30 ? <small className="red"> Panne?</small> : null}</td>
+                  <td><b>{v.callsign}</b>{v.condition < 30 ? <small className="red"> Panne?</small> : null} <span className="pin" title="Auf der Karte zeigen" onClick={(e) => { e.stopPropagation(); onLocate(v.id) }}>📍</span></td>
                   <td className="muted">{VEHICLE_TYPES[v.type].name}</td>
                   <td>{fmtMin(etaSec(v, inc.pos, tf))}</td>
                   <td className="muted">{stationOf(g, v)?.name}</td>

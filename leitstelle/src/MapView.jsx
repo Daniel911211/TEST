@@ -5,7 +5,7 @@ import { CENTER, HOSPITALS, VEHICLE_TYPES, incidentTitle } from './game.js'
 const icon = (html, cls, size = 28) =>
   L.divIcon({ html, className: cls, iconSize: [size, size], iconAnchor: [size / 2, size / 2] })
 
-export default function MapView({ game, sites, selected, buildMode, buildPos, onMapClick, onSelectIncident, onSelectStation, onSelectVehicle, onSelectHospital, onSiteClick }) {
+export default function MapView({ game, sites, selected, focus, buildMode, buildPos, onMapClick, onSelectIncident, onSelectStation, onSelectVehicle, onSelectHospital, onSiteClick }) {
   const el = useRef(null)
   const map = useRef(null)
   const layers = useRef({ st: new Map(), veh: new Map(), inc: new Map() })
@@ -88,7 +88,7 @@ export default function MapView({ game, sites, selected, buildMode, buildPos, on
       }), (mk, v) => {
         const ll = mk.getLatLng()
         if (ll.lat !== v.pos[0] || ll.lng !== v.pos[1]) mk.setLatLng(v.pos)
-        const cls = `mk mk-veh t-${VEHICLE_TYPES[v.type].kind}`
+        const cls = `mk mk-veh t-${VEHICLE_TYPES[v.type].kind}${focus?.vehicleId === v.id ? ' sel' : ''}`
         setIcon(mk, `${v.status}|${cls}`, () => icon(`${v.status}`, cls, 24))
         setTip(mk, `${v.callsign} · Status ${v.status}`)
       })
@@ -121,6 +121,11 @@ export default function MapView({ game, sites, selected, buildMode, buildPos, on
       layers.current.buildMk = L.marker(buildPos, { icon: icon(buildMode, `mk mk-st mk-${buildMode} mk-build`, 34), zIndexOffset: 900, interactive: false }).addTo(m)
     }
   }, [buildPos, buildMode])
+
+  // 📍 Karte auf ein Fahrzeug oder eine Wache zentrieren
+  useEffect(() => {
+    if (focus?.pos && map.current) map.current.flyTo(focus.pos, Math.max(map.current.getZoom(), 14), { duration: 0.6 })
+  }, [focus?.n])
 
   useEffect(() => {
     const inc = game.incidents.find((i) => i.id === selected.incidentId)
