@@ -46,7 +46,8 @@ export default function FunkPanel({ g, onOpenSprech, onOpenVehicle, onOpenIncide
                   {l.inc != null && incIds.has(l.inc) && <button className="small" title="Einsatz öffnen" onClick={() => onOpenIncident?.(l.inc)}>Zum Einsatz</button>}
                 </>}
                 {LOG_KINDS[kind] && <span className={`tag tag-${kind}`}>{LOG_KINDS[kind]}</span>}
-                <span className="funk-text">{text}</span>
+                {/* lange Meldungen (mehrzeilig oder über 90 Zeichen) stehen unter der Kopfzeile, kurze daneben */}
+                <span className={`funk-text${text.includes('\n') || text.length > 90 ? ' lang' : ''}`}>{text}</span>
               </li>
             )
           })}
