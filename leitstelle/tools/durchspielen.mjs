@@ -89,7 +89,7 @@ function ki() {
   const fw = g.stations.filter((s) => s.kind === 'FW').length, rw = g.stations.filter((s) => s.kind === 'RW').length
   if (g.money > 12000 && fw + rw < 8) build(fw <= rw ? 'FW' : 'RW')
   else if (g.money > 15000 && fw + rw >= 8) {
-    const type = SPECIAL.find((t) => g.vehicles.filter((v) => v.type === t).length < (['NEF', 'DLK', 'TLF', 'ELW1'].includes(t) ? 2 : 1))
+    const type = SPECIAL.find((t) => G.vehicleUnlocked(g, t) && g.vehicles.filter((v) => v.type === t).length < (['NEF', 'DLK', 'TLF', 'ELW1'].includes(t) ? 2 : 1))
     if (type) {
       const kind = G.VEHICLE_TYPES[type].kind
       const st = g.stations.filter((s) => s.kind === kind).sort((a, b) => g.vehicles.filter((v) => v.stationId === a.id).length - g.vehicles.filter((v) => v.stationId === b.id).length)[0]

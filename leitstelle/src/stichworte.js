@@ -23,11 +23,13 @@ export const ROLES = {
   RTW: { name: 'Rettungswagen', short: 'RTW', types: ['RTW'] },
   NEF: { name: 'Notarzt (NEF)', short: 'NEF', types: ['NEF'] },
   KTW: { name: 'Krankentransport (N-KTW)', short: 'KTW', types: ['KTW'] },
+  KT: { name: 'Rettungswagen oder KTW', short: 'RTW/KTW', types: ['RTW', 'KTW'] },
 }
 
 // Rettungsdienst-Stichworte
 const RD = {
-  R0K: { need: { KTW: 1 } },
+  RKTP: { need: { KTW: 1 } },
+  R0K: { need: { KT: 1 } },
   R0: { need: { RTW: 1 } },
   R1: { need: { RTW: 1 } },
   R2: { need: { RTW: 1, NEF: 1 } },
@@ -105,7 +107,8 @@ export const INCIDENT_TYPES = [
   mk('HUNWETTER2', 'H UNWETTER 2 – Unwetter, Wasserschäden', 'Wasserschäden durch Unwetter / Starkregen', { need: { S: 2 }, weight: 1, work: 420 }),
 
   // --- Rettungsdienst ---
-  mk('R0K', 'R0K – Minderdringlicher Notfall', 'Minderdringlicher Notfalleinsatz (N-KTW)', { need: {}, rd: 'R0K', ohneSS: true, weight: 2, work: 180 }),
+  mk('RKTP', 'KTP – Krankentransport', 'Krankentransport ohne Sondersignal (KTW)', { need: {}, rd: 'RKTP', ohneSS: true, weight: 1, work: 240 }),
+  mk('R0K', 'R0K – Minderdringlicher Notfall', 'Minderdringlicher Notfalleinsatz (RTW oder N-KTW)', { need: {}, rd: 'R0K', ohneSS: true, weight: 2, work: 180 }),
   mk('R0', 'R0 – Notfall ohne Sondersignal', 'Notfalleinsatz unterhalb der Notarzt-Indikation', { need: {}, rd: 'R0', ohneSS: true, extra: { NEF: 1 }, weight: 3, work: 240 }),
   mk('R1', 'R1 – Notfall mit Sondersignal', 'Dringlicher Notfalleinsatz', { need: {}, rd: 'R1', extra: { NEF: 1 }, weight: 5, work: 240 }),
   mk('R2', 'R2 – Notfall mit Notarzt', 'Akut lebensbedrohliche Situation', { need: {}, rd: 'R2', weight: 3, work: 420 }),
@@ -142,7 +145,7 @@ export const addNeeds = (a, b) => {
 // --- Einsatzentwicklung ---
 // Grundwahrscheinlichkeit, dass ein Einsatz "wächst" (Nachforderung), nach Stufe des Stichworts.
 const TIERS = {
-  1: ['F1', 'FRWM', 'H1', 'H1Y', 'HUNWETTER1', 'HUNWETTER2', 'R0K', 'R0', 'R3', 'HFLUSS', 'HGAS1', 'HELEK'],
+  1: ['F1', 'FRWM', 'H1', 'H1Y', 'HUNWETTER1', 'HUNWETTER2', 'RKTP', 'R0K', 'R0', 'R3', 'HFLUSS', 'HGAS1', 'HELEK'],
   3: ['F2Y', 'F3', 'F3Y', 'FGAS2', 'FWALD2', 'HGEFAHR2', 'HKLEMM2Y', 'HEINSTY', 'FBUSY', 'FFLUG1Y', 'FSCHIFF2', 'FSCHIFF2Y'],
   4: ['F4', 'FFLUG2Y', 'FZUGY', 'FSCHIFF2G', 'HRADIO', 'HSCHIFFY2', 'HZUG2Y', 'RMANV'],
 } // alles andere: Stufe 2

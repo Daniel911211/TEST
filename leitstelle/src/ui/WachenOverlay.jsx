@@ -1,4 +1,4 @@
-import { VEHICLE_TYPES, STATUS_TEXT, incidentTitle, buyVehicle, sellVehicle, sellPrice, repairQuote, sendToWorkshop, buildWorkshop, WORKSHOP_COST, fmtMin, fmtMoney } from '../game.js'
+import { VEHICLE_TYPES, STATUS_TEXT, incidentTitle, buyVehicle, sellVehicle, sellPrice, repairQuote, sendToWorkshop, buildWorkshop, WORKSHOP_COST, fmtMin, fmtMoney, vehicleUnlocked, unlockText } from '../game.js'
 import { VEHICLE_GROUPS, groupOf, vehiclesOf, stationTypeName, shortName } from './helpers.js'
 import Overlay from './Overlay.jsx'
 
@@ -74,11 +74,12 @@ function MarktTab({ g, station, flash }) {
           <div className="buy-grid">
             {list.map(([k, d]) => {
               const owned = g.vehicles.filter((v) => v.stationId === station.id && v.type === k).length
+              const locked = !vehicleUnlocked(g, k)
               return (
-                <button key={k} className="buy" disabled={g.money < d.cost} onClick={() => { if (confirm(`${d.name} für ${fmtMoney(d.cost)} kaufen?`)) { const r = buyVehicle(g, station.id, k); flash(r.ok ? `${d.name} gekauft (−${fmtMoney(d.cost)})` : r.msg) } }}>
+                <button key={k} className={`buy${locked ? ' locked' : ''}`} disabled={locked || g.money < d.cost} title={locked ? unlockText(k) : undefined} onClick={() => { if (confirm(`${d.name} für ${fmtMoney(d.cost)} kaufen?`)) { const r = buyVehicle(g, station.id, k); flash(r.ok ? `${d.name} gekauft (−${fmtMoney(d.cost)})` : r.msg) } }}>
                   <b>{d.name}</b>
                   {d.water > 0 ? <small className="muted">{d.water} l Wasser · {d.as} AS-Trupp{d.as !== 1 ? 's' : ''}</small> : <small className="muted">{d.kind === 'RW' ? 'Rettungsdienst' : 'Sonderfahrzeug'}</small>}
-                  <small>{fmtMoney(d.cost)}{owned ? ` · ${owned} in Besitz` : ''}</small>
+                  <small>{locked ? `🔒 ${unlockText(k)}` : `${fmtMoney(d.cost)}${owned ? ` · ${owned} in Besitz` : ''}`}</small>
                 </button>
               )
             })}

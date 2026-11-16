@@ -3,6 +3,7 @@ import KLINIKEN from './data/kliniken.json'
 import { INCIDENT_TYPES, ROLES, matchSlots, addNeeds, growProb, ESCALATE, maxNeeds, diffNeeds } from './stichworte.js'
 import { pickSzenario, incidentTitle } from './szenarien.js'
 import { rollAnforderung, ersteLagemeldung, folgemeldung, nachforderungsmeldung, abschlussmeldung } from './lagemeldung.js'
+import { EINSAETZE, EINSATZ_BY_ID, EINSATZ_BY_NAME, VERGUETUNG_FAKTOR, saisonAktiv } from './data/einsaetze.js'
 export { incidentTitle, typeCode } from './szenarien.js'
 
 export const GAME_SEC_PER_REAL_SEC = 10 // bei 1x: 1 echte Sekunde = 10 Spielsekunden
@@ -17,25 +18,29 @@ export const STATION_TYPES = {
   RW: { name: 'Rettungswache', cost: 3000, color: '#e09f00' },
 }
 
+// ab: Freischaltung – kaufbar ab so vielen Wachen der passenden Art (Feuerwachen bzw. Rettungswachen), wie im Vorbild
 export const VEHICLE_TYPES = {
-  TSF: { name: 'TSF-W', kind: 'FW', cost: 2000, speed: 70, water: 750, as: 1 },
-  LF: { name: 'LF 20', kind: 'FW', cost: 2800, speed: 70, water: 2000, as: 2 },
-  HLF: { name: 'HLF 20', kind: 'FW', cost: 3000, speed: 70, water: 1600, as: 2 },
-  TLF: { name: 'TLF 4000', kind: 'FW', cost: 3200, speed: 65, water: 4000, as: 1 },
-  DLK: { name: 'DLK 23-12', kind: 'FW', cost: 4500, speed: 60, water: 0, as: 0 },
-  RW: { name: 'RW', kind: 'FW', cost: 4200, speed: 60, water: 0, as: 0 },
-  ELW1: { name: 'ELW 1', kind: 'FW', cost: 2200, speed: 80, water: 0, as: 0 },
+  TSF: { name: 'TSF-W', kind: 'FW', cost: 2000, speed: 70, water: 750, as: 1, ab: 0 },
+  LF: { name: 'LF 20', kind: 'FW', cost: 2800, speed: 70, water: 2000, as: 2, ab: 0 },
+  HLF: { name: 'HLF 20', kind: 'FW', cost: 3000, speed: 70, water: 1600, as: 2, ab: 2 },
+  TLF: { name: 'TLF 4000', kind: 'FW', cost: 3200, speed: 65, water: 4000, as: 1, ab: 2 },
+  DLK: { name: 'DLK 23-12', kind: 'FW', cost: 4500, speed: 60, water: 0, as: 0, ab: 3 },
+  RW: { name: 'RW', kind: 'FW', cost: 4200, speed: 60, water: 0, as: 0, ab: 4 },
+  ELW1: { name: 'ELW 1', kind: 'FW', cost: 2200, speed: 80, water: 0, as: 0, ab: 2 },
   // Sonderfahrzeuge: auf jeder Feuerwache stationierbar (nicht auf Rettungswachen)
-  ELW2: { name: 'ELW 2', kind: 'FW', cost: 5500, speed: 70, water: 0, as: 0 },
-  ABCE: { name: 'ABC-Erkunder', kind: 'FW', cost: 3500, speed: 80, water: 0, as: 0 },
-  GWM: { name: 'GW-Messtechnik', kind: 'FW', cost: 4000, speed: 65, water: 0, as: 0 },
-  DEKON: { name: 'Dekon-P', kind: 'FW', cost: 4500, speed: 60, water: 0, as: 0 },
-  GWL: { name: 'GW-L', kind: 'FW', cost: 3000, speed: 65, water: 0, as: 0 },
-  GWA: { name: 'GW-A', kind: 'FW', cost: 3200, speed: 65, water: 0, as: 0 },
-  RTW: { name: 'RTW', kind: 'RW', cost: 2000, speed: 80 },
-  NEF: { name: 'NEF', kind: 'RW', cost: 2500, speed: 95 },
-  KTW: { name: 'N-KTW', kind: 'RW', cost: 1500, speed: 80 },
+  ELW2: { name: 'ELW 2', kind: 'FW', cost: 5500, speed: 70, water: 0, as: 0, ab: 13 },
+  ABCE: { name: 'ABC-Erkunder', kind: 'FW', cost: 3500, speed: 80, water: 0, as: 0, ab: 10 },
+  GWM: { name: 'GW-Messtechnik', kind: 'FW', cost: 4000, speed: 65, water: 0, as: 0, ab: 10 },
+  DEKON: { name: 'Dekon-P', kind: 'FW', cost: 4500, speed: 60, water: 0, as: 0, ab: 12 },
+  GWL: { name: 'GW-L', kind: 'FW', cost: 3000, speed: 65, water: 0, as: 0, ab: 7 },
+  GWA: { name: 'GW-A', kind: 'FW', cost: 3200, speed: 65, water: 0, as: 0, ab: 5 },
+  RTW: { name: 'RTW', kind: 'RW', cost: 2000, speed: 80, ab: 0 },
+  NEF: { name: 'NEF', kind: 'RW', cost: 2500, speed: 95, ab: 3 },
+  KTW: { name: 'N-KTW', kind: 'RW', cost: 1500, speed: 80, ab: 0 },
 }
+export const countStations = (g, kind) => g.stations.filter((s) => s.kind === kind).length
+export const vehicleUnlocked = (g, type) => countStations(g, VEHICLE_TYPES[type].kind) >= (VEHICLE_TYPES[type].ab || 0)
+export const unlockText = (type) => { const d = VEHICLE_TYPES[type]; return `ab ${d.ab} ${d.kind === 'RW' ? 'Rettungswachen' : 'Feuerwachen'}` }
 
 // Einsatzstichworte nach Hessen-Erlass: siehe stichworte.js
 export { INCIDENT_TYPES, ROLES, matchSlots }
@@ -192,6 +197,7 @@ export function buyVehicle(g, stationId, type) {
   const st = g.stations.find((s) => s.id === stationId)
   const def = VEHICLE_TYPES[type]
   if (!st || (def.kind !== 'ANY' && st.kind !== def.kind)) return { ok: false, msg: 'Passt nicht zur Wache.' }
+  if (!vehicleUnlocked(g, type)) return { ok: false, msg: `${def.name} erst ${unlockText(type)}.` }
   if (g.vehicles.filter((v) => v.stationId === stationId).length >= MAX_VEHICLES_PER_STATION) return { ok: false, msg: 'Wache voll.' }
   if (g.money < def.cost) return { ok: false, msg: 'Nicht genug Geld.' }
   g.money -= def.cost
@@ -392,16 +398,31 @@ function develop(g, inc) {
   inc.devPlan = null
   let text = null
   if (plan === 'eskaliert') {
-    // Einsatzleiter erkundet und erhöht das Stichwort; Ziel hängt vom Erkundungsergebnis ab
-    const options = [...(ESCALATE[inc.type.id] || [])].sort(() => Math.random() - 0.5)
-    const opt = options.find((o) => { const t = INCIDENT_TYPES.find((x) => x.id === o.to); return t && Object.keys(matchSlots(t.need, g.vehicles)).length === 0 })
-    const next = opt && INCIDENT_TYPES.find((t) => t.id === opt.to)
+    // Einsatzleiter erkundet und erhöht das Stichwort. Zuerst die Folgeeinsätze des Katalogs (ausbreitung), sonst die Stichwort-Kette (ESCALATE).
+    const cur = inc.einsatz && EINSATZ_BY_ID[inc.einsatz]
+    const folgen = (cur?.ausbreitung || []).map((n) => EINSATZ_BY_NAME[n]).filter(Boolean).sort(() => Math.random() - 0.5)
+    let next = null, opt = null, katalog = null
+    for (const f of folgen) {
+      const k = einsatzKandidaten(g, (e) => e === f)[0]
+      if (!k) continue
+      const sum = (n) => Object.values(n).reduce((a, b) => a + b, 0)
+      if (sum(maxNeeds(inc.need, k.need)) <= sum(inc.need)) continue // keine Ausweitung
+      katalog = k; next = k.type; opt = { to: k.type.id, why: `Lage hat sich ausgeweitet: ${k.e.name}` }
+      break
+    }
+    if (!next) {
+      const options = [...(ESCALATE[inc.type.id] || [])].sort(() => Math.random() - 0.5)
+      opt = options.find((o) => { const t = INCIDENT_TYPES.find((x) => x.id === o.to); return t && Object.keys(matchSlots(t.need, g.vehicles)).length === 0 })
+      next = opt && INCIDENT_TYPES.find((t) => t.id === opt.to)
+      if (next) katalog = katalogFuerStichwort(g, next.id)
+    }
     if (next) {
       const oldName = inc.type.name
-      const newNeed = maxNeeds(inc.need, next.need)
+      const newNeed = maxNeeds(inc.need, katalog ? katalog.need : next.need)
       const added = diffNeeds(newNeed, inc.need)
       inc.type = next
-      inc.szenario = pickSzenario(next.id) || inc.szenario
+      if (katalog) { inc.einsatz = katalog.e.id; inc.szenario = szenarioVon(katalog.e); inc.reward = Math.max(inc.reward || 0, einsatzReward(katalog.e, next)) }
+      else { inc.einsatz = null; inc.szenario = pickSzenario(next.id) || inc.szenario; inc.reward = Math.max(inc.reward || 0, next.reward) }
       inc.anford = rollAnforderung(inc.szenario, (r) => canStaff(g, r))
       inc.anfordDone = true
       for (const r of Object.keys(inc.anford)) if (r !== '__verletzte' && !newNeed[r]) newNeed[r] = 1
@@ -409,7 +430,7 @@ function develop(g, inc) {
       inc.extra = { ...next.extra }
       inc.workLeft = Math.max(inc.workLeft, next.work * 0.7)
       inc.escalated = true
-      if (next.elw2Ask && inc.elw2 == null) inc.elw2 = Math.random() < 0.6 ? 'needed' : 'notneeded'
+      if (next.elw2Ask && inc.elw2 == null) inc.elw2 = canStaff(g, 'ELW2') && Math.random() < 0.6 ? 'needed' : 'notneeded'
       const gruende = Object.keys(added).map((r) => inc.anford?.[r]).filter(Boolean)
       text = `${opt.why}. Stichwort wird von ${oldName} auf ${next.name} erhöht.${Object.keys(added).length ? ` Nachforderung: ${needText(added)}${gruende.length ? ' (' + gruende.join(', ') + ')' : ''}.` : ''}`
       addLog(g, `Stichwort erhöht: ${oldName} → ${next.name}${Object.keys(added).length ? `, Bedarf erhöht um ${needText(added)}` : ''} (Meldung folgt per Sprechwunsch).`, { kind: 'nachforderung', inc, quiet: true })
@@ -551,19 +572,67 @@ function releaseVehicle(v) {
   v.timer = 0
 }
 
+// --- Einsatzkatalog (data/einsaetze.js): Vorbild-Einsätze, verknüpft mit den Hessen-Stichworten ---
+const TYPE_BY_ID = Object.fromEntries(INCIDENT_TYPES.map((t) => [t.id, t]))
+const PUMPEN = ['G', 'GT', 'S', 'TLF'] // Rollen, die mit Löschfahrzeugen besetzt werden
+// Ist der Katalog-Einsatz für den aktuellen Ausbau freigeschaltet (Wachenzahl, Saison, aktiv)?
+function einsatzVerfuegbar(g, e) {
+  if (e.aktiv === false || !TYPE_BY_ID[e.stichwort]) return false
+  const nFW = countStations(g, 'FW'), nRW = countStations(g, 'RW')
+  if (nFW < (e.abFW || 0) || nRW < (e.abRW || 0)) return false
+  if (e.bisFW != null && nFW > e.bisFW) return false
+  return saisonAktiv(e.saison, g.datum ? new Date(g.datum) : new Date())
+}
+// Bedarf = AAO des Stichworts, erhöht um das, was der Katalog-Einsatz mehr verlangt. Rollen ohne passendes Fahrzeug entfallen.
+function einsatzNeed(g, e, type) {
+  const need = { ...type.need }
+  const nFW = countStations(g, 'FW'), nRW = countStations(g, 'RW')
+  for (const [r, n] of Object.entries(e.fahrzeuge || {})) {
+    const ab = e.fahrzeugeAb?.[r]
+    if (ab && (ROLES[r]?.types.every((t) => VEHICLE_TYPES[t].kind === 'RW') ? nRW : nFW) < ab) continue
+    if (r === 'LF') { const have = PUMPEN.reduce((s, k) => s + (need[k] || 0), 0); if (n > have) need.S = (need.S || 0) + n - have }
+    else if (ROLES[r]) need[r] = Math.max(need[r] || 0, n)
+  }
+  for (const r of Object.keys(need)) if (!canStaff(g, r)) delete need[r]
+  return need
+}
+const hasCore = (need) => [...PUMPEN, 'RTW', 'KT', 'KTW'].some((r) => need[r] > 0)
+// Szenario-Bausteine (für lagemeldung.js) aus einem Katalog-Einsatz
+const szenarioVon = (e) => ({ name: e.name, sehe: e.sehe, mache: e.mache, kraefte: e.kraefte, abschluss: e.abschluss, stabil: !!e.stabil, anforderung: e.anforderung || {}, verletzte: e.patienten && e.patienten[1] >= 2 ? e.patienten : null })
+const einsatzReward = (e, type) => e.verguetung ? Math.round(((e.verguetung[0] + e.verguetung[1]) / 2) * VERGUETUNG_FAKTOR / 10) * 10 : type.reward
+// Alle derzeit möglichen Katalog-Einsätze (freigeschaltet und mit dem Fuhrpark besetzbar)
+function einsatzKandidaten(g, filter = () => true) {
+  const out = []
+  for (const e of EINSAETZE) {
+    if (!filter(e) || !einsatzVerfuegbar(g, e)) continue
+    const type = TYPE_BY_ID[e.stichwort]
+    const need = einsatzNeed(g, e, type)
+    if (!hasCore(need)) continue
+    out.push({ e, type, need })
+  }
+  return out
+}
+// Zufälliger Katalog-Einsatz zu einem Stichwort (für Hochstufungen), sonst null
+function katalogFuerStichwort(g, typeId) {
+  const list = einsatzKandidaten(g, (e) => e.stichwort === typeId)
+  return list.length ? list[Math.floor(Math.random() * list.length)] : null
+}
 function spawnIncident(g) {
-  const types = INCIDENT_TYPES.filter((t) => Object.keys(matchSlots(t.need, g.vehicles)).length === 0)
-  if (!types.length) return
-  const total = types.reduce((s, t) => s + t.weight, 0)
+  const cands = einsatzKandidaten(g)
+  if (!cands.length) return
+  const total = cands.reduce((s, c) => s + (c.e.gewicht || 1), 0)
   let r = Math.random() * total
-  const type = types.find((t) => (r -= t.weight) < 0) || types[0]
+  const pick = cands.find((c) => (r -= c.e.gewicht || 1) < 0) || cands[0]
+  const { e, type, need } = pick
   const st = g.stations[Math.floor(Math.random() * g.stations.length)]
   const ang = Math.random() * Math.PI * 2
   const dist = rnd(0.8, 5) // km
   const pos = [st.pos[0] + (Math.cos(ang) * dist) / 111, st.pos[1] + (Math.sin(ang) * dist) / (111 * Math.cos((st.pos[0] * Math.PI) / 180))]
-  const elw2 = !type.elw2Ask ? null : Object.keys(matchSlots(addNeeds(type.need, { ELW2: 1 }), g.vehicles)).length === 0 && Math.random() < 0.6 ? 'needed' : 'notneeded'
-  const szenario = pickSzenario(type.id)
-  const inc = { id: g.nextId++, type, szenario, anford: rollAnforderung(szenario, (r) => canStaff(g, r)), anfordDone: false, need: { ...type.need }, extra: { ...type.extra }, devStep: 0, devPlan: null, devAtT: null, revealed: false, elw2, elw2Asked: false, pos, created: g.t, status: 'open', workLeft: type.work, startedAt: null, dispatched: false }
+  const elw2 = !type.elw2Ask || need.ELW2 ? null : canStaff(g, 'ELW2') && Math.random() < 0.6 ? 'needed' : 'notneeded'
+  const szenario = szenarioVon(e)
+  const extra = { ...type.extra }
+  for (const k of Object.keys(extra)) if (need[k] || !canStaff(g, k)) delete extra[k]
+  const inc = { id: g.nextId++, type, einsatz: e.id, szenario, reward: einsatzReward(e, type), anford: rollAnforderung(szenario, (r) => canStaff(g, r)), anfordDone: false, need, extra, devStep: 0, devPlan: null, devAtT: null, revealed: false, elw2, elw2Asked: false, pos, created: g.t, status: 'open', workLeft: type.work, startedAt: null, dispatched: false }
   inc.devPlan = rollPlan(inc, isNight(g.t) ? 1.3 : 1)
   g.incidents.push(inc)
   addLog(g, `Neuer Einsatz: ${incidentTitle(inc)} (${type.name}; benötigt ${needText(inc.need)}; Meldung über ${st.name}).`, { kind: 'neu', inc })
@@ -764,7 +833,7 @@ export function tick(g, dt) {
       else if (inc.workLeft <= 0) {
         const wait = inc.startedAt - inc.created
         const bonus = wait < inc.type.deadline * 0.5 ? 1.25 : 1
-        const reward = Math.round(inc.type.reward * bonus)
+        const reward = Math.round((inc.reward ?? inc.type.reward) * bonus)
         g.money += reward
         g.points += inc.type.points
         g.done++
@@ -806,7 +875,13 @@ export const loadGame = () => {
     delete g.bedTimer
     for (const v of g.vehicles) { if (v.condition == null) v.condition = 100 }
     for (const l of g.log || []) if (!l.kind) l.kind = logKind(l.text)
-    for (const i of g.incidents) { i.type = INCIDENT_TYPES.find((t) => t.id === i.type.id) || i.type; if (!i.szenario || i.szenario.lage) i.szenario = pickSzenario(i.type.id); if (!i.anford) { i.anford = {}; i.anfordDone = true } }
+    for (const i of g.incidents) {
+      i.type = INCIDENT_TYPES.find((t) => t.id === i.type.id) || i.type
+      const e = i.einsatz && EINSATZ_BY_ID[i.einsatz]
+      if (e) i.szenario = szenarioVon(e) // Texte aus dem Katalog (ggf. inzwischen bearbeitet)
+      else if (!i.szenario || i.szenario.lage) i.szenario = pickSzenario(i.type.id)
+      if (!i.anford) { i.anford = {}; i.anfordDone = true }
+    }
     return g
   } catch { return null }
 }

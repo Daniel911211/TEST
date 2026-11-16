@@ -198,3 +198,4 @@ textarea.vermerk { width:100%; background:#0f1319; color:var(--text); border:1px
   .top { flex-direction:column; } .panel.einsatz { width:100%; min-width:0; height:45%; border-left:none; border-top:1px solid var(--line); }
   .bottom { flex-direction:column; } .bottom .panel { border-right:none; border-bottom:1px solid var(--line); }
 }
+.buy.locked { opacity:.55; }
