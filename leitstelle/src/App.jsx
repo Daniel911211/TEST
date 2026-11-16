@@ -95,7 +95,7 @@ export default function App() {
   const doBuild = () => {
     if (!build?.pos) return
     const r = buildStation(g, build.kind, build.pos, build.name.trim() || build.site?.name, build.site?.id, build.vehicle)
-    if (!r.ok) flash(r.msg); else { setBuild(null); openStation(r.station.id, 'markt') }
+    if (!r.ok) flash(r.msg); else { setBuild(null); flash(`${r.station.name} gebaut.`) } // kein Overlay nach dem Bau
   }
   const selectStation = (id) => { if (!build) openStation(id) }
   const selectVehicle = (id) => { if (!build) openVehicle(id) }
