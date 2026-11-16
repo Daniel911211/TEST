@@ -170,7 +170,7 @@ export default function App() {
       <div className="bottom">
         <WachenPanel g={g} building={!!build} onStartBuild={startBuild} sel={wsel} setSel={setWsel} onOpenStation={openStation} onOpenVehicle={openVehicle} onLocate={locateVehicle} />
         <SprechwunschPanel g={g} onOpenHospital={openHospital} />
-        <FunkPanel g={g} onOpenSprech={openSprech} />
+        <FunkPanel g={g} onOpenSprech={openSprech} onOpenVehicle={openVehicle} onOpenIncident={openIncident} onLocate={locateVehicle} />
       </div>
     </div>
   )

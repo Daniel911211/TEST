@@ -163,7 +163,10 @@ textarea.vermerk { width:100%; background:#0f1319; color:var(--text); border:1px
 
 /* Funk */
 .funk-list { list-style:none; margin:0; padding:4px 10px; }
-.funk-list li { padding:3px 6px; border-bottom:1px solid var(--line); border-left:3px solid transparent; }
+.funk-list li { padding:3px 6px; border-bottom:1px solid var(--line); border-left:3px solid transparent; display:flex; flex-wrap:wrap; align-items:center; gap:4px; }
+.funk-list li .funk-text { flex:1 1 220px; }
+.funk-list li button.small { padding:0 6px; line-height:18px; font-size:11px; }
+.funk-list li .funk-fz { font-weight:700; }
 .funk-list li.new { color:#fff; }
 .funk-list li.funk-lage { border-left-color:var(--amber); background:#f4a30014; }
 .funk-list li.funk-nachforderung { border-left-color:#ff4d4d; background:#d6282818; }
