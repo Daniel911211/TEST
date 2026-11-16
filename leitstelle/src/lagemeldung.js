@@ -56,7 +56,8 @@ function brauche(inc, assigned, missing, added) {
   for (const v of assigned) if (v.status === 3) { const n = VEHICLE_TYPES[v.type]?.name || v.type; unterwegs[n] = (unterwegs[n] || 0) + 1 }
   const enRoute = Object.values(unterwegs).reduce((a, c) => a + c, 0)
   const frage = enRoute ? `Frage: ${Object.entries(unterwegs).map(([n, c]) => `${c}× ${n}`).join(', ')} ${enRoute > 1 ? 'sind' : 'ist'} alarmiert?` : ''
-  if (!parts.length) parts.push(inc.szenario?.stabil ? 'Meldebild bestätigt, Kräfte ausreichend.' : frage ? `Kräfte ausreichend. ${frage}` : 'Kräfte ausreichend, keine Nachforderung.')
+  // Solange Fahrzeuge noch anfahren, reichen die Kräfte vor Ort nicht – dann keine „Kräfte ausreichend“-Meldung
+  if (!parts.length) parts.push(frage ? `Kräfte vor Ort reichen noch nicht aus. ${frage}` : inc.szenario?.stabil ? 'Meldebild bestätigt, Kräfte ausreichend.' : 'Kräfte ausreichend, keine Nachforderung.')
   else if (frage) parts.push(frage)
   return join(parts)
 }
