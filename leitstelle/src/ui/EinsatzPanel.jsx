@@ -14,7 +14,7 @@ export default function EinsatzPanel({ g, selectedId, onSelect, flash }) {
 
   return (
     <section className="panel einsatz">
-      <div className="panel-head">Einsätze <span className="count">{g.incidents.length}</span></div>
+      <div className="panel-head">Einsätze <span className="count">{g.incidents.length}</span>{g.spawnPaused && <small className="red">· keine neuen Einsätze</small>}</div>
       <div className="einsatz-liste">
         {!g.incidents.length && <p className="muted pad">{g.stations.length ? 'Keine offenen Einsätze. Warte auf den nächsten Alarm …' : 'Baue zuerst eine Wache (unten links).'}</p>}
         {g.incidents.map((i) => {

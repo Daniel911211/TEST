@@ -11,6 +11,7 @@ button { background:#262e3b; color:var(--text); border:1px solid var(--line); bo
 button:hover:not(:disabled) { background:#313b4c; }
 button:disabled { opacity:.4; cursor:not-allowed; }
 button.on { background:var(--blue); border-color:var(--blue); }
+button.spawn-off { background:#5a1a1a; border-color:#8a2a2a; color:#ffd1d1; }
 button.primary { background:var(--red); border-color:var(--red); width:100%; }
 button.small { padding:2px 7px; font-size:12px; }
 input.search { background:#0f1319; color:var(--text); border:1px solid var(--line); border-radius:6px; padding:4px 8px; font:inherit; margin-left:auto; width:150px; }

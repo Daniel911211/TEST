@@ -226,6 +226,13 @@ export function askElw2(g, incidentId) {
   return { ok: true }
 }
 
+// Einsatzgenerierung an/aus (Spielzeit, Fahrzeuge und laufende Einsätze gehen weiter)
+export function toggleSpawn(g) {
+  g.spawnPaused = !g.spawnPaused
+  addLog(g, g.spawnPaused ? 'Leitstelle: keine neuen Einsätze (Generierung angehalten).' : 'Leitstelle: Einsatzgenerierung wieder aktiv.')
+  return g.spawnPaused
+}
+
 export const hospitalFree = (g, id) => g.hospitals[id]?.free ?? 0
 export const hospitalBeds = (g, id) => g.hospitals[id]?.beds ?? 0
 export const hospitalPatients = (g, id) => g.hospitals[id]?.patients ?? []
@@ -503,7 +510,8 @@ export function tick(g, dt) {
     g.spawnIn = rnd(360, 750) / Math.max(1, (g.stations.length + 6) / 8)
     const open = g.incidents.length
     // Kein neuer Einsatz, solange gar kein Fahrzeug frei ist (verhindert, dass sich alles gegenseitig blockiert)
-    if (g.stations.length && open < 2 + g.stations.length && g.vehicles.some(isAvailable)) spawnIncident(g)
+    // spawnPaused: Leitstelle hat die Einsatzgenerierung angehalten (Spiel läuft weiter)
+    if (!g.spawnPaused && g.stations.length && open < 2 + g.stations.length && g.vehicles.some(isAvailable)) spawnIncident(g)
   }
 
   // Klinikbetten: Patienten nach Behandlungszeit entlassen, Bett wird wieder frei

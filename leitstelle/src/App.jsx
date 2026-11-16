@@ -12,7 +12,7 @@ import OSM_SITES from './data/feuerwehren.json'
 import EXTRA_SITES from './data/zusatz-standorte.json'
 import {
   GAME_SEC_PER_REAL_SEC, STATION_TYPES,
-  newGame, loadGame, saveGame, clearSave, tick, buildStation, fmtClock, fmtMoney, rankOf, nextRank,
+  newGame, loadGame, saveGame, clearSave, tick, buildStation, toggleSpawn, fmtClock, fmtMoney, rankOf, nextRank,
 } from './game.js'
 
 const SITES = [...OSM_SITES, ...EXTRA_SITES]
@@ -93,6 +93,9 @@ export default function App() {
         {[0, 1, 2, 5].map((s) => (
           <button key={s} className={speed === s ? 'on' : ''} onClick={() => setSpeed(s)}>{s === 0 ? '⏸' : `${s}x`}</button>
         ))}
+        <button className={g.spawnPaused ? 'spawn-off' : 'on'} title={g.spawnPaused ? 'Es kommen keine neuen Einsätze. Klicken zum Einschalten.' : 'Neue Einsätze werden erzeugt. Klicken zum Anhalten.'} onClick={() => toggleSpawn(g)}>
+          {g.spawnPaused ? '🚫 Neue Einsätze aus' : '🚨 Neue Einsätze an'}
+        </button>
         <button onClick={reset}>Neu</button>
       </header>
       <div className="top">
