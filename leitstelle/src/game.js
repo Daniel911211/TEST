@@ -5,7 +5,7 @@ import { INCIDENT_TYPES, ROLES, matchSlots, addNeeds } from './stichworte.js'
 export const GAME_SEC_PER_REAL_SEC = 30 // bei 1x: 1 echte Sekunde = 30 Spielsekunden
 export const DETOUR = 1.3 // Umwegfaktor Luftlinie -> Straße
 export const CENTER = [50.5558, 9.6808] // Fulda
-export const MAX_VEHICLES_PER_STATION = 6
+export const MAX_VEHICLES_PER_STATION = Infinity // Stellplätze vorerst unbegrenzt
 
 export const WORKSHOP_COST = 4000
 export const STATION_TYPES = {
@@ -21,6 +21,11 @@ export const VEHICLE_TYPES = {
   DLK: { name: 'DLK 23-12', kind: 'FW', cost: 4500, speed: 60, water: 0, as: 0 },
   RW: { name: 'RW', kind: 'FW', cost: 4200, speed: 60, water: 0, as: 0 },
   ELW1: { name: 'ELW 1', kind: 'FW', cost: 2200, speed: 80, water: 0, as: 0 },
+  // Sonderfahrzeuge: kind 'ANY' = auf jeder Wache stationierbar
+  ELW2: { name: 'ELW 2', kind: 'ANY', cost: 5500, speed: 70, water: 0, as: 0 },
+  ABCE: { name: 'ABC-Erkunder', kind: 'ANY', cost: 3500, speed: 80, water: 0, as: 0 },
+  GWM: { name: 'GW-Messtechnik', kind: 'ANY', cost: 4000, speed: 65, water: 0, as: 0 },
+  DEKON: { name: 'Dekon-P', kind: 'ANY', cost: 4500, speed: 60, water: 0, as: 0 },
   GWL: { name: 'GW-L', kind: 'FW', cost: 3000, speed: 65, water: 0, as: 0 },
   GWA: { name: 'GW-A', kind: 'FW', cost: 3200, speed: 65, water: 0, as: 0 },
   RTW: { name: 'RTW', kind: 'RW', cost: 2000, speed: 80 },
@@ -140,7 +145,7 @@ function addVehicle(g, station, type) {
 export function buyVehicle(g, stationId, type) {
   const st = g.stations.find((s) => s.id === stationId)
   const def = VEHICLE_TYPES[type]
-  if (!st || st.kind !== def.kind) return { ok: false, msg: 'Passt nicht zur Wache.' }
+  if (!st || (def.kind !== 'ANY' && st.kind !== def.kind)) return { ok: false, msg: 'Passt nicht zur Wache.' }
   if (g.vehicles.filter((v) => v.stationId === stationId).length >= MAX_VEHICLES_PER_STATION) return { ok: false, msg: 'Wache voll.' }
   if (g.money < def.cost) return { ok: false, msg: 'Nicht genug Geld.' }
   g.money -= def.cost
@@ -181,6 +186,21 @@ export function recommend(g, inc) {
     picked.push(...c.map((v) => v.id))
   }
   return picked
+}
+
+// Leitstelle funkt den ELW 1 an: "Nachalarmplan sieht ELW 2 vor – wird dieser bei Ihnen benötigt?"
+export function askElw2(g, incidentId) {
+  const inc = g.incidents.find((i) => i.id === incidentId)
+  const elw = inc && g.vehicles.find((v) => v.incidentId === inc.id && v.type === 'ELW1' && v.status === 4)
+  if (!elw) return { ok: false, msg: 'Kein ELW 1 vor Ort.' }
+  if (!inc.type.elw2Ask || inc.elw2Asked) return { ok: false, msg: 'Schon beantwortet.' }
+  inc.elw2Asked = true
+  addLog(g, `Leitstelle an ${elw.callsign}: Nachalarmplan sieht ELW 2 vor – wird dieser bei Ihnen benötigt?`)
+  if (inc.elw2 === 'needed') {
+    inc.need = addNeeds(inc.need, { ELW2: 1 })
+    addLog(g, `${elw.callsign}: Ja, ELW 2 wird benötigt – bitte nachalarmieren.`)
+  } else addLog(g, `${elw.callsign}: ELW 2 wird nicht benötigt.`)
+  return { ok: true }
 }
 
 export const hospitalFree = (g, id) => g.hospitals[id]?.free ?? 0
@@ -270,7 +290,8 @@ function spawnIncident(g) {
   for (const [role, n] of Object.entries(type.extra)) {
     if (Math.random() < 0.4 && Object.keys(matchSlots(addNeeds(addNeeds(type.need, extra), { [role]: n }), g.vehicles)).length === 0) extra = addNeeds(extra, { [role]: n })
   }
-  const inc = { id: g.nextId++, type, need: { ...type.need }, extra, revealed: false, pos, created: g.t, status: 'open', workLeft: type.work, startedAt: null, dispatched: false }
+  const elw2 = !type.elw2Ask ? null : Object.keys(matchSlots(addNeeds(type.need, { ELW2: 1 }), g.vehicles)).length === 0 && Math.random() < 0.6 ? 'needed' : 'notneeded'
+  const inc = { id: g.nextId++, type, need: { ...type.need }, extra, revealed: false, elw2, elw2Asked: false, pos, created: g.t, status: 'open', workLeft: type.work, startedAt: null, dispatched: false }
   g.incidents.push(inc)
   addLog(g, `Neuer Einsatz: ${type.name}`)
 }
@@ -411,13 +432,19 @@ export function tick(g, dt) {
         addLog(g, `Lagemeldung ${inc.type.name}: Nachforderung ${Object.entries(inc.extra).map(([k, n]) => `${n}× ${ROLES[k].short}`).join(', ')}`)
       }
     }
+    // Fordert niemand nach, meldet der ELW 1 den ELW-2-Bedarf nach 10 Minuten selbst
+    if (inc.elw2 === 'needed' && !inc.elw2Asked && inc.startedAt != null && g.t - inc.startedAt > 600) {
+      inc.elw2Asked = true
+      inc.need = addNeeds(inc.need, { ELW2: 1 })
+      addLog(g, `ELW 1 (${inc.type.name}): fordert ELW 2 nach.`)
+    }
     const satisfied = Object.keys(matchSlots(inc.need, atScene)).length === 0
 
     if (inc.status === 'open') {
       if (satisfied) {
         inc.status = 'working'
-        inc.startedAt = g.t
-      } else if (g.t - inc.created > inc.type.deadline) {
+        if (inc.startedAt == null) inc.startedAt = g.t
+      } else if (inc.startedAt == null && g.t - inc.created > inc.type.deadline) {
         g.money -= inc.type.penalty
         g.failed++
         addLog(g, `Einsatz gescheitert: ${inc.type.name} (−${fmtMoney(inc.type.penalty)})`)
@@ -426,7 +453,8 @@ export function tick(g, dt) {
       }
     } else if (inc.status === 'working') {
       inc.workLeft -= dt
-      if (inc.workLeft <= 0) {
+      if (!satisfied) inc.status = 'open' // nachgeforderte Mittel fehlen: Arbeit ruht
+      else if (inc.workLeft <= 0) {
         const wait = inc.startedAt - inc.created
         const bonus = wait < inc.type.deadline * 0.5 ? 1.25 : 1
         const reward = Math.round(inc.type.reward * bonus)

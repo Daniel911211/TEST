@@ -7,7 +7,7 @@ const SITES = [...OSM_SITES, ...EXTRA_SITES]
 import {
   GAME_SEC_PER_REAL_SEC, STATION_TYPES, VEHICLE_TYPES, STATUS_TEXT, MAX_VEHICLES_PER_STATION, ROLES,
   newGame, loadGame, saveGame, clearSave, tick, buildStation, buyVehicle, dispatch, recommend,
-  isAvailable, etaSec, SEVERITY_TEXT, HOSPITALS, hospitalFree, transportOptions, confirmTransport, repairQuote, sendToWorkshop, buildWorkshop, WORKSHOP_COST, fmtClock, fmtMin, fmtMoney, rankOf, nextRank,
+  isAvailable, etaSec, SEVERITY_TEXT, askElw2, HOSPITALS, hospitalFree, transportOptions, confirmTransport, repairQuote, sendToWorkshop, buildWorkshop, WORKSHOP_COST, fmtClock, fmtMin, fmtMoney, rankOf, nextRank,
 } from './game.js'
 
 export default function App() {
@@ -65,6 +65,7 @@ export default function App() {
   const sum = (key) => onScene.reduce((a, v) => a + (VEHICLE_TYPES[v.type][key] || 0), 0)
   const assigned = inc ? g.vehicles.filter((v) => v.incidentId === inc.id) : []
   const free = inc ? g.vehicles.filter(isAvailable).sort((a, b) => etaSec(a, inc.pos) - etaSec(b, inc.pos)) : []
+  const elwAtScene = inc ? onScene.some((v) => v.type === 'ELW1' && v.status === 4) : false
   const send = () => { dispatch(g, inc.id, picked); setPicked([]) }
   const next = nextRank(g.points)
   const requests = g.vehicles.filter((v) => v.status === 5)
@@ -111,6 +112,7 @@ export default function App() {
                   <h3>{inc.type.name}</h3>
                   <p><small className="muted">{inc.type.bild}</small></p>
                   <p>Benötigt: {need.map(([k, n]) => `${n}× ${ROLES[k].name}`).join(', ')}
+                    {inc.type.elw2Ask && !inc.elw2Asked && elwAtScene && <><br /><button onClick={() => { const r = askElw2(g, inc.id); if (!r.ok) flash(r.msg) }}>📻 ELW 1 anfunken: ELW 2 nötig?</button></>}
                     {inc.revealed && Object.keys(inc.extra).length > 0 && <><br /><b style={{ color: '#f4a300' }}>Nachforderung erhalten</b></>}
                     {inc.type.water > 0 && <><br />Wasser: {sum('water')} / {inc.type.water} l · Atemschutztrupps: {sum('as')} / {inc.type.as}</>}
                     <br />Belohnung: {fmtMoney(inc.type.reward)}</p>
@@ -152,7 +154,7 @@ export default function App() {
               <ul className="list">
                 {g.stations.map((s) => (
                   <li key={s.id} className={sel.stationId === s.id ? 'sel' : ''} onClick={() => setSel({ incidentId: null, stationId: s.id })}>
-                    <b>{s.name}</b> <small>{STATION_TYPES[s.kind].name} · {g.vehicles.filter((v) => v.stationId === s.id).length}/{MAX_VEHICLES_PER_STATION} Fahrzeuge</small>
+                    <b>{s.name}</b> <small>{STATION_TYPES[s.kind].name} · {g.vehicles.filter((v) => v.stationId === s.id).length} Fahrzeuge</small>
                   </li>
                 ))}
               </ul>
@@ -164,7 +166,7 @@ export default function App() {
                     <button disabled={g.money < WORKSHOP_COST} onClick={() => { const r = buildWorkshop(g, station.id); if (!r.ok) flash(r.msg) }}>Werkstatt bauen – {fmtMoney(WORKSHOP_COST)}</button>
                   )}
                   <h4>Fahrzeug kaufen</h4>
-                  {Object.entries(VEHICLE_TYPES).filter(([, d]) => d.kind === station.kind).map(([k, d]) => (
+                  {Object.entries(VEHICLE_TYPES).filter(([, d]) => d.kind === station.kind || d.kind === 'ANY').map(([k, d]) => (
                     <button key={k} disabled={g.money < d.cost} onClick={() => { const r = buyVehicle(g, station.id, k); if (!r.ok) flash(r.msg) }}>
                       {d.name} – {fmtMoney(d.cost)}
                     </button>
