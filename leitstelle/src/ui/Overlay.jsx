@@ -1,7 +1,16 @@
-// Rahmen für Overlays über der Karte: Kopf, Reiter, scrollbarer Inhalt, Fuß mit Vor/Zurück und Schließen
+import { useLayoutEffect, useRef } from 'react'
+
+// Rahmen für Overlays: Kopf, Reiter, scrollbarer Inhalt, Fuß mit Vor/Zurück und Schließen.
+// Liegt über der ganzen Fläche unter der Kopfzeile (die bleibt bedienbar: Tempo, Pause, Ton).
 export default function Overlay({ title, sub, head, tabs, tab, setTab, onClose, onPrev, onNext, foot, children }) {
+  const back = useRef(null)
+  useLayoutEffect(() => {
+    const fit = () => { const h = document.querySelector('header')?.offsetHeight || 48; if (back.current) back.current.style.top = `${h}px` }
+    fit(); window.addEventListener('resize', fit)
+    return () => window.removeEventListener('resize', fit)
+  }, [])
   return (
-    <div className="overlay-back" onClick={onClose}>
+    <div className="overlay-back" ref={back} onClick={onClose}>
       <div className="overlay" onClick={(e) => e.stopPropagation()}>
         <div className="ov-head">
           <div className="ov-title">
