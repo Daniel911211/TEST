@@ -29,7 +29,7 @@ export default function MapView({ game, sites, selected, buildMode, onMapClick, 
   }, [])
 
   useEffect(() => {
-    if (map.current) map.current.getContainer().style.cursor = buildMode === 'RW' || (buildMode === 'FW' && !sites.length) ? 'crosshair' : ''
+    if (map.current) map.current.getContainer().style.cursor = buildMode && !sites.some((s) => (s.kind || 'FW') === buildMode) ? 'crosshair' : ''
   }, [buildMode])
 
   useEffect(() => {
@@ -72,12 +72,12 @@ export default function MapView({ game, sites, selected, buildMode, onMapClick, 
       if (taken.has(s.id)) { const mk = layer.sites.get(s.id); if (mk) { mk.remove(); layer.sites.delete(s.id) } continue }
       let mk = layer.sites.get(s.id)
       if (!mk) {
-        mk = L.marker(s.pos, { icon: icon('', 'mk mk-site', 16) }).bindTooltip(s.name).on('click', (e) => {
+        mk = L.marker(s.pos, { icon: icon('', `mk mk-site site-${s.kind || 'FW'}`, 16) }).bindTooltip(s.name).on('click', (e) => {
           L.DomEvent.stopPropagation(e); cb.current.onSiteClick(s)
         }).addTo(layer)
         layer.sites.set(s.id, mk)
       }
-      mk.getElement()?.classList.toggle('active', buildMode === 'FW')
+      mk.getElement()?.classList.toggle('active', buildMode === (s.kind || 'FW'))
     }
   })
 

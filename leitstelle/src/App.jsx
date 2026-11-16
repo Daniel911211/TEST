@@ -39,16 +39,17 @@ export default function App() {
   const inc = g.incidents.find((i) => i.id === sel.incidentId)
   const station = g.stations.find((s) => s.id === sel.stationId)
 
-  const siteMode = SITES.length > 0
+  const siteMode = (k) => SITES.some((s) => (s.kind || 'FW') === k)
   const onSiteClick = (site) => {
-    if (build !== 'FW') { flash('Wähle zuerst „Feuerwache bauen“.'); return }
-    const r = buildStation(g, 'FW', site.pos, site.name, site.id)
+    const k = site.kind || 'FW'
+    if (build !== k) { flash(`Wähle zuerst „${STATION_TYPES[k].name} bauen“.`); return }
+    const r = buildStation(g, k, site.pos, site.name, site.id)
     if (!r.ok) flash(r.msg)
     else { setBuild(null); setSel({ incidentId: null, stationId: r.station.id }); setTab('wachen') }
   }
   const onMapClick = (pos) => {
     if (!build) return
-    if (build === 'FW' && siteMode) { flash('Feuerwachen können nur an Feuerwehr-Standorten gebaut werden.'); return }
+    if (siteMode(build)) { flash(`${STATION_TYPES[build].name}n können nur an den markierten Standorten gebaut werden.`); return }
     const r = buildStation(g, build, pos)
     if (!r.ok) flash(r.msg)
     else { setBuild(null); setSel({ incidentId: null, stationId: r.station.id }); setTab('wachen') }
@@ -78,7 +79,7 @@ export default function App() {
       </header>
       <div className="main">
         <MapView game={g} sites={SITES} selected={sel} buildMode={build} onSiteClick={onSiteClick} onMapClick={onMapClick} onSelectIncident={selectIncident} onSelectStation={selectStation} />
-        {build && <div className="banner">{build === 'FW' && siteMode ? 'Klicke auf einen Feuerwehr-Standort (graue Marker)' : 'Klicke auf die Karte'}, um eine {STATION_TYPES[build].name} zu bauen ({fmtMoney(STATION_TYPES[build].cost)}) <button onClick={() => setBuild(null)}>Abbrechen</button></div>}
+        {build && <div className="banner">{siteMode(build) ? 'Klicke auf einen markierten Standort' : 'Klicke auf die Karte'}, um eine {STATION_TYPES[build].name} zu bauen ({fmtMoney(STATION_TYPES[build].cost)}) <button onClick={() => setBuild(null)}>Abbrechen</button></div>}
         {msg && <div className="toast">{msg}</div>}
         <aside>
           <nav>
