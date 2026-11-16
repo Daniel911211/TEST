@@ -8,11 +8,12 @@ import WachenOverlay from './ui/WachenOverlay.jsx'
 import FahrzeugOverlay from './ui/FahrzeugOverlay.jsx'
 import BauFormular from './ui/BauFormular.jsx'
 import KlinikOverlay from './ui/KlinikOverlay.jsx'
+import SprechwunschOverlay from './ui/SprechwunschOverlay.jsx'
 import OSM_SITES from './data/feuerwehren.json'
 import EXTRA_SITES from './data/zusatz-standorte.json'
 import {
   GAME_SEC_PER_REAL_SEC, STATION_TYPES,
-  newGame, loadGame, saveGame, clearSave, tick, buildStation, toggleSpawn, fmtClock, fmtMoney, rankOf, nextRank,
+  newGame, loadGame, saveGame, clearSave, tick, buildStation, toggleSpawn, sprechwunschList, fmtClock, fmtMoney, rankOf, nextRank,
 } from './game.js'
 
 const SITES = [...OSM_SITES, ...EXTRA_SITES]
@@ -58,6 +59,7 @@ export default function App() {
   const openStation = (id, tab) => { setWsel({ stationId: id, vehicleId: null }); setOverlay((o) => ({ kind: 'station', id, tab: tab || (o?.kind === 'station' ? o.tab : 'fahrzeuge') })) }
   const openVehicle = (id) => { const v = g.vehicles.find((x) => x.id === id); setWsel({ stationId: v?.stationId ?? null, vehicleId: id }); setOverlay({ kind: 'vehicle', id }) }
   const openHospital = (id) => setOverlay({ kind: 'hospital', id })
+  const openSprech = (vehicleId) => setOverlay({ kind: 'sprech', id: vehicleId })
   // 📍 Fahrzeug auf der Karte zeigen: Overlay schließen, Karte zentrieren, Marker einige Sekunden hervorheben
   const locateVehicle = (id) => {
     const v = g.vehicles.find((x) => x.id === id)
@@ -88,7 +90,7 @@ export default function App() {
   const selectStation = (id) => { if (!build) openStation(id) }
   const selectVehicle = (id) => { if (!build) openVehicle(id) }
   const next = nextRank(g.points)
-  const requests = g.vehicles.filter((v) => v.status === 5).length
+  const requests = sprechwunschList(g).length
   const reset = () => {
     if (!confirm('Spielstand wirklich löschen?')) return
     clearSave(); gameRef.current = newGame(); setIncidentId(null); setWsel({ stationId: null, vehicleId: null }); setOverlay(null)
@@ -102,7 +104,7 @@ export default function App() {
         <span>💶 {fmtMoney(g.money)}</span>
         <span>⭐ {g.points} · {rankOf(g.points)}{next ? ` (nächster Rang ab ${next[0]})` : ''}</span>
         <span>✔ {g.done} ✖ {g.failed}</span>
-        {requests > 0 && <span className="alert">📻 {requests} Sprechwunsch{requests > 1 ? 'e' : ''}</span>}
+        {requests > 0 && <span className="alert click" onClick={() => openSprech(sprechwunschList(g)[0].id)}>📻 {requests} Sprechwunsch{requests > 1 ? 'e' : ''}</span>}
         <span className="spacer" />
         {[0, 1, 2, 5, 10].map((s) => (
           <button key={s} className={speed === s ? 'on' : ''} onClick={() => setSpeed(s)}>{s === 0 ? '⏸' : `${s}x`}</button>
@@ -122,6 +124,9 @@ export default function App() {
           {overlay?.kind === 'hospital' && (
             <KlinikOverlay g={g} hospitalId={overlay.id} onClose={closeOverlay} onOpenHospital={openHospital} flash={flash} />
           )}
+          {overlay?.kind === 'sprech' && (
+            <SprechwunschOverlay g={g} vehicleId={overlay.id} onClose={closeOverlay} onOpenSprech={openSprech} onSelectIncident={setIncidentId} flash={flash} />
+          )}
           {overlay?.kind === 'vehicle' && (
             <FahrzeugOverlay g={g} vehicleId={overlay.id} onClose={closeOverlay} onOpenVehicle={openVehicle} onOpenStation={openStation} onLocate={locateVehicle} flash={flash} />
           )}
@@ -131,8 +136,8 @@ export default function App() {
       </div>
       <div className="bottom">
         <WachenPanel g={g} building={!!build} onStartBuild={startBuild} sel={wsel} setSel={setWsel} onOpenStation={openStation} onOpenVehicle={openVehicle} onLocate={locateVehicle} />
-        <SprechwunschPanel g={g} flash={flash} onOpenHospital={openHospital} />
-        <FunkPanel g={g} />
+        <SprechwunschPanel g={g} onOpenHospital={openHospital} />
+        <FunkPanel g={g} onOpenSprech={openSprech} />
       </div>
     </div>
   )

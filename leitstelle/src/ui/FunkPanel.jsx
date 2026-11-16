@@ -1,19 +1,37 @@
-import { fmtClock, LOG_KINDS } from '../game.js'
+import { fmtClock, LOG_KINDS, sprechwunschList, sprechKindName, incidentTitle } from '../game.js'
 
-// Unten rechts: Funkverkehr (neueste Meldung oben). Lagemeldungen, Nachforderungen, neue und erledigte Einsätze sind gekennzeichnet.
-export default function FunkPanel({ g }) {
+// Unten rechts: Funk. Oben angeheftet alle Fahrzeuge mit Sprechwunsch (blinkende 5), darunter der Funkverkehr
+// (neueste Meldung oben, ohne „Neuer Einsatz“). Klick auf einen Sprechwunsch öffnet das Sprechwunsch-Overlay.
+export default function FunkPanel({ g, onOpenSprech }) {
+  const pending = sprechwunschList(g)
   return (
     <section className="panel funk">
-      <div className="panel-head">Funk</div>
+      <div className="panel-head">Funk {pending.length > 0 && <span className="count alert">{pending.length}</span>}</div>
+      {pending.length > 0 && (
+        <div className="sprech-pins">
+          {pending.map((v) => {
+            const kind = v.sprechwunsch?.kind || 'klinik'
+            const inc = v.sprechwunsch ? g.incidents.find((i) => i.id === v.sprechwunsch.incidentId) : null
+            return (
+              <div key={v.id} className="sprech-pin" onClick={() => onOpenSprech(v.id)} title="Sprechwunsch annehmen">
+                <span className="st s5 blink">5</span>
+                <b>{v.callsign}</b>
+                <span className={`tag tag-sprech-${kind}`}>{sprechKindName(kind)}</span>
+                <small className="muted">{inc ? incidentTitle(inc) : kind === 'klinik' ? 'Patient an Bord' : ''}</small>
+              </div>
+            )
+          })}
+        </div>
+      )}
       <div className="scroll">
         <ul className="funk-list">
-          {g.log.map((l, i) => {
+          {g.log.filter((l) => l.kind !== 'neu').map((l, i) => {
             const kind = l.kind || 'info'
             return (
               <li key={i} className={`funk-${kind} ${i === 0 ? 'new' : ''}`}>
                 <small className="muted">{fmtClock(l.t)}</small>
                 {LOG_KINDS[kind] && <span className={`tag tag-${kind}`}>{LOG_KINDS[kind]}</span>}
-                {' '}{kind === 'neu' || kind === 'erledigt' ? l.text.replace(/^(Neuer Einsatz|Einsatz erledigt): /, '') : l.text}
+                {' '}{kind === 'erledigt' ? l.text.replace(/^Einsatz erledigt: /, '') : l.text}
               </li>
             )
           })}

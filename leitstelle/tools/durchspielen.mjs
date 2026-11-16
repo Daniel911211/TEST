@@ -77,6 +77,8 @@ function ki() {
     const r = G.expandHospital(g, h.id)
     if (r.ok) purchases.push(`${G.fmtClock(g.t)} +${G.BED_STEP} Betten ${h.name}`)
   }
+  // Sprechwünsche (Lage/Nachforderung) annehmen und als Vermerk eintragen
+  for (const v of g.vehicles) if (v.sprechwunsch) G.answerSprechwunsch(g, v.id, v.sprechwunsch.text)
   // Lagemeldung anfordern
   for (const inc of g.incidents) if (inc.status === 'working' && !inc.revealed && inc.el) G.requestLagemeldung(g, inc.id)
   // ELW-2-Rückfrage
@@ -118,7 +120,7 @@ function check() {
     if (/fehlgeschlagen|Panne|NaN|undefined|null/.test(l.text)) note('Funk', l.text)
     const m = l.text.match(/^Neuer Einsatz: (.+)$/)
     if (m) typeCount[m[1]] = (typeCount[m[1]] || 0) + 1
-    if (/Nachforderung|erhöht|ELW 2|Erkundung/.test(l.text)) events.push(l.text)
+    if (/Nachforderung|erhöht|ELW 2|Erkundung|Sprechwunsch –/.test(l.text)) events.push(l.text)
   }
 }
 

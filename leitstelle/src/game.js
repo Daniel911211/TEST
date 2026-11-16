@@ -134,7 +134,7 @@ const logKind = (text) => {
   if (/Nachforderung|fordert ELW 2|ELW 2 wird|Erkundung –|Stichwort wird/.test(text)) return 'nachforderung'
   if (/^Neuer Einsatz/.test(text)) return 'neu'
   if (/^Einsatz erledigt/.test(text)) return 'erledigt'
-  if (/Status 5/.test(text)) return 'sprech'
+  if (/Status 5|Sprechwunsch –/.test(text)) return 'sprech'
   if (/^Leitstelle/.test(text)) return 'leitstelle'
   if (/Status [1-8]|Einsatzleitung|rückalarmiert|abgezogen/.test(text)) return 'status'
   return 'info'
@@ -423,7 +423,8 @@ function reportLage(g, inc, el) {
   inc.revealed = true
   const dev = inc.devPlan && Math.random() < 0.5 ? develop(g, inc) : null
   const lage = inc.szenario?.lage || `${inc.type.bild}.`
-  addLog(g, `${el.callsign}: Lagemeldung – ${lage}${dev ? ' Lage ändert sich: ' + dev : ''}`)
+  inc.lage = lage
+  setSprechwunsch(g, el, 'lage', `Lagemeldung – ${lage}${dev ? ' Lage ändert sich: ' + dev : ''}`, inc.id)
 }
 
 // Leitstelle fordert bei der Einsatzleitung eine Lagemeldung an
@@ -434,6 +435,8 @@ export function requestLagemeldung(g, incidentId) {
   if (inc.revealed) return { ok: false, msg: 'Lagemeldung liegt bereits vor.' }
   addLog(g, `Leitstelle an ${el.callsign}: Bitte Lagemeldung.`)
   reportLage(g, inc, el)
+  // Angeforderte Lagemeldung kommt direkt als Vermerk, nicht als Sprechwunsch
+  if (el.sprechwunsch?.kind === 'lage') { addVermerk(g, inc.id, el.sprechwunsch.text, el.callsign); el.sprechwunsch = null; addLog(g, `${el.callsign}: Lagemeldung durchgegeben, im Einsatz vermerkt.`) }
   return { ok: true }
 }
 
@@ -453,7 +456,42 @@ export function recallVehicle(g, vehicleId) {
   return { ok: true }
 }
 
+// Sprechwunsch: Das Fahrzeug meldet sich bei der Leitstelle (blinkende 5). Inhalt (Lagemeldung, Nachforderung) sieht die
+// Leitstelle erst beim Annehmen im Overlay und trägt ihn als Vermerk in den Einsatz ein. Spiellogisch gilt die Änderung sofort.
+const SPRECH_KIND = { lage: 'Lagemeldung', nachforderung: 'Nachforderung', klinik: 'Zielklinik' }
+export const sprechKindName = (k) => SPRECH_KIND[k] || 'Sprechwunsch'
+function setSprechwunsch(g, v, kind, text, incidentId) {
+  if (v.sprechwunsch && v.sprechwunsch.incidentId === incidentId) {
+    v.sprechwunsch.text += ' ' + text
+    if (kind === 'nachforderung') v.sprechwunsch.kind = 'nachforderung'
+  } else v.sprechwunsch = { kind, text, incidentId, since: g.t }
+  addLog(g, `${v.callsign}: Sprechwunsch – ${SPRECH_KIND[kind]}.`)
+}
+export const hasSprechwunsch = (v) => !!v.sprechwunsch || v.status === 5
+export const sprechwunschList = (g) => g.vehicles.filter(hasSprechwunsch).sort((a, b) => (a.sprechwunsch?.since ?? a.request?.since ?? 0) - (b.sprechwunsch?.since ?? b.request?.since ?? 0))
+
+// Vermerk ins Einsatztagebuch
+export function addVermerk(g, incidentId, text, by = 'Leitstelle') {
+  const inc = g.incidents.find((i) => i.id === incidentId)
+  if (!inc || !text?.trim()) return { ok: false, msg: 'Kein Text.' }
+  inc.vermerke = inc.vermerke || []
+  inc.vermerke.push({ t: g.t, text: text.trim(), by })
+  return { ok: true }
+}
+
+// Sprechwunsch (Lage/Nachforderung) beantworten, optional mit Vermerk
+export function answerSprechwunsch(g, vehicleId, note) {
+  const v = g.vehicles.find((x) => x.id === vehicleId)
+  if (!v?.sprechwunsch) return { ok: false, msg: 'Kein offener Sprechwunsch.' }
+  const sw = v.sprechwunsch
+  if (note?.trim()) addVermerk(g, sw.incidentId, note, `Leitstelle (${v.callsign})`)
+  v.sprechwunsch = null
+  addLog(g, `Leitstelle an ${v.callsign}: ${SPRECH_KIND[sw.kind]} aufgenommen.`)
+  return { ok: true }
+}
+
 function releaseVehicle(v) {
+  v.sprechwunsch = null
   v.route = null
   v.incidentId = null
   v.status = 1
@@ -624,7 +662,7 @@ export function tick(g, dt) {
         inc.erkundet = true
         if (inc.devPlan === 'eskaliert') {
           const t = develop(g, inc)
-          if (t) addLog(g, `${el.callsign}: Erkundung – ${t}`)
+          if (t) setSprechwunsch(g, el, 'nachforderung', `Erkundung – ${t}`, inc.id)
         }
       }
       // Wechselt die Einsatzleitung, meldet der neue Leiter ggf. von selbst die Lage (nur solange noch keine Lagemeldung vorliegt)
@@ -635,7 +673,9 @@ export function tick(g, dt) {
     if (inc.elw2 === 'needed' && !inc.elw2Asked && inc.startedAt != null && g.t - inc.startedAt > 600) {
       inc.elw2Asked = true
       inc.need = addNeeds(inc.need, { ELW2: 1 })
-      addLog(g, `ELW 1 (${incidentTitle(inc)}): fordert ELW 2 nach.`)
+      const elw = g.vehicles.find((v) => v.incidentId === inc.id && v.type === 'ELW1' && v.status === 4)
+      if (elw) setSprechwunsch(g, elw, 'nachforderung', 'Nachforderung: ELW 2 wird benötigt.', inc.id)
+      else addLog(g, `ELW 1 (${incidentTitle(inc)}): fordert ELW 2 nach.`)
     }
     const satisfied = Object.keys(matchSlots(inc.need, atScene)).length === 0
 
@@ -656,7 +696,7 @@ export function tick(g, dt) {
       if (inc.devPlan && inc.devAtT != null && g.t >= inc.devAtT) {
         const elv = g.vehicles.find((v) => v.id === inc.el) || atScene[0]
         const text = develop(g, inc)
-        if (text) addLog(g, `${elv.callsign}: ${text}`)
+        if (text) setSprechwunsch(g, elv, 'nachforderung', text, inc.id)
       }
       const stillOk = Object.keys(matchSlots(inc.need, atScene)).length === 0
       if (!stillOk) inc.status = 'open' // nachgeforderte Mittel fehlen: Arbeit ruht
