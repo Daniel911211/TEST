@@ -273,10 +273,22 @@ function pickEL(atScene) {
   return [...atScene].sort((a, b) => (ELRANK[b.type] || 1) - (ELRANK[a.type] || 1) || (a.arrivedAt ?? 0) - (b.arrivedAt ?? 0))[0]
 }
 
-// Lagemeldung der Einsatzleitung: beschreibt nur die Lage (Nachforderungen laufen unabhängig davon)
+const extraText = (inc) => Object.entries(inc.extra).map(([k, n]) => `${n}× ${ROLES[k].short}`).join(', ')
+
+// Nachforderung der Einsatzleitung (zusätzliche Einsatzmittel nach Lage)
+function nachfordern(inc) {
+  inc.nachDone = true
+  inc.need = addNeeds(inc.need, inc.extra)
+}
+
+// Lagemeldung der Einsatzleitung: beschreibt die Lage; nach dem Zufallsprinzip enthält sie auch eine Nachforderung.
+// Nachforderungen kommen außerdem unabhängig davon als eigener Funkspruch mitten im Einsatz.
 function reportLage(g, inc, el) {
   inc.revealed = true
-  addLog(g, `${el.callsign}: Lagemeldung – ${inc.type.bild}. Einsatz läuft.`)
+  if (Object.keys(inc.extra).length && !inc.nachDone && Math.random() < 0.5) {
+    nachfordern(inc)
+    addLog(g, `${el.callsign}: Lagemeldung – ${inc.type.bild}. Nachforderung: ${extraText(inc)}.`)
+  } else addLog(g, `${el.callsign}: Lagemeldung – ${inc.type.bild}. Einsatz läuft.`)
 }
 
 // Leitstelle fordert bei der Einsatzleitung eine Lagemeldung an
@@ -481,10 +493,9 @@ export function tick(g, dt) {
     } else if (inc.status === 'working') {
       inc.workLeft -= dt
       if (inc.nachAt != null && !inc.nachDone && inc.type.work - inc.workLeft >= inc.nachAt) {
-        inc.nachDone = true
-        inc.need = addNeeds(inc.need, inc.extra)
+        nachfordern(inc)
         const elv = g.vehicles.find((v) => v.id === inc.el) || atScene[0]
-        addLog(g, `${elv.callsign}: Nachforderung ${inc.type.name}: ${Object.entries(inc.extra).map(([k, n]) => `${n}× ${ROLES[k].short}`).join(', ')}.`)
+        addLog(g, `${elv.callsign}: Nachforderung ${inc.type.name}: ${extraText(inc)}.`)
       }
       const stillOk = Object.keys(matchSlots(inc.need, atScene)).length === 0
       if (!stillOk) inc.status = 'open' // nachgeforderte Mittel fehlen: Arbeit ruht
