@@ -3,7 +3,6 @@
 //   erste Lagemeldung nach dem Eintreffen, Folgemeldung bei Änderung der Lage, Abschlussmeldung am Ende.
 // Texte kommen aus den Szenario-Bausteinen (szenarien.js); fremde Kräfte werden nur genannt, wenn sie am Einsatz sind.
 import { ROLES } from './stichworte.js'
-import { VEHICLE_TYPES } from './game.js'
 
 const rnd = (a, b) => a + Math.random() * (b - a)
 export const needText = (n) => Object.entries(n).map(([k, c]) => `${c}× ${ROLES[k].short}`).join(', ')
@@ -51,11 +50,8 @@ function brauche(inc, assigned, missing, added) {
   const rest = Object.fromEntries(Object.entries(missing).filter(([r]) => !added?.[r]))
   // Fahrzeuge, die laut AAO zum Stichwort gehören, aber noch nicht alarmiert sind → Nachforderung des Einsatzleiters
   if (Object.keys(rest).length) parts.push(`Nachforderung: ${needText(rest)} zur Einsatzstelle!`)
-  // Noch auf Anfahrt: Einsatzleiter fragt nach, ob die Fahrzeuge alarmiert sind (er sieht sie noch nicht)
-  const unterwegs = {}
-  for (const v of assigned) if (v.status === 3) { const n = VEHICLE_TYPES[v.type]?.name || v.type; unterwegs[n] = (unterwegs[n] || 0) + 1 }
-  const enRoute = Object.values(unterwegs).reduce((a, c) => a + c, 0)
-  const frage = enRoute ? `Frage: ${Object.entries(unterwegs).map(([n, c]) => `${c}× ${n}`).join(', ')} ${enRoute > 1 ? 'sind' : 'ist'} alarmiert?` : ''
+  // Noch Fahrzeuge auf Anfahrt: Einsatzleiter fragt allgemein nach (er sieht sie noch nicht)
+  const frage = assigned.some((v) => v.status === 3) ? 'Frage: Weitere Kräfte auf Anfahrt?' : ''
   // Solange Fahrzeuge noch anfahren, reichen die Kräfte vor Ort nicht – dann keine „Kräfte ausreichend“-Meldung
   if (!parts.length) parts.push(frage ? frage : inc.szenario?.stabil ? 'Meldebild bestätigt, Kräfte ausreichend.' : 'Kräfte ausreichend, keine Nachforderung.')
   else if (frage) parts.push(frage)
