@@ -47,7 +47,7 @@ function mk(id, name, bild, o) {
     id, name, bild, need, extra: o.extra || {}, rd: o.rd || null, weight: o.weight,
     work: o.work, elw2Ask: !!o.elw2Ask, water: o.water || 0, as: o.as || 0,
     deadline: cat === 'R' ? 600 : cat === 'H' ? 1200 : 900,
-    reward, penalty: 0, // vorerst keine Strafe bei gescheiterten Einsätzen points: 3 + 2 * size,
+    reward, penalty: 0, points: 3 + 2 * size, // vorerst keine Strafe, Einsätze scheitern nicht
     patient: !!o.rd && o.rd !== 'R3', severity,
   }
 }

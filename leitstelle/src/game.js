@@ -546,12 +546,8 @@ export function tick(g, dt) {
           // Lange Wartezeit bis zum Arbeitsbeginn: Lage kann sich zusätzlich verschlimmern (ca. ×1,5)
           if (!inc.devPlan && g.t - inc.created > 600) inc.devPlan = rollPlan(inc, 0.5)
         }
-      } else if (inc.startedAt == null && g.t - inc.created > inc.type.deadline) {
-        g.failed++
-        addLog(g, `Einsatz gescheitert: ${inc.type.name}`)
-        for (const v of g.vehicles) if (v.incidentId === inc.id) releaseVehicle(v)
-        g.incidents = g.incidents.filter((i) => i !== inc)
       }
+      // Einsätze scheitern vorerst nicht: sie warten, bis genug Kräfte da sind (schnelle Hilfe gibt Bonus)
     } else if (inc.status === 'working') {
       inc.workLeft -= dt
       if (inc.devPlan && inc.devAtT != null && g.t >= inc.devAtT) {

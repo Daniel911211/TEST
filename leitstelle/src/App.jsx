@@ -104,7 +104,7 @@ export default function App() {
                 {g.incidents.map((i) => (
                   <li key={i.id} className={sel.incidentId === i.id ? 'sel' : ''} onClick={() => selectIncident(i.id)}>
                     <b>{i.type.name}</b>
-                    <small>{i.status === 'working' ? `in Bearbeitung – ${fmtMin(i.workLeft)}` : `wartet seit ${fmtMin(g.t - i.created)} (Limit ${fmtMin(i.type.deadline)})`}</small>
+                    <small>{i.status === 'working' ? `in Bearbeitung – ${fmtMin(i.workLeft)}` : `wartet seit ${fmtMin(g.t - i.created)} (Bonus bis ${fmtMin(i.type.deadline * 0.5)})`}</small>
                   </li>
                 ))}
               </ul>
