@@ -165,7 +165,7 @@ textarea.vermerk { width:100%; background:#0f1319; color:var(--text); border:1px
 /* Funk */
 .funk-list { list-style:none; margin:0; padding:4px 10px; }
 .funk-list li { padding:3px 6px; border-bottom:1px solid var(--line); border-left:3px solid transparent; display:flex; flex-wrap:wrap; align-items:center; gap:4px; }
-.funk-list li .funk-text { flex:1 1 220px; white-space:pre-line; }
+.funk-list li .funk-text { flex:1 0 100%; white-space:pre-line; padding:1px 0 2px 2px; } /* Meldung immer unter der Kopfzeile (Zeit · Status · Fahrzeug · Art) */
 .funk-list li button.small { padding:0 6px; line-height:18px; font-size:11px; }
 .funk-list li .funk-fz { font-weight:700; }
 .funk-list li.new { color:#fff; }
