@@ -7,7 +7,7 @@ const SITES = [...OSM_SITES, ...EXTRA_SITES]
 import {
   GAME_SEC_PER_REAL_SEC, STATION_TYPES, VEHICLE_TYPES, STATUS_TEXT, MAX_VEHICLES_PER_STATION,
   newGame, loadGame, saveGame, clearSave, tick, buildStation, buyVehicle, dispatch, recommend,
-  isAvailable, etaSec, HOSPITALS, hospitalFree, transportOptions, confirmTransport, repairQuote, sendToWorkshop, buildWorkshop, WORKSHOP_COST, fmtClock, fmtMin, fmtMoney, rankOf, nextRank,
+  isAvailable, etaSec, SEVERITY_TEXT, HOSPITALS, hospitalFree, transportOptions, confirmTransport, repairQuote, sendToWorkshop, buildWorkshop, WORKSHOP_COST, fmtClock, fmtMin, fmtMoney, rankOf, nextRank,
 } from './game.js'
 
 export default function App() {
@@ -198,7 +198,7 @@ export default function App() {
                     <h3>📻 {v.callsign} – Status 5</h3>
                     {wish ? (
                       <p>„Patient möchte nach <b>{wish.name}</b>.“<br />Kapazität: {wish.free > 0 ? <b style={{ color: '#4caf50' }}>{wish.free} Betten frei</b> : <b style={{ color: '#d62828' }}>keine Kapazität</b>}</p>
-                    ) : <p>„Erbitte Zielklinik für den Patienten.“</p>}
+                    ) : <p>„Erbitte Zielklinik für den Patienten.“<br /><small className="muted">Patient {SEVERITY_TEXT[v.request.severity || 1]} – die Leitstelle entscheidet.</small></p>}
                     {wish && wish.free > 0 && <button className="primary" onClick={() => doConfirm(v.id, wish.id)}>Wunschklinik bestätigen</button>}
                     <h4>{wish && wish.free <= 0 ? 'Gegenvorschlag der Leitstelle' : 'Andere Klinik'}</h4>
                     {opts.filter((h) => h.id !== wish?.id || wish.free <= 0).map((h) => (

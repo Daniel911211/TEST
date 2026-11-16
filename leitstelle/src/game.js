@@ -22,10 +22,10 @@ export const VEHICLE_TYPES = {
 export const INCIDENT_TYPES = [
   { id: 'muell', name: 'Containerbrand', need: { HLF: 1 }, work: 300, reward: 350, penalty: 150, deadline: 900, weight: 3, points: 5 },
   { id: 'tuer', name: 'Türöffnung', need: { HLF: 1 }, work: 240, reward: 300, penalty: 100, deadline: 1200, weight: 2, points: 4 },
-  { id: 'zimmer', name: 'Zimmerbrand', need: { HLF: 2, DLK: 1, RTW: 1 }, work: 700, reward: 1400, penalty: 600, deadline: 900, weight: 2, points: 15, patient: true },
-  { id: 'internist', name: 'Internistischer Notfall', need: { RTW: 1 }, work: 240, reward: 450, penalty: 200, deadline: 720, weight: 5, points: 6, patient: true },
-  { id: 'notarzt', name: 'Reanimation', need: { RTW: 1, NEF: 1 }, work: 420, reward: 900, penalty: 500, deadline: 600, weight: 2, points: 12, patient: true },
-  { id: 'vu', name: 'Verkehrsunfall', need: { HLF: 1, RTW: 1, NEF: 1 }, work: 600, reward: 1200, penalty: 500, deadline: 900, weight: 2, points: 14, patient: true },
+  { id: 'zimmer', severity: 2, name: 'Zimmerbrand', need: { HLF: 2, DLK: 1, RTW: 1 }, work: 700, reward: 1400, penalty: 600, deadline: 900, weight: 2, points: 15, patient: true },
+  { id: 'internist', severity: 1, name: 'Internistischer Notfall', need: { RTW: 1 }, work: 240, reward: 450, penalty: 200, deadline: 720, weight: 5, points: 6, patient: true },
+  { id: 'notarzt', severity: 3, name: 'Reanimation', need: { RTW: 1, NEF: 1 }, work: 420, reward: 900, penalty: 500, deadline: 600, weight: 2, points: 12, patient: true },
+  { id: 'vu', severity: 3, name: 'Verkehrsunfall', need: { HLF: 1, RTW: 1, NEF: 1 }, work: 600, reward: 1200, penalty: 500, deadline: 900, weight: 2, points: 14, patient: true },
 ]
 
 export const HOSPITALS = KLINIKEN
@@ -234,12 +234,16 @@ export function confirmTransport(g, vehicleId, hospitalId) {
   return { ok: true }
 }
 
-function requestHospital(g, v) {
+export const SEVERITY_TEXT = { 1: 'leicht', 2: 'mittel', 3: 'schwer' }
+
+// Nur bei leichten Fällen darf der Patient eine Klinik wünschen; sonst entscheidet die Leitstelle.
+function requestHospital(g, v, severity = 1) {
   const near = transportOptions(g, v).slice(0, 3)
-  const wish = Math.random() < 0.55 ? near[Math.floor(Math.random() * near.length)] : null
+  const wish = severity === 1 && Math.random() < 0.55 ? near[Math.floor(Math.random() * near.length)] : null
   v.status = 5
   v.request = { wishId: wish ? wish.id : null, since: g.t }
-  addLog(g, wish ? `${v.callsign}: Status 5 – Patient möchte nach ${wish.name}. Kapazität prüfen!` : `${v.callsign}: Status 5 – erbittet Zielklinik.`)
+  v.request.severity = severity
+  addLog(g, wish ? `${v.callsign}: Status 5 – Patient möchte nach ${wish.name}. Kapazität prüfen!` : `${v.callsign}: Status 5 – erbittet Zielklinik (${SEVERITY_TEXT[severity]} verletzt/erkrankt).`)
 }
 
 function releaseVehicle(v) {
@@ -424,7 +428,7 @@ export function tick(g, dt) {
             patientTaken = true
             v.incidentId = null
             v.route = null
-            requestHospital(g, v)
+            requestHospital(g, v, inc.type.severity || 1)
           } else releaseVehicle(v)
         }
         g.incidents = g.incidents.filter((i) => i !== inc)
