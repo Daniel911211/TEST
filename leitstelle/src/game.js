@@ -301,8 +301,11 @@ function develop(g, inc) {
   inc.devPlan = null
   let text = null
   if (plan === 'eskaliert') {
-    const next = INCIDENT_TYPES.find((t) => t.id === ESCALATE[inc.type.id])
-    if (next && Object.keys(matchSlots(next.need, g.vehicles)).length === 0) {
+    // Einsatzleiter erkundet und erhöht das Stichwort; Ziel hängt vom Erkundungsergebnis ab
+    const options = [...(ESCALATE[inc.type.id] || [])].sort(() => Math.random() - 0.5)
+    const opt = options.find((o) => { const t = INCIDENT_TYPES.find((x) => x.id === o.to); return t && Object.keys(matchSlots(t.need, g.vehicles)).length === 0 })
+    const next = opt && INCIDENT_TYPES.find((t) => t.id === opt.to)
+    if (next) {
       const oldName = inc.type.name
       const newNeed = maxNeeds(inc.need, next.need)
       const added = diffNeeds(newNeed, inc.need)
@@ -312,7 +315,7 @@ function develop(g, inc) {
       inc.workLeft = Math.max(inc.workLeft, next.work * 0.7)
       inc.escalated = true
       if (next.elw2Ask && inc.elw2 == null) inc.elw2 = Math.random() < 0.6 ? 'needed' : 'notneeded'
-      text = `Lage verschärft: ${oldName} wird zu ${next.name}.${Object.keys(added).length ? ` Nachforderung: ${needText(added)}.` : ''}`
+      text = `${opt.why}. Stichwort wird von ${oldName} auf ${next.name} erhöht.${Object.keys(added).length ? ` Nachforderung: ${needText(added)}.` : ''}`
     } else plan = 'waechst'
   }
   if (plan === 'waechst') {
@@ -513,6 +516,14 @@ export function tick(g, dt) {
     if (el && el.id !== inc.el) {
       inc.el = el.id
       addLog(g, `${el.callsign} übernimmt die Einsatzleitung (${inc.type.name}).`)
+      // Erkundung beim Eintreffen: Der Einsatzleiter stellt fest, dass die Lage größer ist, und erhöht das Stichwort
+      if (!inc.erkundet) {
+        inc.erkundet = true
+        if (inc.devPlan === 'eskaliert') {
+          const t = develop(g, inc)
+          if (t) addLog(g, `${el.callsign}: Erkundung – ${t}`)
+        }
+      }
       // Wechselt die Einsatzleitung, meldet der neue Leiter ggf. von selbst die Lage (nur solange noch keine Lagemeldung vorliegt)
       if (!inc.revealed && Math.random() < 0.7) reportLage(g, inc, el)
     }

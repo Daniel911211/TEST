@@ -149,11 +149,26 @@ const TIERS = {
 const TIER_P = { 1: 0.03, 2: 0.1, 3: 0.2, 4: 0.35 }
 export const growProb = (id) => TIER_P[Object.entries(TIERS).find(([, l]) => l.includes(id))?.[0] ?? 2]
 
-// Wenn ein Einsatz "eskaliert", steigt das Stichwort in die nächste Stufe.
+// Wenn ein Einsatz "eskaliert", erhöht der Einsatzleiter vor Ort das Stichwort. Je nach Erkundungsergebnis (why) gibt es mehrere Ziele.
 export const ESCALATE = {
-  F1: 'F2', FBMA: 'F2', FRWM: 'F2', F2: 'F3', F2Y: 'F3Y', F3: 'F4', F3Y: 'F4',
-  FWALD1: 'FWALD2', FGAS1: 'FGAS2', H1: 'H2', HGAS1: 'HGAS2', HGEFAHR1: 'HGEFAHR2', HKLEMM1Y: 'HKLEMM2Y',
-  FSCHIFF1: 'FSCHIFF2', HFLUSS: 'HFLUSSY', R0K: 'R0', R0: 'R1', R1: 'R2',
+  F1: [{ to: 'F2', why: 'Das Feuer hat bereits auf ein Gebäude übergegriffen' }, { to: 'FWALD1', why: 'Der Brand hat sich auf eine größere Fläche ausgebreitet' }],
+  FBMA: [{ to: 'F2', why: 'Echtbrand im Gebäude festgestellt' }],
+  FRWM: [{ to: 'F2', why: 'Wohnungsbrand festgestellt' }],
+  F2: [{ to: 'F3', why: 'Brand hat auf Nachbargebäude / ausgedehntes Objekt übergegriffen' }],
+  F2Y: [{ to: 'F3Y', why: 'Weitere Personen vermisst, Brand breitet sich aus' }],
+  F3: [{ to: 'F4', why: 'Großschadenslage, Brand nicht unter Kontrolle' }],
+  F3Y: [{ to: 'F4', why: 'Großschadenslage mit vielen Betroffenen' }],
+  FWALD1: [{ to: 'FWALD2', why: 'Flächenbrand breitet sich aus' }],
+  FGAS1: [{ to: 'FGAS2', why: 'Gastank beteiligt' }],
+  H1: [{ to: 'H2', why: 'Lage komplexer als gemeldet' }],
+  HGAS1: [{ to: 'HGAS2', why: 'Gasaustritt größer als gemeldet' }],
+  HGEFAHR1: [{ to: 'HGEFAHR2', why: 'Gefahrstoffaustritt größer als gemeldet' }],
+  HKLEMM1Y: [{ to: 'HKLEMM2Y', why: 'Weitere Personen eingeklemmt' }],
+  FSCHIFF1: [{ to: 'FSCHIFF2', why: 'Brand breitet sich auf das Schiff aus' }],
+  HFLUSS: [{ to: 'HFLUSSY', why: 'Person im Wasser gesichtet' }],
+  R0K: [{ to: 'R0', why: 'Zustand des Patienten hat sich verschlechtert' }],
+  R0: [{ to: 'R1', why: 'Zustand des Patienten hat sich verschlechtert' }],
+  R1: [{ to: 'R2', why: 'Patient akut lebensbedrohlich' }],
 }
 
 export const maxNeeds = (a, b) => {
