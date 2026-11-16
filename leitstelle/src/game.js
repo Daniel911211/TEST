@@ -268,6 +268,32 @@ function requestHospital(g, v, severity = 1) {
   addLog(g, wish ? `${v.callsign}: Status 5 – Patient möchte nach ${wish.name}. Kapazität prüfen!` : `${v.callsign}: Status 5 – erbittet Zielklinik (${SEVERITY_TEXT[severity]} verletzt/erkrankt).`)
 }
 
+const ELRANK = { ELW2: 3, ELW1: 2 }
+function pickEL(atScene) {
+  return [...atScene].sort((a, b) => (ELRANK[b.type] || 1) - (ELRANK[a.type] || 1) || (a.arrivedAt ?? 0) - (b.arrivedAt ?? 0))[0]
+}
+
+// Lagemeldung der Einsatzleitung; Nachforderungen werden damit bekannt
+function reportLage(g, inc, el) {
+  inc.revealed = true
+  const ex = Object.entries(inc.extra)
+  if (ex.length) {
+    inc.need = addNeeds(inc.need, inc.extra)
+    addLog(g, `${el.callsign}: Lagemeldung ${inc.type.name} – ${inc.type.bild}. Nachforderung: ${ex.map(([k, n]) => `${n}× ${ROLES[k].short}`).join(', ')}.`)
+  } else addLog(g, `${el.callsign}: Lagemeldung ${inc.type.name} – ${inc.type.bild}. Keine weiteren Kräfte erforderlich.`)
+}
+
+// Leitstelle fordert bei der Einsatzleitung eine Lagemeldung an
+export function requestLagemeldung(g, incidentId) {
+  const inc = g.incidents.find((i) => i.id === incidentId)
+  const el = inc && g.vehicles.find((v) => v.id === inc.el && v.incidentId === inc.id && v.status === 4)
+  if (!el) return { ok: false, msg: 'Noch kein Fahrzeug vor Ort.' }
+  if (inc.revealed) return { ok: false, msg: 'Lagemeldung liegt bereits vor.' }
+  addLog(g, `Leitstelle an ${el.callsign}: Bitte Lagemeldung.`)
+  reportLage(g, inc, el)
+  return { ok: true }
+}
+
 function releaseVehicle(v) {
   v.route = null
   v.incidentId = null
@@ -381,6 +407,7 @@ export function tick(g, dt) {
           releaseVehicle(v)
         })) {
           v.status = 4
+          v.arrivedAt = g.t
           addLog(g, `${v.callsign}: Status 4 – am Einsatzort (${inc.type.name})`)
         }
         break
@@ -424,13 +451,13 @@ export function tick(g, dt) {
   for (const inc of [...g.incidents]) {
     const atScene = g.vehicles.filter((v) => v.incidentId === inc.id && v.status === 4)
 
-    // Erkundung: erstes Fahrzeug vor Ort meldet ggf. Nachforderungen
-    if (!inc.revealed && atScene.length) {
-      inc.revealed = true
-      if (Object.keys(inc.extra).length) {
-        inc.need = addNeeds(inc.need, inc.extra)
-        addLog(g, `Lagemeldung ${inc.type.name}: Nachforderung ${Object.entries(inc.extra).map(([k, n]) => `${n}× ${ROLES[k].short}`).join(', ')}`)
-      }
+    // Einsatzleitung: erstes Fahrzeug, dann ELW 1, dann ELW 2 (ELW 2 hat Vorrang vor ELW 1)
+    const el = pickEL(atScene)
+    if (el && el.id !== inc.el) {
+      inc.el = el.id
+      addLog(g, `${el.callsign} übernimmt die Einsatzleitung (${inc.type.name}).`)
+      // Wechselt die Einsatzleitung, meldet der neue Leiter ggf. von selbst die Lage (nur solange noch keine Lagemeldung vorliegt)
+      if (!inc.revealed && Math.random() < 0.7) reportLage(g, inc, el)
     }
     // Fordert niemand nach, meldet der ELW 1 den ELW-2-Bedarf nach 10 Minuten selbst
     if (inc.elw2 === 'needed' && !inc.elw2Asked && inc.startedAt != null && g.t - inc.startedAt > 600) {
