@@ -1,6 +1,9 @@
 import { useEffect, useRef, useState } from 'react'
 import MapView from './MapView.jsx'
-import SITES from './data/feuerwehren.json'
+import OSM_SITES from './data/feuerwehren.json'
+import EXTRA_SITES from './data/zusatz-standorte.json'
+
+const SITES = [...OSM_SITES, ...EXTRA_SITES]
 import {
   GAME_SEC_PER_REAL_SEC, STATION_TYPES, VEHICLE_TYPES, STATUS_TEXT, MAX_VEHICLES_PER_STATION,
   newGame, loadGame, saveGame, clearSave, tick, buildStation, buyVehicle, dispatch, recommend,
