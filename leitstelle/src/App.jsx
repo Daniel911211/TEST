@@ -1,0 +1,172 @@
+import { useEffect, useRef, useState } from 'react'
+import MapView from './MapView.jsx'
+import {
+  GAME_SEC_PER_REAL_SEC, STATION_TYPES, VEHICLE_TYPES, STATUS_TEXT, MAX_VEHICLES_PER_STATION,
+  newGame, loadGame, saveGame, clearSave, tick, buildStation, buyVehicle, dispatch, recommend,
+  isAvailable, etaSec, fmtClock, fmtMin, fmtMoney, rankOf, nextRank,
+} from './game.js'
+
+export default function App() {
+  const gameRef = useRef(null)
+  if (!gameRef.current) gameRef.current = loadGame() || newGame()
+  const g = gameRef.current
+  const [, force] = useState(0)
+  const [speed, setSpeed] = useState(1)
+  const [tab, setTab] = useState('einsaetze')
+  const [build, setBuild] = useState(null) // 'FW' | 'RW' | null
+  const [sel, setSel] = useState({ incidentId: null, stationId: null })
+  const [picked, setPicked] = useState([])
+  const [msg, setMsg] = useState('')
+  const speedRef = useRef(1)
+  speedRef.current = speed
+
+  useEffect(() => {
+    let last = performance.now()
+    let saveAt = 0
+    const id = setInterval(() => {
+      const now = performance.now()
+      const dt = Math.min((now - last) / 1000, 0.5)
+      last = now
+      if (speedRef.current > 0) tick(gameRef.current, dt * speedRef.current * GAME_SEC_PER_REAL_SEC)
+      if (now - saveAt > 3000) { saveGame(gameRef.current); saveAt = now }
+      force((n) => n + 1)
+    }, 200)
+    return () => clearInterval(id)
+  }, [])
+
+  const flash = (t) => { setMsg(t); setTimeout(() => setMsg(''), 2500) }
+  const inc = g.incidents.find((i) => i.id === sel.incidentId)
+  const station = g.stations.find((s) => s.id === sel.stationId)
+
+  const onMapClick = (pos) => {
+    if (!build) return
+    const r = buildStation(g, build, pos)
+    if (!r.ok) flash(r.msg)
+    else { setBuild(null); setSel({ incidentId: null, stationId: r.station.id }); setTab('wachen') }
+  }
+  const selectIncident = (id) => { setSel({ incidentId: id, stationId: null }); setPicked([]); setTab('einsaetze') }
+  const selectStation = (id) => { if (!build) { setSel({ incidentId: null, stationId: id }); setTab('wachen') } }
+
+  const need = inc ? Object.entries(inc.type.need) : []
+  const assigned = inc ? g.vehicles.filter((v) => v.incidentId === inc.id) : []
+  const free = inc ? g.vehicles.filter(isAvailable).sort((a, b) => etaSec(a, inc.pos) - etaSec(b, inc.pos)) : []
+  const send = () => { dispatch(g, inc.id, picked); setPicked([]) }
+  const next = nextRank(g.points)
+
+  return (
+    <div className="app">
+      <header>
+        <b className="logo">Leitstelle</b>
+        <span>🕒 {fmtClock(g.t)}</span>
+        <span>💶 {fmtMoney(g.money)}</span>
+        <span>⭐ {g.points} · {rankOf(g.points)}{next ? ` (nächster Rang ab ${next[0]})` : ''}</span>
+        <span>✔ {g.done} ✖ {g.failed}</span>
+        <span className="spacer" />
+        {[0, 1, 2, 5].map((s) => (
+          <button key={s} className={speed === s ? 'on' : ''} onClick={() => setSpeed(s)}>{s === 0 ? '⏸' : `${s}x`}</button>
+        ))}
+        <button onClick={() => { if (confirm('Spielstand wirklich löschen?')) { clearSave(); gameRef.current = newGame(); setSel({}); } }}>Neu</button>
+      </header>
+      <div className="main">
+        <MapView game={g} selected={sel} buildMode={!!build} onMapClick={onMapClick} onSelectIncident={selectIncident} onSelectStation={selectStation} />
+        {build && <div className="banner">Klicke auf die Karte, um eine {STATION_TYPES[build].name} zu bauen ({fmtMoney(STATION_TYPES[build].cost)}) <button onClick={() => setBuild(null)}>Abbrechen</button></div>}
+        {msg && <div className="toast">{msg}</div>}
+        <aside>
+          <nav>
+            {[['einsaetze', `Einsätze (${g.incidents.length})`], ['wachen', 'Wachen'], ['fahrzeuge', 'Fahrzeuge'], ['log', 'Funk']].map(([k, l]) => (
+              <button key={k} className={tab === k ? 'on' : ''} onClick={() => setTab(k)}>{l}</button>
+            ))}
+          </nav>
+
+          {tab === 'einsaetze' && (
+            <div className="pane">
+              {!g.incidents.length && <p className="muted">{g.stations.length ? 'Keine offenen Einsätze. Warte auf den nächsten Alarm …' : 'Baue zuerst Wachen (Tab „Wachen“).'}</p>}
+              <ul className="list">
+                {g.incidents.map((i) => (
+                  <li key={i.id} className={sel.incidentId === i.id ? 'sel' : ''} onClick={() => selectIncident(i.id)}>
+                    <b>{i.type.name}</b>
+                    <small>{i.status === 'working' ? `in Bearbeitung – ${fmtMin(i.workLeft)}` : `wartet seit ${fmtMin(g.t - i.created)} (Limit ${fmtMin(i.type.deadline)})`}</small>
+                  </li>
+                ))}
+              </ul>
+              {inc && (
+                <div className="card">
+                  <h3>{inc.type.name}</h3>
+                  <p>Benötigt: {need.map(([k, n]) => `${n}× ${VEHICLE_TYPES[k].name}`).join(', ')}<br />Belohnung: {fmtMoney(inc.type.reward)}</p>
+                  {assigned.length > 0 && (
+                    <><h4>Alarmiert</h4><ul className="mini">{assigned.map((v) => <li key={v.id}>{v.callsign} – S{v.status}</li>)}</ul></>
+                  )}
+                  {inc.status === 'open' && (
+                    <>
+                      <h4>Freie Fahrzeuge</h4>
+                      <button onClick={() => setPicked(recommend(g, inc))}>Empfehlung wählen</button>
+                      <ul className="mini">
+                        {free.map((v) => (
+                          <li key={v.id}>
+                            <label>
+                              <input type="checkbox" checked={picked.includes(v.id)} onChange={(e) => setPicked(e.target.checked ? [...picked, v.id] : picked.filter((x) => x !== v.id))} />
+                              {v.callsign} · S{v.status} · {fmtMin(etaSec(v, inc.pos))}
+                            </label>
+                          </li>
+                        ))}
+                        {!free.length && <li className="muted">Keine freien Fahrzeuge.</li>}
+                      </ul>
+                      <button className="primary" disabled={!picked.length} onClick={send}>Alarmieren ({picked.length})</button>
+                    </>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+
+          {tab === 'wachen' && (
+            <div className="pane">
+              <div className="row">
+                {Object.entries(STATION_TYPES).map(([k, d]) => (
+                  <button key={k} disabled={g.money < d.cost} className={build === k ? 'on' : ''} onClick={() => setBuild(build === k ? null : k)}>
+                    {d.name} bauen<br /><small>{fmtMoney(d.cost)}</small>
+                  </button>
+                ))}
+              </div>
+              <ul className="list">
+                {g.stations.map((s) => (
+                  <li key={s.id} className={sel.stationId === s.id ? 'sel' : ''} onClick={() => setSel({ incidentId: null, stationId: s.id })}>
+                    <b>{s.name}</b> <small>{STATION_TYPES[s.kind].name} · {g.vehicles.filter((v) => v.stationId === s.id).length}/{MAX_VEHICLES_PER_STATION} Fahrzeuge</small>
+                  </li>
+                ))}
+              </ul>
+              {station && (
+                <div className="card">
+                  <h3>{station.name}</h3>
+                  <h4>Fahrzeug kaufen</h4>
+                  {Object.entries(VEHICLE_TYPES).filter(([, d]) => d.kind === station.kind).map(([k, d]) => (
+                    <button key={k} disabled={g.money < d.cost} onClick={() => { const r = buyVehicle(g, station.id, k); if (!r.ok) flash(r.msg) }}>
+                      {d.name} – {fmtMoney(d.cost)}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {tab === 'fahrzeuge' && (
+            <div className="pane">
+              <ul className="list">
+                {g.vehicles.map((v) => (
+                  <li key={v.id}><span className={`st s${v.status}`}>{v.status}</span> <b>{v.callsign}</b><small>{STATUS_TEXT[v.status]}</small></li>
+                ))}
+                {!g.vehicles.length && <p className="muted">Noch keine Fahrzeuge.</p>}
+              </ul>
+            </div>
+          )}
+
+          {tab === 'log' && (
+            <div className="pane">
+              <ul className="mini">{g.log.map((l, i) => <li key={i}><small>{fmtClock(l.t)}</small> {l.text}</li>)}</ul>
+            </div>
+          )}
+        </aside>
+      </div>
+    </div>
+  )
+}
