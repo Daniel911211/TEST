@@ -16,6 +16,8 @@ export const groupOf = (type) => {
 export const groupName = (key) => VEHICLE_GROUPS.find(([k]) => k === key)?.[1] || key
 
 export const stationOf = (g, v) => g.stations.find((s) => s.id === v.stationId)
+// Kurzname ohne Wachenname, z. B. "HLF 20 1" – für Listen, in denen die Wache ohnehin bekannt ist
+export const shortName = (v, station) => (station && v.callsign.startsWith(station.name + ' ') ? v.callsign.slice(station.name.length + 1) : v.callsign)
 export const stationTypeName = (s) => STATION_TYPES[s.kind].name
 
 // Fahrzeuge einer Wache, in fester Reihenfolge (nach Typ, dann Name)

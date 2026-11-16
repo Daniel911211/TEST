@@ -1,5 +1,5 @@
 import { VEHICLE_TYPES, STATUS_TEXT, buyVehicle, sellVehicle, sellPrice, repairQuote, sendToWorkshop, buildWorkshop, WORKSHOP_COST, fmtMin, fmtMoney } from '../game.js'
-import { VEHICLE_GROUPS, groupOf, vehiclesOf, stationTypeName } from './helpers.js'
+import { VEHICLE_GROUPS, groupOf, vehiclesOf, stationTypeName, shortName } from './helpers.js'
 import Overlay from './Overlay.jsx'
 
 // Reiter je Wachentyp – hier später Erweiterungen, Lager usw. ergänzen
@@ -28,14 +28,14 @@ export default function WachenOverlay({ g, stationId, tab, setTab, onClose, onOp
       tabs={tabs} tab={cur} setTab={setTab} onClose={onClose}
       onPrev={g.stations.length > 1 ? () => go(-1) : null} onNext={g.stations.length > 1 ? () => go(1) : null}
     >
-      {cur === 'fahrzeuge' && <FahrzeugeTab g={g} vehicles={vehicles} onOpenVehicle={onOpenVehicle} flash={flash} setTab={setTab} />}
+      {cur === 'fahrzeuge' && <FahrzeugeTab g={g} station={station} vehicles={vehicles} onOpenVehicle={onOpenVehicle} flash={flash} setTab={setTab} />}
       {cur === 'markt' && <MarktTab g={g} station={station} flash={flash} />}
       {cur === 'ausbau' && <AusbauTab g={g} station={station} flash={flash} />}
     </Overlay>
   )
 }
 
-function FahrzeugeTab({ g, vehicles, onOpenVehicle, flash, setTab }) {
+function FahrzeugeTab({ g, station, vehicles, onOpenVehicle, flash, setTab }) {
   if (!vehicles.length) return <p className="muted pad">Noch kein Fahrzeug. <button className="small" onClick={() => setTab('markt')}>Zum Fahrzeugmarkt</button></p>
   return (
     <table className="tbl">
@@ -47,7 +47,7 @@ function FahrzeugeTab({ g, vehicles, onOpenVehicle, flash, setTab }) {
           return (
             <tr key={v.id} className="click" onClick={() => onOpenVehicle(v.id)}>
               <td><span className={`st s${v.status}`} title={STATUS_TEXT[v.status]}>{v.status}</span></td>
-              <td><b>{v.callsign}</b></td>
+              <td title={v.callsign}><b>{shortName(v, station)}</b></td>
               <td>{VEHICLE_TYPES[v.type].name}</td>
               <td className="muted">{inc ? inc.type.name : v.status === 6 ? `Werkstatt – noch ${fmtMin(v.timer)}` : '–'}</td>
               <td style={{ minWidth: 70 }}><CondBar c={v.condition} /></td>

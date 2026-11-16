@@ -5,7 +5,7 @@ import { CENTER, HOSPITALS, VEHICLE_TYPES } from './game.js'
 const icon = (html, cls, size = 28) =>
   L.divIcon({ html, className: cls, iconSize: [size, size], iconAnchor: [size / 2, size / 2] })
 
-export default function MapView({ game, sites, selected, buildMode, onMapClick, onSelectIncident, onSelectStation, onSelectVehicle, onSiteClick }) {
+export default function MapView({ game, sites, selected, buildMode, buildPos, onMapClick, onSelectIncident, onSelectStation, onSelectVehicle, onSiteClick }) {
   const el = useRef(null)
   const map = useRef(null)
   const layers = useRef({ st: new Map(), veh: new Map(), inc: new Map() })
@@ -95,6 +95,16 @@ export default function MapView({ game, sites, selected, buildMode, onMapClick, 
       if (mk._active !== active) { mk._active = active; mk.getElement()?.classList.toggle('active', active) }
     }
   })
+
+  // Gewählter Bauplatz im Bauformular
+  useEffect(() => {
+    const m = map.current
+    if (!m) return
+    if (layers.current.buildMk) { layers.current.buildMk.remove(); layers.current.buildMk = null }
+    if (buildPos && buildMode) {
+      layers.current.buildMk = L.marker(buildPos, { icon: icon(buildMode, `mk mk-st mk-${buildMode} mk-build`, 34), zIndexOffset: 900, interactive: false }).addTo(m)
+    }
+  }, [buildPos, buildMode])
 
   useEffect(() => {
     const inc = game.incidents.find((i) => i.id === selected.incidentId)

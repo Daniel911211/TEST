@@ -45,7 +45,7 @@ Der bisherige Reiter „Fahrzeuge“ (Zustand, Werkstatt, Verkauf) wandert ins W
 Klick auf ein Fahrzeug auf der Karte oder in einer Liste: Wache, Typ, Status, Zustand, Laufleistung,
 aktueller Einsatz, Besatzung; Knöpfe Rückalarmieren (Status 1), Werkstatt, Verkaufen.
 
-## Etappe 4: Durchspielen und Feinschliff
+## Etappe 4: Durchspielen und Feinschliff (erledigt 16.11.2026)
 
 Ein Spiel von der ersten Wache bis zu mehreren Wachen und Sonderfahrzeugen durchspielen,
 Layout-Fehler und Balance-Probleme notieren und beheben.

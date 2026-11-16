@@ -285,9 +285,11 @@ function requestHospital(g, v, severity = 1) {
   addLog(g, wish ? `${v.callsign}: Status 5 – Patient möchte nach ${wish.name}. Kapazität prüfen!` : `${v.callsign}: Status 5 – erbittet Zielklinik (${SEVERITY_TEXT[severity]} verletzt/erkrankt).`)
 }
 
+// Einsatzleitung: ELW 2 vor ELW 1 vor Feuerwehrfahrzeug vor Rettungsdienst, bei Gleichstand das zuerst eingetroffene
 const ELRANK = { ELW2: 3, ELW1: 2 }
+const elRank = (v) => ELRANK[v.type] ?? (VEHICLE_TYPES[v.type].kind === 'RW' ? 0 : 1)
 function pickEL(atScene) {
-  return [...atScene].sort((a, b) => (ELRANK[b.type] || 1) - (ELRANK[a.type] || 1) || (a.arrivedAt ?? 0) - (b.arrivedAt ?? 0))[0]
+  return [...atScene].sort((a, b) => elRank(b) - elRank(a) || (a.arrivedAt ?? 0) - (b.arrivedAt ?? 0))[0]
 }
 
 const needText = (n) => Object.entries(n).map(([k, c]) => `${c}× ${ROLES[k].short}`).join(', ')
@@ -377,14 +379,19 @@ export function requestLagemeldung(g, incidentId) {
   return { ok: true }
 }
 
-// Rückalarmieren: Fahrzeug auf Anfahrt (Status 3) wieder freigeben
+// Rückalarmieren (Status 3) bzw. vom Einsatzort abziehen (Status 4): Fahrzeug wieder freigeben.
+// Damit kann die Leitstelle Kräfte umverteilen, wenn mehrere Einsätze aufeinander warten.
 export function recallVehicle(g, vehicleId) {
   const v = g.vehicles.find((x) => x.id === vehicleId)
-  if (!v || v.status !== 3) return { ok: false, msg: 'Nur Fahrzeuge auf Anfahrt (Status 3) können rückalarmiert werden.' }
+  if (!v || (v.status !== 3 && v.status !== 4)) return { ok: false, msg: 'Nur Fahrzeuge auf Anfahrt (Status 3) oder am Einsatzort (Status 4) können abgezogen werden.' }
   const inc = g.incidents.find((i) => i.id === v.incidentId)
+  const atScene = v.status === 4
   releaseVehicle(v)
-  if (inc) inc.dispatched = g.vehicles.some((x) => x.incidentId === inc.id)
-  addLog(g, `${v.callsign}: rückalarmiert, Status 1.`)
+  if (inc) {
+    inc.dispatched = g.vehicles.some((x) => x.incidentId === inc.id)
+    if (inc.el === v.id) inc.el = null
+  }
+  addLog(g, atScene ? `${v.callsign}: vom Einsatzort abgezogen, Status 1.` : `${v.callsign}: rückalarmiert, Status 1.`)
   return { ok: true }
 }
 
@@ -470,9 +477,11 @@ export function tick(g, dt) {
   // Spawn
   g.spawnIn -= dt
   if (g.spawnIn <= 0) {
-    g.spawnIn = rnd(360, 750) // Spielsekunden bis zum nächsten Einsatz (≈ 12–25 s bei 1x)
+    // Spielsekunden bis zum nächsten Einsatz (≈ 12–25 s bei 1x mit 2 Wachen); mehr Wachen = mehr Einsätze
+    g.spawnIn = rnd(360, 750) / Math.max(1, (g.stations.length + 6) / 8)
     const open = g.incidents.length
-    if (g.stations.length && open < 2 + g.stations.length) spawnIncident(g)
+    // Kein neuer Einsatz, solange gar kein Fahrzeug frei ist (verhindert, dass sich alles gegenseitig blockiert)
+    if (g.stations.length && open < 2 + g.stations.length && g.vehicles.some(isAvailable)) spawnIncident(g)
   }
 
   // Klinikbetten schwanken
