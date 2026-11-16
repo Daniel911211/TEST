@@ -6,7 +6,7 @@ import EXTRA_SITES from './data/zusatz-standorte.json'
 const SITES = [...OSM_SITES, ...EXTRA_SITES]
 import {
   GAME_SEC_PER_REAL_SEC, STATION_TYPES, VEHICLE_TYPES, STATUS_TEXT, MAX_VEHICLES_PER_STATION, ROLES,
-  newGame, loadGame, saveGame, clearSave, tick, buildStation, buyVehicle, dispatch, recommend,
+  newGame, loadGame, saveGame, clearSave, tick, buildStation, buyVehicle, sellVehicle, sellPrice, dispatch, recommend,
   isAvailable, etaSec, SEVERITY_TEXT, askElw2, requestLagemeldung, HOSPITALS, hospitalFree, transportOptions, confirmTransport, repairQuote, sendToWorkshop, buildWorkshop, WORKSHOP_COST, fmtClock, fmtMin, fmtMoney, rankOf, nextRank,
 } from './game.js'
 
@@ -170,7 +170,7 @@ export default function App() {
                   )}
                   <h4>Fahrzeug kaufen</h4>
                   {Object.entries(VEHICLE_TYPES).filter(([, d]) => d.kind === station.kind || d.kind === 'ANY').map(([k, d]) => (
-                    <button key={k} disabled={g.money < d.cost} onClick={() => { const r = buyVehicle(g, station.id, k); if (!r.ok) flash(r.msg) }}>
+                    <button key={k} disabled={g.money < d.cost} onClick={() => { const r = buyVehicle(g, station.id, k); flash(r.ok ? `${d.name} gekauft (−${fmtMoney(d.cost)})` : r.msg) }}>
                       {d.name} – {fmtMoney(d.cost)}
                     </button>
                   ))}
@@ -192,6 +192,11 @@ export default function App() {
                       <button onClick={(e) => { e.stopPropagation(); const r = sendToWorkshop(g, v.id); if (!r.ok) flash(r.msg) }}>
                         In Werkstatt ({fmtMin(q.duration)}, {fmtMoney(q.cost)})
                       </button>) })()}
+                    {v.status === 2 && (
+                      <button onClick={(e) => { e.stopPropagation(); if (confirm(`${v.callsign} für ${fmtMoney(sellPrice(v))} verkaufen?`)) { const r = sellVehicle(g, v.id); if (r.ok) flash(`Verkauft (+${fmtMoney(r.price)})`); else flash(r.msg) } }}>
+                        Verkaufen (+{fmtMoney(sellPrice(v))})
+                      </button>
+                    )}
                   </li>
                 ))}
                 {!g.vehicles.length && <p className="muted">Noch keine Fahrzeuge.</p>}

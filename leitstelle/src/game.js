@@ -153,6 +153,22 @@ export function buyVehicle(g, stationId, type) {
   return { ok: true }
 }
 
+// Verkaufspreis: ungenutzte Fahrzeuge (z. B. versehentlich gekauft) gibt es zum vollen Preis zurück, benutzte zu 60 % je nach Zustand
+export function sellPrice(v) {
+  const cost = VEHICLE_TYPES[v.type].cost
+  return v.used ? Math.round(cost * 0.6 * (0.5 + 0.5 * (v.condition ?? 100) / 100)) : cost
+}
+
+export function sellVehicle(g, vehicleId) {
+  const v = g.vehicles.find((x) => x.id === vehicleId)
+  if (!v || v.status !== 2) return { ok: false, msg: 'Nur Fahrzeuge auf der Wache (Status 2) können verkauft werden.' }
+  const price = sellPrice(v)
+  g.money += price
+  g.vehicles = g.vehicles.filter((x) => x !== v)
+  addLog(g, `${v.callsign} verkauft (+${fmtMoney(price)}).`)
+  return { ok: true, price }
+}
+
 export const isAvailable = (v) => v.status === 1 || v.status === 2
 
 export function dispatch(g, incidentId, vehicleIds) {
@@ -167,6 +183,7 @@ export function dispatch(g, incidentId, vehicleIds) {
       continue
     }
     v.status = 3
+    v.used = true
     v.incidentId = inc.id
     inc.dispatched = true
   }
