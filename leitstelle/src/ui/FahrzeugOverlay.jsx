@@ -21,7 +21,7 @@ export default function FahrzeugOverlay({ g, vehicleId, onClose, onOpenVehicle, 
   const own = q && v.status === 2 && hasOwnWorkshop(g, v)
   const [wahl, setWahl] = useState(false) // Liste der Lkw-Werkstätten aufgeklappt
   const werk = v.status === 6 && v.werkstatt ? WERKSTATT_BY_ID[v.werkstatt] : null
-  const wsText = werk ? (v.wsPhase === 'fahrt' ? 'auf Anfahrt' : v.wsPhase === 'warten' ? 'wartet auf einen freien Platz' : `in Reparatur, noch ${fmtMin(v.timer)}`) : ''
+  const wsText = werk ? (v.wsPhase === 'abschlepper' ? `wartet auf den Abschleppdienst, noch ${fmtMin(v.timer)}` : v.wsPhase === 'fahrt' ? (v.panne ? 'wird abgeschleppt' : 'auf Anfahrt') : v.wsPhase === 'warten' ? 'wartet auf einen freien Platz' : `in Reparatur, noch ${fmtMin(v.timer)}`) : ''
 
   return (
     <Overlay compact

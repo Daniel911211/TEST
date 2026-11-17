@@ -2,7 +2,7 @@ import { WERKSTAETTEN, workshopVehicles, fmtMin } from '../game.js'
 import { stationOf } from './helpers.js'
 import Overlay from './Overlay.jsx'
 
-const PHASE = { fahrt: 'auf Anfahrt', warten: 'wartet auf Platz', reparatur: 'in Reparatur' }
+const PHASE = { abschlepper: 'wartet auf Abschlepper', fahrt: 'auf Anfahrt (oder wird geschleppt)', warten: 'wartet auf Platz', reparatur: 'in Reparatur' }
 
 // Overlay einer Lkw-Werkstatt (Marker „W“ auf der Karte): Plätze, Fahrzeuge in Reparatur, wartend und auf Anfahrt
 export default function WerkstattOverlay({ g, workshopId, onClose, onOpenWorkshop, onOpenVehicle }) {

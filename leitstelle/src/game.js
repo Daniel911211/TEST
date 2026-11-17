@@ -275,6 +275,24 @@ export function sellVehicle(g, vehicleId) {
 
 export const isAvailable = (v) => v.status === 1 || v.status === 2
 
+// Panne: Das Fahrzeug bleibt liegen, ein Abschlepper kommt (Anfahrt 10 min + 30 s je km zur Werkstatt), schleppt es zur nächsten Lkw-Werkstatt,
+// dort Reparatur auf einem freien Platz (Phasen wsPhase: abschlepper → fahrt → warten → reparatur), danach Status 1.
+// Kosten (Abschleppen 150 € + 8 € je km, dazu die Reparatur) werden sofort gebucht; das Konto darf dabei ins Minus rutschen.
+// Luftfahrzeuge werden am Standort gewartet (kurzer Ausfall wie bisher).
+function startPanne(g, v, inc) {
+  if (VEHICLE_TYPES[v.type].luft) {
+    v.status = 6; v.workshop = false; v.timer = 600
+    addLog(g, `${v.callsign}: Technische Panne beim Start! Wartung am Standort, fällt kurz aus.`, { kind: 'status', v, inc })
+    return
+  }
+  const w = workshopOptions(g, v)[0]
+  const abschlepp = 150 + Math.round(w.dist * 8)
+  g.money -= abschlepp + w.cost
+  v.status = 6; v.workshop = true; v.panne = true; v.werkstatt = w.id; v.wsPhase = 'abschlepper'
+  v.wsDuration = w.duration; v.timer = Math.round(600 + w.dist * 30); v.route = null; v.incidentId = null
+  addLog(g, `${v.callsign}: Panne beim Ausrücken, Fahrzeug bleibt liegen! Abschleppdienst ist angefordert (ca. ${fmtMin(v.timer)}), Ziel ist die Werkstatt ${w.name} (${w.ort}). Kosten ${fmtMoney(abschlepp + w.cost)}.`, { kind: 'status', v, inc })
+}
+
 export function dispatch(g, incidentId, vehicleIds) {
   const inc = g.incidents.find((i) => i.id === incidentId)
   if (!inc) return
@@ -282,8 +300,7 @@ export function dispatch(g, incidentId, vehicleIds) {
     const v = g.vehicles.find((x) => x.id === id)
     if (!v || !isAvailable(v)) continue
     if (v.condition < 30 && Math.random() < Math.min(0.5, (30 - v.condition) / 60)) {
-      v.status = 6; v.workshop = false; v.timer = 600;
-      addLog(g, `${v.callsign}: Panne beim Ausrücken! Fahrzeug fällt kurz aus.`, { kind: 'status', v, inc })
+      startPanne(g, v, inc)
       continue
     }
     v.status = 3
@@ -930,7 +947,10 @@ export function tick(g, dt) {
         const w = v.werkstatt && WERKSTATT_BY_ID[v.werkstatt]
         if (w) {
           // Lkw-Werkstatt: Anfahrt → warten auf Platz (Reihenfolge nach Ankunft) → Reparatur → Rückfahrt mit Status 1
-          if (v.wsPhase === 'fahrt') {
+          if (v.wsPhase === 'abschlepper') {
+            v.timer -= dt
+            if (v.timer <= 0) { v.wsPhase = 'fahrt'; v.timer = 0; addLog(g, `${v.callsign}: Abschleppdienst ist eingetroffen, Fahrzeug wird zur Werkstatt ${w.name} geschleppt.`, { v }) }
+          } else if (v.wsPhase === 'fahrt') {
             if (driveTo(g, v, w.pos, dt, (e) => addLog(g, `${v.callsign}: Routing fehlgeschlagen (${e.message})`, { v }))) {
               v.wsPhase = 'warten'; v.wsSince = g.t
               addLog(g, `${v.callsign}: in der Werkstatt ${w.name} angekommen.`, { v })
@@ -945,7 +965,7 @@ export function tick(g, dt) {
           } else if (v.wsPhase === 'reparatur') {
             v.timer -= dt
             if (v.timer <= 0) {
-              v.condition = 100; v.werkstatt = null; v.wsPhase = null; v.status = 1; v.route = null
+              v.condition = 100; v.werkstatt = null; v.wsPhase = null; v.panne = false; v.status = 1; v.route = null
               addLog(g, `${v.callsign}: Reparatur bei ${w.name} fertig, Status 1 – Rückfahrt zur Wache.`, { v })
             }
           }
