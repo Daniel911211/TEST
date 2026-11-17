@@ -37,10 +37,10 @@
     "id": "x-christoph28",
     "name": "Luftrettungszentrum Christoph 28 (Klinikum Fulda)",
     "pos": [
-      50.5482,
-      9.7036
+      50.54601,
+      9.70462
     ],
-    "approx": true,
-    "note": "Rettungshubschrauber am Klinikum Fulda; Landeplatz nahe der Klinik, Lage ungefähr. Nur hier baubar, einmalig."
+    "approx": false,
+    "note": "Hubschrauberlandeplatz am Klinikum Fulda (OSM-Helipad am Gebäude, Christoph 28). Nur hier baubar, einmalig."
   }
 ]
