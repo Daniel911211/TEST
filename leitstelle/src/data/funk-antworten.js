@@ -61,5 +61,24 @@ export const NACHFRAGEN = [
   'Nachfrage: Wann ist mit {kraefte} zu rechnen? Lage lässt sich ohne nicht halten.',
 ]
 
+// Rückfrage an die Besatzung (Rettungsdienst), wenn die Leitstelle eine andere Klinik als die Wunschklinik vorschlägt.
+// Die Besatzung antwortet im Sinne des Patienten (der Patient selbst funkt nicht). Platzhalter: {klinik} = Gegenvorschlag, {wunsch} = Wunschklinik, {km} = Mehrweg.
+export const PATIENT = {
+  zusage: [
+    'Patient ist einverstanden, Transport nach {klinik} ist in Ordnung für ihn.',
+    'Patient stimmt zu, {klinik} passt für ihn.',
+    'Patient akzeptiert den Vorschlag, Hauptsache er wird dort versorgt.',
+  ],
+  zusageVoll: [
+    'Patient versteht, dass {wunsch} voll ist, und ist mit {klinik} einverstanden.',
+    'Patient nimmt es hin, {wunsch} hat keine Kapazität, er fährt nach {klinik} mit.',
+  ],
+  ablehnung: [
+    'Patient lehnt ab, er besteht auf {wunsch}. Dort sind seine Familie und sein Hausarzt.',
+    'Patient will nicht nach {klinik}, der Weg ist ihm zu weit. Er möchte nach {wunsch}.',
+    'Patient ist nicht einverstanden und verlangt {wunsch}, dort ist er schon in Behandlung.',
+  ],
+}
+
 export const pick = (list) => list[Math.floor(Math.random() * list.length)]
 export const fill = (text, vars) => text.replace(/\{(\w+)\}/g, (_, k) => vars[k] ?? '')

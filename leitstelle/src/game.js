@@ -6,7 +6,7 @@ import { INCIDENT_TYPES, ROLES, matchSlots, addNeeds, growProb, ESCALATE, maxNee
 import { pickSzenario, incidentTitle } from './szenarien.js'
 import { rollAnforderung, ersteLagemeldung, folgemeldung, nachforderungsmeldung, abschlussmeldung } from './lagemeldung.js'
 import { EINSAETZE, EINSATZ_BY_ID, EINSATZ_BY_NAME, VERGUETUNG_FAKTOR, saisonAktiv } from './data/einsaetze.js'
-import { ANTWORTEN, QUITTUNGEN, NACHFRAGEN, pick, fill } from './data/funk-antworten.js'
+import { ANTWORTEN, QUITTUNGEN, NACHFRAGEN, PATIENT, pick, fill } from './data/funk-antworten.js'
 export { incidentTitle, typeCode } from './szenarien.js'
 
 export const GAME_SEC_PER_REAL_SEC = 10 // bei 1x: 1 echte Sekunde = 10 Spielsekunden
@@ -443,6 +443,29 @@ export function confirmTransport(g, vehicleId, hospitalId) {
   else if (wish) addLog(g, `Leitstelle an ${v.callsign}: Gegenvorschlag ${h.name} – Patient einverstanden. Status 7.`, { v })
   else addLog(g, `Leitstelle an ${v.callsign}: Zielklinik ${h.name}. Status 7.`, { v })
   return { ok: true }
+}
+
+// Rückfrage an die Besatzung bei einem Gegenvorschlag (sie antwortet im Sinne des Patienten) (Zielklinik ≠ Wunschklinik).
+// Ist die Wunschklinik voll, stimmt der Patient immer zu; sonst sinkt die Zustimmung mit dem Mehrweg (70 % − 4 % je km, 15–90 %).
+// Die Antwort gilt je Klinik für diese Anfrage (wird in v.request.antworten gemerkt, damit man sie nicht wegklicken kann).
+export function patientAntwort(g, vehicleId, hospitalId) {
+  const v = g.vehicles.find((x) => x.id === vehicleId)
+  const h = HOSPITALS.find((x) => x.id === hospitalId)
+  const w = v?.request?.wishId && HOSPITALS.find((x) => x.id === v.request.wishId)
+  if (!v || v.status !== 5 || !h || !w || w.id === h.id) return { ok: false }
+  v.request.antworten = v.request.antworten || {}
+  let a = v.request.antworten[h.id]
+  if (!a) {
+    const voll = hospitalFree(g, w.id) <= 0
+    const extra = Math.max(0, km(v.pos, h.pos) - km(v.pos, w.pos))
+    const p = voll ? 1 : Math.min(0.9, Math.max(0.15, 0.7 - 0.04 * extra))
+    const akzeptiert = Math.random() < p
+    const vars = { klinik: h.name, wunsch: w.name, km: extra.toFixed(1) }
+    a = { akzeptiert, text: fill(pick(akzeptiert ? (voll ? PATIENT.zusageVoll : PATIENT.zusage) : PATIENT.ablehnung), vars) }
+    v.request.antworten[h.id] = a
+    if (!akzeptiert) addLog(g, `${v.callsign}: Patient lehnt Gegenvorschlag ${h.name} ab, besteht auf ${w.name}.`, { v })
+  }
+  return { ok: true, ...a, klinik: h, wunsch: w, extraKm: Math.max(0, km(v.pos, h.pos) - km(v.pos, w.pos)) }
 }
 
 export const SEVERITY_TEXT = { 1: 'leicht', 2: 'mittel', 3: 'schwer' }

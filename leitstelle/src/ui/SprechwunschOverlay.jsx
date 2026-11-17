@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { SEVERITY_TEXT, sprechwunschList, sprechKindName, incidentTitle, transportOptions, confirmTransport, answerSprechwunsch, answerOptions, fmtMin } from '../game.js'
+import { SEVERITY_TEXT, sprechwunschList, sprechKindName, incidentTitle, transportOptions, confirmTransport, patientAntwort, answerSprechwunsch, answerOptions, fmtMin } from '../game.js'
 import Overlay from './Overlay.jsx'
 
 // Overlay eines Sprechwunschs: Lagemeldung oder Nachforderung lesen und als Vermerk in den Einsatz eintragen,
@@ -58,15 +58,35 @@ export default function SprechwunschOverlay({ g, vehicleId, onClose, onOpenSprec
 function KlinikWahl({ g, v, flash, onDone }) {
   const opts = transportOptions(g, v)
   const wish = opts.find((h) => h.id === v.request?.wishId)
-  const choose = (hid) => { const r = confirmTransport(g, v.id, hid); if (r.ok) onDone(); else flash(r.msg) }
+  const [frage, setFrage] = useState(null) // Rückfrage an den Patienten (Fenster im Fenster): { hid }
+  const confirm = (hid) => { const r = confirmTransport(g, v.id, hid); if (r.ok) onDone(); else flash(r.msg) }
+  // Andere Klinik als die Wunschklinik: erst den Patienten fragen
+  const choose = (hid) => { if (wish && hid !== wish.id) setFrage({ hid }); else confirm(hid) }
+  const pa = frage ? patientAntwort(g, v.id, frage.hid) : null
   return (
     <>
+      {pa?.ok && (
+        <div className="inner-back" onClick={() => setFrage(null)}>
+          <div className="inner-box" onClick={(e) => e.stopPropagation()}>
+            <h4>Rückfrage an {v.callsign}</h4>
+            <p>Gegenvorschlag: <b>{pa.klinik.name}</b> statt <b>{pa.wunsch.name}</b>{pa.extraKm > 0 ? <span className="muted"> (etwa {pa.extraKm.toFixed(1)} km weiter)</span> : null}.</p>
+            <div className="funkspruch"><b>{v.callsign}:</b> „{pa.text}“</div>
+            <p className={pa.akzeptiert ? 'green' : 'red'}><b>{pa.akzeptiert ? 'Patient ist einverstanden.' : 'Patient lehnt ab.'}</b> <small className="muted">(Antwort der Besatzung im Sinne des Patienten)</small><b></b></p>
+            <div className="ef-actions">
+              {pa.akzeptiert
+                ? <button className="primary" style={{ width: 'auto' }} onClick={() => confirm(pa.klinik.id)}>Transport nach {pa.klinik.name} starten</button>
+                : wish && wish.free > 0 && <button className="primary" style={{ width: 'auto' }} onClick={() => confirm(wish.id)}>Wunschklinik {wish.name} bestätigen</button>}
+              <button onClick={() => setFrage(null)}>{pa.akzeptiert ? 'Abbrechen' : 'Andere Klinik wählen'}</button>
+            </div>
+          </div>
+        </div>
+      )}
       <h4>Funkspruch</h4>
       <div className="funkspruch">
         {wish ? <>„Patient möchte nach <b>{wish.name}</b>.“ Kapazität: {wish.free > 0 ? <b className="green">{wish.free} Betten frei</b> : <b className="red">keine Kapazität</b>}</>
           : <>„Erbitte Zielklinik für den Patienten.“ <small className="muted">Patient {SEVERITY_TEXT[v.request?.severity || 1]} – die Leitstelle entscheidet.</small></>}
       </div>
-      {wish && wish.free > 0 && <button className="primary" onClick={() => choose(wish.id)}>Wunschklinik {wish.name} bestätigen</button>}
+      {wish && wish.free > 0 && <button className="primary" onClick={() => confirm(wish.id)}>Wunschklinik {wish.name} bestätigen</button>}
       <h4>{wish && wish.free <= 0 ? 'Gegenvorschlag der Leitstelle' : 'Andere Klinik'}</h4>
       <div className="klinik-wahl">
         {opts.filter((h) => h.id !== wish?.id || wish.free <= 0).map((h) => (
