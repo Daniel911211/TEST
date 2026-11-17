@@ -291,15 +291,37 @@ function startPanne(g, v, inc) {
   g.money -= abschlepp + w.cost
   v.status = 6; v.workshop = true; v.panne = true; v.werkstatt = w.id; v.wsPhase = 'abschlepper'
   v.wsDuration = w.duration; v.timer = Math.round(600 + w.dist * 30); v.route = null; v.incidentId = null
-  v.towFrom = [...w.pos]; v.towTotal = v.timer // Abschlepper startet an der Werkstatt (für die Kartenanzeige)
+  pendingTow.add(v.id)
+  v.towFrom = [...w.pos]; v.towTotal = v.timer; v.towRoute = null // Abschlepper startet an der Werkstatt (für die Kartenanzeige)
+  // Straßenroute des Abschleppers von der Werkstatt zur Pannenstelle; bis sie da ist (oder ohne Routing) zeigt die Karte Luftlinie
+  fetchRoute(w.pos, v.pos).then((pts) => { v.towRoute = pts }).catch(() => { /* Luftlinie bleibt */ })
   addLog(g, `${v.callsign}: Panne beim Ausrücken, Fahrzeug bleibt liegen! Abschleppdienst ist angefordert (ca. ${fmtMin(v.timer)}), Ziel ist die Werkstatt ${w.name} (${w.ort}). Kosten ${fmtMoney(abschlepp + w.cost)}.`, { kind: 'status', v, inc })
 }
 
-// Position des Abschleppwagens zu einem Pannenfahrzeug (null, wenn keiner unterwegs ist): fährt in Luftlinie von der Werkstatt zur Pannenstelle, schleppt dann das Fahrzeug.
+// Punkt bei Anteil f (0–1) der Länge eines Linienzugs; die Teilstrecken werden je Linienzug nur einmal berechnet
+const pendingTow = new Set() // Fahrzeuge, für die die Abschlepper-Route schon abgefragt wurde
+const polyCache = new WeakMap()
+function alongPolyline(pts, f) {
+  let cum = polyCache.get(pts)
+  if (!cum) {
+    cum = [0]
+    for (let i = 1; i < pts.length; i++) cum.push(cum[i - 1] + km(pts[i - 1], pts[i]))
+    polyCache.set(pts, cum)
+  }
+  const target = cum[cum.length - 1] * f
+  let i = 1
+  while (i < pts.length - 1 && cum[i] < target) i++
+  const seg = cum[i] - cum[i - 1]
+  const t = seg > 0 ? Math.min(1, Math.max(0, (target - cum[i - 1]) / seg)) : 0
+  return [pts[i - 1][0] + (pts[i][0] - pts[i - 1][0]) * t, pts[i - 1][1] + (pts[i][1] - pts[i - 1][1]) * t]
+}
+
+// Position des Abschleppwagens zu einem Pannenfahrzeug (null, wenn keiner unterwegs ist): fährt über die Straßenroute (sonst Luftlinie) von der Werkstatt zur Pannenstelle, schleppt dann das Fahrzeug.
 export function towPos(v) {
   if (v.status !== 6 || !v.panne) return null
   if (v.wsPhase === 'abschlepper' && v.towFrom && v.towTotal) {
     const f = Math.min(1, Math.max(0, 1 - v.timer / v.towTotal))
+    if (v.towRoute && v.towRoute.length > 1) return alongPolyline(v.towRoute, f)
     return [v.towFrom[0] + (v.pos[0] - v.towFrom[0]) * f, v.towFrom[1] + (v.pos[1] - v.towFrom[1]) * f]
   }
   if (v.wsPhase === 'fahrt') return [v.pos[0] + 0.0002, v.pos[1] + 0.0002] // am Haken, knapp vor dem Fahrzeug
@@ -984,6 +1006,11 @@ export function tick(g, dt) {
         if (w) {
           // Lkw-Werkstatt: Anfahrt → warten auf Platz (Reihenfolge nach Ankunft) → Reparatur → Rückfahrt mit Status 1
           if (v.wsPhase === 'abschlepper') {
+            // Route nachholen (ältere Spielstände oder fehlgeschlagene Abfrage), einmal je Fahrzeug und Panne
+            if (!v.towRoute && v.towFrom && !pendingTow.has(v.id)) {
+              pendingTow.add(v.id)
+              fetchRoute(v.towFrom, v.pos).then((pts) => { v.towRoute = pts }).catch(() => { /* Luftlinie bleibt */ })
+            }
             v.timer -= dt
             if (v.timer <= 0) { v.wsPhase = 'fahrt'; v.timer = 0; addLog(g, `${v.callsign}: Abschleppdienst ist eingetroffen, Fahrzeug wird zur Werkstatt ${w.name} geschleppt.`, { v }) }
           } else if (v.wsPhase === 'fahrt') {
