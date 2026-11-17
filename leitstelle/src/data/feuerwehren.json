@@ -64,15 +64,6 @@
  },
  {
   "kind": "FW",
-  "id": "n10743097972",
-  "name": "12 Hünfelder Straße Steinhaus",
-  "pos": [
-   50.59742,
-   9.74819
-  ]
- },
- {
-  "kind": "FW",
   "id": "n10224215221",
   "name": "12 Jahnstraße Großentaft",
   "pos": [
@@ -163,15 +154,6 @@
  },
  {
   "kind": "FW",
-  "id": "n10750465271",
-  "name": "27 Oberroder Straße Oberrode",
-  "pos": [
-   50.53852,
-   9.58702
-  ]
- },
- {
-  "kind": "FW",
   "id": "w585286507",
   "name": "3 Bachstraße Mittelaschenbach",
   "pos": [
@@ -213,15 +195,6 @@
   "pos": [
    50.45953,
    9.90334
-  ]
- },
- {
-  "kind": "FW",
-  "id": "n9734338637",
-  "name": "4a Oberdorfer Straße Rückers",
-  "pos": [
-   50.40769,
-   9.58259
   ]
  },
  {
@@ -1036,15 +1009,6 @@
  },
  {
   "kind": "FW",
-  "id": "n529409973",
-  "name": "Freiwillige Feuerwehr Wickers",
-  "pos": [
-   50.54005,
-   9.98858
-  ]
- },
- {
-  "kind": "FW",
   "id": "n13373701155",
   "name": "Freiwillige Feuerwehr Wissels",
   "pos": [
@@ -1122,15 +1086,6 @@
   "pos": [
    50.57937,
    9.5299
-  ]
- },
- {
-  "kind": "FW",
-  "id": "n10896287990",
-  "name": "Spessartstraße Malges Hünfeld",
-  "pos": [
-   50.7283,
-   9.80137
   ]
  },
  {
