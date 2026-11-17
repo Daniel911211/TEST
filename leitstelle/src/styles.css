@@ -161,6 +161,7 @@ textarea.vermerk { width:100%; background:#0f1319; color:var(--text); border:1px
 .vermerk-zeile { padding:4px 0; border-bottom:1px dashed var(--line); } .vermerk-zeile div { white-space:pre-wrap; }
 .funkspruch, .tbl td { white-space:pre-line; }
 .vermerk-neu { margin-top:6px; }
+.tagebuch-liste { max-height:420px; overflow-y:auto; padding-right:6px; }
 
 /* Funk */
 .funk-list { list-style:none; margin:0; padding:4px 10px; }

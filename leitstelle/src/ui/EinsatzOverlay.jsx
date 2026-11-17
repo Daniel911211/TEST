@@ -133,22 +133,21 @@ function Fenster({ g, inc, onClose, onLocate, flash, onPrev, onNext }) {
 // Einsatztagebuch: alle Ereignisse des Einsatzes aus dem Protokoll (chronologisch) plus Vermerke der Leitstelle
 function Tagebuch({ g, inc, flash }) {
   const [text, setText] = useState('')
-  const [open, setOpen] = useState(true)
   const list = g.log.filter((l) => l.inc === inc.id).reverse()
   const add = () => { const r = addVermerk(g, inc.id, text); if (r.ok) setText(''); else flash(r.msg) }
   return (
     <div className="ef-block">
-      <div className="ef-row">
-        <h4>Einsatztagebuch {list.length > 0 && <span className="count">{list.length}</span>}</h4>
-        <button className="small" onClick={() => setOpen(!open)}>{open ? 'Einklappen' : 'Ausklappen'}</button>
+      <h4>Einsatztagebuch {list.length > 0 && <span className="count">{list.length}</span>}</h4>
+      {/* feste Höhe, innen scrollbar (statt Ein-/Ausklappen); neueste Einträge oben */}
+      <div className="tagebuch-liste">
+        {list.length === 0 && <small className="muted">Noch keine Einträge.</small>}
+        {list.map((e, i) => (
+          <div key={i} className={`vermerk-zeile funk-${e.kind || 'info'}`}>
+            <small className="muted">{fmtClock(e.t)}{LOG_KINDS[e.kind] ? ` · ${LOG_KINDS[e.kind]}` : ''}</small>
+            <div>{e.text}</div>
+          </div>
+        ))}
       </div>
-      {open && list.length === 0 && <small className="muted">Noch keine Einträge.</small>}
-      {open && list.map((e, i) => (
-        <div key={i} className={`vermerk-zeile funk-${e.kind || 'info'}`}>
-          <small className="muted">{fmtClock(e.t)}{LOG_KINDS[e.kind] ? ` · ${LOG_KINDS[e.kind]}` : ''}</small>
-          <div>{e.text}</div>
-        </div>
-      ))}
       <div className="ef-row vermerk-neu">
         <input className="search" style={{ marginLeft: 0, width: '100%' }} placeholder="Vermerk eintragen …" value={text} onChange={(e) => setText(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') add() }} />
         <button className="small" disabled={!text.trim()} onClick={add}>Eintragen</button>
