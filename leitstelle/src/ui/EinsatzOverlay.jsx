@@ -32,7 +32,8 @@ function Fenster({ g, inc, onClose, onLocate, flash, onPrev, onNext }) {
     .filter((v) => groupOf(v.type) === filter)
     .sort((a, b) => etaSec(a, inc.pos, tf) - etaSec(b, inc.pos, tf))
   const toggle = (id, on) => setPicked(on ? [...picked, id] : picked.filter((x) => x !== id))
-  const send = () => { const r = dispatch(g, inc.id, picked); if (r?.ok !== false && picked.length) playAlarm(ton, false, durchsageText(inc)); setPicked([]) }
+  const wachenVon = (ids) => ids.map((id) => stationOf(g, g.vehicles.find((v) => v.id === id))).filter(Boolean) // Wachen der alarmierten Fahrzeuge (für die Durchsage)
+  const send = () => { const r = dispatch(g, inc.id, picked); if (r?.ok !== false && picked.length) playAlarm(ton, false, durchsageText(wachenVon(picked))); setPicked([]) }
   const state = inc.status === 'working' ? `in Bearbeitung · noch ${fmtMin(inc.workLeft)}` : inc.dispatched ? 'Kräfte alarmiert' : 'offen'
 
   return (
@@ -91,7 +92,7 @@ function Fenster({ g, inc, onClose, onLocate, flash, onPrev, onNext }) {
                 {ALARM_SOUNDS.map((s) => <button key={s.id} className={ton === s.id ? 'on' : ''} title={s.hint} onClick={() => setTon(s.id)}>{s.name}</button>)}
               </span>
               <span className="nowrap">
-                <button className="small" disabled={ton === 'none'} title="Gewählten Ton mit Durchsage anhören" onClick={() => playAlarm(ton, true, durchsageText(inc))}>▶ Anhören</button>
+                <button className="small" disabled={ton === 'none'} title="Gewählten Ton mit Durchsage anhören" onClick={() => playAlarm(ton, true, durchsageText(wachenVon(picked.length ? picked : assigned.map((v) => v.id))))}>▶ Anhören</button>
                 <button className="small" title="Ton und Durchsage anhalten" onClick={stopAlarm}>■</button>
               </span>
               <small className="muted">Stichwort-Auswahl folgt später.</small>

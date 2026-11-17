@@ -2,7 +2,6 @@
 // Welcher Ton beim Alarmieren läuft, wählt der Spieler in der Alarmierungsmaske (Einsatz-Overlay); Vorgabe nach Einsatzart.
 // Ein/aus über den Schalter in der Kopfzeile, Einstellung bleibt im Browser (localStorage).
 // Nach dem Alarmton folgt eine Durchsage über die Sprachausgabe des Browsers (Web Speech API, deutsche Stimme).
-import { typeCode } from './szenarien.js'
 const KEY = 'leitstelle-sound'
 
 // Neue Töne: Datei nach public/sound/ legen und hier eintragen (id, Anzeigename, Dateiname).
@@ -43,17 +42,15 @@ export const alarmPlaying = () => !!current && !current.paused
 // --- Durchsage (Sprachausgabe) ---
 const sprache = typeof window !== 'undefined' && 'speechSynthesis' in window ? window.speechSynthesis : null
 if (sprache) sprache.getVoices() // Stimmenliste früh anfordern (Chrome liefert sie erst asynchron)
-// Stichwort-Kürzel so, wie es die Leitstelle spricht: F3Y → „Feuer 3 Ypsilon“, H KLEMM 2 Y → „Hilfeleistung Klemm 2 Ypsilon“
-const WORTE = {
-  F: 'Feuer', H: 'Hilfeleistung', R: 'Rettungsdienst', Y: 'Ypsilon',
-  BMA: 'Brandmeldeanlage', RWM: 'Rauchwarnmelder', EINST: 'Einsturz', ABST: 'Absturz', ELEK: 'Elektrounfall',
-  WASS: 'Wasser', MANV: 'Massenanfall von Verletzten', LEBEL: 'lebensbedrohlich', KTP: 'Krankentransport', LKW: 'LKW',
+// „Alarm für die Feuerwehr Neuhof. Einsatzbereitschaft herstellen.“ – genannt werden die alarmierten Wachen (Namen = Stationsnamen, ohne Vorsilbe „Feuerwehr“);
+// bei mehreren Wachen „Neuhof, Neuhof Giesel und Neuhof Hauswurz“, ab vier „… und weitere“. Reine Rettungsdienst-Alarmierung: „für den Rettungsdienst …“.
+export function durchsageText(stationen = []) {
+  const fw = [...new Set(stationen.filter((s) => s.kind === 'FW').map((s) => s.name.replace(/^(Freiwillige )?Feuerwehr[\s-]*/i, '').trim()))]
+  const rd = [...new Set(stationen.filter((s) => s.kind !== 'FW' && s.kind !== 'LR').map((s) => s.name))]
+  const nenne = (l) => (l.length > 3 ? `${l.slice(0, 3).join(', ')} und weitere` : l.length > 1 ? `${l.slice(0, -1).join(', ')} und ${l[l.length - 1]}` : l[0])
+  const wer = fw.length ? `die Feuerwehr ${nenne(fw)}` : rd.length ? `den Rettungsdienst ${nenne(rd)}` : 'die Feuerwehr'
+  return `Alarm für ${wer}. Einsatzbereitschaft herstellen.`
 }
-export const spokenCode = (code) => (code.match(/[A-Za-zÄÖÜäöü]+|\d+/g) || [])
-  .map((t) => WORTE[t] || (t.length > 1 ? t[0] + t.slice(1).toLowerCase() : t)).join(' ')
-// Beginnt immer mit „Feuerwehr“ (auch bei Rettungsdienst-Stichworten): „Feuerwehr, Feuer 3, Bauentwicklung im Museum. Einsatzbereitschaft herstellen.“
-export const durchsageText = (inc) =>
-  `Feuerwehr, ${spokenCode(typeCode(inc.type))}${inc.szenario ? ', ' + inc.szenario.name : ''}. Einsatzbereitschaft herstellen.`
 // Deutsche Stimme: bevorzugt eine natürliche (Online-/Google-/Microsoft-Stimme), sonst die erste deutsche
 function stimme() {
   const vs = sprache.getVoices().filter((v) => /^de([-_]|$)/i.test(v.lang))
