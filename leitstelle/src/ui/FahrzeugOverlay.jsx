@@ -25,7 +25,7 @@ export default function FahrzeugOverlay({ g, vehicleId, onClose, onOpenVehicle, 
 
   return (
     <Overlay compact
-      title={v.callsign} sub={`${d.name} · ${d.kind === 'RW' ? 'Rettungsdienst' : d.water > 0 ? 'Löschfahrzeug' : 'Sonderfahrzeug'}`}
+      title={v.callsign} sub={`${d.name} · ${d.luft ? 'Rettungshubschrauber, Notarzt · fliegt in Luftlinie' : d.kind === 'RW' ? 'Rettungsdienst' : d.water > 0 ? 'Löschfahrzeug' : 'Sonderfahrzeug'}`}
       head={<>
         <NameEdit value={v.callsign} title="Funkrufname ändern" flash={flash} onSave={(n) => renameVehicle(g, v.id, n)} />
         <button className="small" title="Auf der Karte zeigen" onClick={() => onLocate(v.id)}>📍 Auf Karte</button>
@@ -45,8 +45,8 @@ export default function FahrzeugOverlay({ g, vehicleId, onClose, onOpenVehicle, 
         <div><span className="muted">Zustand</span> {Math.round(v.condition)} %{v.condition < 30 ? <b className="red"> – Pannengefahr!</b> : ''}<CondBar c={v.condition} /></div>
         <div className="ef-actions">
           {(v.status === 3 || v.status === 4) && <button onClick={() => { const atScene = v.status === 4; const r = recallVehicle(g, v.id); flash(r.ok ? `${v.callsign} ${atScene ? 'vom Einsatz abgezogen' : 'rückalarmiert'}.` : r.msg) }}>{v.status === 4 ? 'Vom Einsatz abziehen' : 'Rückalarmieren'}</button>}
-          {q && own && <button onClick={() => { const r = sendToWorkshop(g, v.id); flash(r.ok ? 'In die eigene Werkstatt geschickt.' : r.msg) }}>Eigene Werkstatt ({fmtMin(q.duration)}, {fmtMoney(q.cost)})</button>}
-          {q && <button onClick={() => setWahl(!wahl)}>{wahl ? 'Werkstattwahl schließen' : 'Lkw-Werkstatt wählen …'}</button>}
+          {q && own && <button onClick={() => { const r = sendToWorkshop(g, v.id); flash(r.ok ? (d.luft ? 'Wartung am Standort begonnen.' : 'In die eigene Werkstatt geschickt.') : r.msg) }}>{d.luft ? 'Wartung am Standort' : 'Eigene Werkstatt'} ({fmtMin(q.duration)}, {fmtMoney(q.cost)})</button>}
+          {q && !d.luft && <button onClick={() => setWahl(!wahl)}>{wahl ? 'Werkstattwahl schließen' : 'Lkw-Werkstatt wählen …'}</button>}
           {v.status === 2 && <button onClick={() => { if (sell(g, v, flash)) onClose() }}>Verkaufen (+{fmtMoney(sellPrice(v))})</button>}
         </div>
         {q && wahl && (

@@ -7,6 +7,7 @@ import NameEdit from './NameEdit.jsx'
 const TABS = {
   FW: [['fahrzeuge', 'Fahrzeuge'], ['markt', 'Fahrzeugmarkt'], ['ausbau', 'Ausbau']],
   RW: [['fahrzeuge', 'Fahrzeuge'], ['markt', 'Fahrzeugmarkt'], ['ausbau', 'Ausbau']],
+  LR: [['fahrzeuge', 'Fahrzeuge'], ['markt', 'Fahrzeugmarkt']], // Luftrettung: Wartung am Standort, kein Ausbau
 }
 
 export const incidentOf = (g, v) => g.incidents.find((i) => i.id === v.incidentId)
@@ -81,7 +82,7 @@ function MarktTab({ g, station, flash }) {
               return (
                 <button key={k} className={`buy${locked ? ' locked' : ''}`} disabled={locked || g.money < d.cost} title={locked ? unlockText(k) : undefined} onClick={() => { if (confirm(`${d.name} für ${fmtMoney(d.cost)} kaufen?`)) { const r = buyVehicle(g, station.id, k); flash(r.ok ? `${d.name} gekauft (−${fmtMoney(d.cost)})` : r.msg) } }}>
                   <b>{d.name}</b>
-                  {d.water > 0 ? <small className="muted">{d.water} l Wasser · {d.as} AS-Trupp{d.as !== 1 ? 's' : ''}</small> : <small className="muted">{d.kind === 'RW' ? 'Rettungsdienst' : 'Sonderfahrzeug'}</small>}
+                  {d.water > 0 ? <small className="muted">{d.water} l Wasser · {d.as} AS-Trupp{d.as !== 1 ? 's' : ''}</small> : <small className="muted">{d.luft ? `Rettungshubschrauber (${d.callsign}), Notarzt` : d.kind === 'RW' ? 'Rettungsdienst' : 'Sonderfahrzeug'}</small>}
                   <small>{locked ? `🔒 ${unlockText(k)}` : `${fmtMoney(d.cost)}${owned ? ` · ${owned} in Besitz` : ''}`}</small>
                 </button>
               )

@@ -21,7 +21,7 @@ export const ROLES = {
   GWM: { name: 'GW-Messtechnik', short: 'GW-Mess', types: ['GWM'] },
   DEKON: { name: 'Dekon-P (GDekon)', short: 'Dekon-P', types: ['DEKON'] },
   RTW: { name: 'Rettungswagen', short: 'RTW', types: ['RTW'] },
-  NEF: { name: 'Notarzt (NEF)', short: 'NEF', types: ['NEF'] },
+  NEF: { name: 'Notarzt (NEF)', short: 'NEF', types: ['NEF', 'RTH'] }, // Rettungshubschrauber bringt den Notarzt
   KTW: { name: 'Krankentransport (N-KTW)', short: 'KTW', types: ['KTW'] },
   KT: { name: 'Rettungswagen oder KTW', short: 'RTW/KTW', types: ['RTW', 'KTW'] },
 }

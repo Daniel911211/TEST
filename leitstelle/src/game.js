@@ -16,8 +16,10 @@ export const MAX_VEHICLES_PER_STATION = Infinity // Stellplätze vorerst unbegre
 
 export const WORKSHOP_COST = 4000
 export const STATION_TYPES = {
-  FW: { name: 'Feuerwache', cost: 5000, color: '#c1121f' },
-  RW: { name: 'Rettungswache', cost: 3000, color: '#e09f00' },
+  FW: { name: 'Feuerwache', plural: 'Feuerwachen', short: 'FW', cost: 5000, color: '#c1121f' },
+  RW: { name: 'Rettungswache', plural: 'Rettungswachen', short: 'RW', cost: 3000, color: '#e09f00' },
+  // Luftrettung: ein Standort (Klinikum Fulda, wie Christoph 28), nur einmal baubar, ab 3 Rettungswachen; RTH kommt gratis mit
+  LR: { name: 'Luftrettungsstation', plural: 'Luftrettungsstationen', short: 'LR', cost: 20000, color: '#2f6fed', needRW: 3, max: 1 },
 }
 
 // ab: Freischaltung – kaufbar ab so vielen Wachen der passenden Art (Feuerwachen bzw. Rettungswachen), wie im Vorbild
@@ -39,10 +41,13 @@ export const VEHICLE_TYPES = {
   RTW: { name: 'RTW', kind: 'RW', cost: 2000, speed: 80, ab: 0 },
   NEF: { name: 'NEF', kind: 'RW', cost: 2500, speed: 95, ab: 3 },
   KTW: { name: 'N-KTW', kind: 'RW', cost: 1500, speed: 80, ab: 0 },
+  // Rettungshubschrauber: fliegt in Luftlinie ohne Umweg, immer mit vollem Tempo, zählt als Notarzt (Rolle NEF);
+  // ob er den Patienten selbst fliegt, entscheidet der Notarzt am Ende des Einsatzes (schwere Fälle). Wartung am Standort.
+  RTH: { name: 'RTH', kind: 'LR', cost: 15000, speed: 220, ab: 0, callsign: 'Christoph 28', luft: true },
 }
 export const countStations = (g, kind) => g.stations.filter((s) => s.kind === kind).length
 export const vehicleUnlocked = (g, type) => countStations(g, VEHICLE_TYPES[type].kind) >= (VEHICLE_TYPES[type].ab || 0)
-export const unlockText = (type) => { const d = VEHICLE_TYPES[type]; return `ab ${d.ab} ${d.kind === 'RW' ? 'Rettungswachen' : 'Feuerwachen'}` }
+export const unlockText = (type) => { const d = VEHICLE_TYPES[type]; return `ab ${d.ab} ${STATION_TYPES[d.kind]?.plural || 'Wachen'}` }
 
 // Einsatzstichworte nach Hessen-Erlass: siehe stichworte.js
 export { INCIDENT_TYPES, ROLES, matchSlots }
@@ -94,7 +99,7 @@ export const km = (a, b) => {
 }
 
 // Schätzung (Luftlinie × Umwegfaktor) – nur für die Anzeige
-export const etaSec = (vehicle, target, factor = 1) => (km(vehicle.pos, target) * DETOUR) / (VEHICLE_TYPES[vehicle.type].speed * factor) * 3600
+export const etaSec = (vehicle, target, factor = 1) => { const d = VEHICLE_TYPES[vehicle.type]; return (km(vehicle.pos, target) * (d.luft ? 1 : DETOUR)) / (d.speed * (d.luft ? 1 : factor)) * 3600 }
 
 // Fährt das Fahrzeug gerade mit Sondersignal? Anfahrt (außer Stichwörter ohne Sondersignal) und Transport schwerer Patienten.
 export function sondersignal(g, v) {
@@ -102,7 +107,7 @@ export function sondersignal(g, v) {
   if (v.status === 7) return (v.patientSeverity || 1) >= 3
   return false
 }
-export const tempoFactor = (g, v) => (sondersignal(g, v) ? 1 : SLOW)
+export const tempoFactor = (g, v) => (VEHICLE_TYPES[v.type].luft || sondersignal(g, v) ? 1 : SLOW)
 
 export const fmtClock = (t) => {
   const s = Math.floor(t) % 86400
@@ -169,22 +174,24 @@ const addLog = (g, text, meta = {}) => {
 export const logAsText = (g, entries = g.log) => [...entries].reverse().map((l) => `${fmtClock(l.t)}  ${(LOG_KINDS[l.kind] || 'Info').padEnd(13)} ${l.text.replace(/\n/g, '\n' + ' '.repeat(21))}`).join('\n')
 
 // Erstes Fahrzeug einer neuen Wache (gratis): Feuerwache wählt ein Löschfahrzeug, Rettungswache bekommt einen RTW.
-export const FIRST_VEHICLES = { FW: ['HLF', 'LF', 'TSF'], RW: ['RTW'] }
+export const FIRST_VEHICLES = { FW: ['HLF', 'LF', 'TSF'], RW: ['RTW'], LR: ['RTH'] }
 // Auswahl fürs Bauformular; die neue Wache zählt bei der Freischaltung schon mit
 export const firstVehicleOptions = (g, kind) => FIRST_VEHICLES[kind].map((type) => {
   const d = VEHICLE_TYPES[type]
   const locked = countStations(g, kind) + 1 < (d.ab || 0)
-  return { type, name: d.name, locked, text: locked ? unlockText(type) : `${d.water} l Wasser · ${d.as} AS-Trupp${d.as !== 1 ? 's' : ''}` }
+  return { type, name: d.luft ? `${d.name} ${d.callsign}` : d.name, locked, text: locked ? unlockText(type) : d.luft ? 'Rettungshubschrauber mit Notarzt' : d.kind === 'RW' ? 'Rettungsdienst' : `${d.water} l Wasser · ${d.as} AS-Trupp${d.as !== 1 ? 's' : ''}` }
 })
 
 export function buildStation(g, kind, pos, name, siteId = null, firstVehicle = null) {
   const def = STATION_TYPES[kind]
   if (g.money < def.cost) return { ok: false, msg: 'Nicht genug Geld.' }
   if (siteId && g.stations.some((s) => s.siteId === siteId)) return { ok: false, msg: 'Hier steht schon eine Wache.' }
+  if (def.max && countStations(g, kind) >= def.max) return { ok: false, msg: `Es kann nur ${def.max === 1 ? 'eine' : def.max} ${def.max === 1 ? def.name : def.plural} geben.` }
+  if (def.needRW && countStations(g, 'RW') < def.needRW) return { ok: false, msg: `${def.name} erst ab ${def.needRW} Rettungswachen.` }
   const opts = firstVehicleOptions(g, kind)
   const first = opts.find((o) => o.type === firstVehicle && !o.locked) || opts.find((o) => !o.locked) || opts[opts.length - 1]
   g.money -= def.cost
-  const station = { id: g.nextId++, kind, pos, siteId, name: name || `${kind === 'FW' ? 'FW' : 'RW'} ${g.stations.filter((s) => s.kind === kind).length + 1}` }
+  const station = { id: g.nextId++, kind, pos, siteId, name: name || `${def.short} ${g.stations.filter((s) => s.kind === kind).length + 1}` }
   g.stations.push(station)
   addVehicle(g, station, first.type) // erstes Fahrzeug gratis
   addLog(g, `${station.name} gebaut (${STATION_TYPES[kind].name}, ${fmtMoney(STATION_TYPES[kind].cost)}), erstes Fahrzeug: ${VEHICLE_TYPES[first.type].name}.`, { kind: 'bau' })
@@ -220,11 +227,13 @@ export function renameVehicle(g, vehicleId, callsign) {
 
 function addVehicle(g, station, type) {
   const n = g.vehicles.filter((v) => v.type === type).length + 1
+  const def = VEHICLE_TYPES[type]
   g.vehicles.push({
     id: g.nextId++,
     type,
     stationId: station.id,
-    callsign: `${station.name} ${VEHICLE_TYPES[type].name} ${n}`,
+    // fester Funkrufname (Hubschrauber: „Christoph 28“), sonst Wache + Typ + Nummer
+    callsign: def.callsign ? (n > 1 ? `${def.callsign} ${n}` : def.callsign) : `${station.name} ${def.name} ${n}`,
     pos: [...station.pos],
     status: 2,
     incidentId: null,
@@ -352,7 +361,7 @@ export function buildWorkshop(g, stationId) {
 
 // Reparatur: eigene Wachen-Werkstatt (40 % günstiger, doppelt so schnell, keine Fahrt) oder Lkw-Werkstatt auf der Karte
 // (Fahrzeug fährt mit Status 6 hin, wartet ggf. auf einen freien Platz, wird repariert und fährt mit Status 1 zurück).
-export const hasOwnWorkshop = (g, v) => !!g.stations.find((x) => x.id === v.stationId)?.workshop
+export const hasOwnWorkshop = (g, v) => !!VEHICLE_TYPES[v.type].luft || !!g.stations.find((x) => x.id === v.stationId)?.workshop // Hubschrauber: Wartung am Standort
 export function repairQuote(g, v) {
   const own = hasOwnWorkshop(g, v)
   const missing = 100 - v.condition
@@ -381,7 +390,7 @@ export function sendToWorkshop(g, vehicleId, workshopId = null) {
     if (g.money < q.cost) return { ok: false, msg: 'Nicht genug Geld.' }
     g.money -= q.cost
     v.status = 6; v.workshop = true; v.werkstatt = null; v.wsPhase = null; v.timer = q.duration
-    addLog(g, `${v.callsign}: Status 6 – in der eigenen Werkstatt (${fmtMin(q.duration)}, ${fmtMoney(q.cost)}).`, { kind: 'status', v })
+    addLog(g, `${v.callsign}: Status 6 – ${VEHICLE_TYPES[v.type].luft ? 'Wartung am Standort' : 'in der eigenen Werkstatt'} (${fmtMin(q.duration)}, ${fmtMoney(q.cost)}).`, { kind: 'status', v })
     return { ok: true }
   }
   const w = workshopId ? workshopOptions(g, v).find((x) => x.id === workshopId) : workshopOptions(g, v)[0]
@@ -752,7 +761,8 @@ function spawnIncident(g) {
   let r = Math.random() * total
   const pick = cands.find((c) => (r -= c.e.gewicht || 1) < 0) || cands[0]
   const { e, type, need } = pick
-  const st = g.stations[Math.floor(Math.random() * g.stations.length)]
+  const bodenwachen = g.stations.filter((s) => s.kind !== 'LR') // Einsätze entstehen im Umfeld der Feuer- und Rettungswachen, nicht der Luftrettung
+  const st = bodenwachen[Math.floor(Math.random() * bodenwachen.length)] || g.stations[0]
   const ang = Math.random() * Math.PI * 2
   const dist = rnd(0.8, 5) // km
   const pos = [st.pos[0] + (Math.cos(ang) * dist) / 111, st.pos[1] + (Math.sin(ang) * dist) / (111 * Math.cos((st.pos[0] * Math.PI) / 180))]
@@ -803,6 +813,7 @@ function moveAlong(v, dt) {
 // true, sobald das Ziel erreicht ist
 function driveTo(g, v, target, dt, onFail) {
   const key = target.join()
+  if (VEHICLE_TYPES[v.type].luft && !(v.route && v.route.key === key)) v.route = { key, pts: [[...target]], i: 0 } // Hubschrauber: Luftlinie, kein Routing
   if (v.route && v.route.key === key) {
     if (!moveAlong(v, dt * tempoFactor(g, v))) return false
     v.route = null
@@ -1002,6 +1013,19 @@ export function tick(g, dt) {
         const count = g.vehicles.filter((v) => v.incidentId === inc.id).length
         addLog(g, `Einsatz erledigt: ${incidentTitle(inc)} (+${fmtMoney(reward)}${bonus > 1 ? ' mit Schnelligkeitsbonus' : ''}, Dauer ${fmtMin(g.t - inc.created)}, ${count} Fahrzeuge).`, { inc })
         let patients = inc.type.patient ? (inc.type.rd === 'MANV' ? 4 : 1) : 0
+        const severity = inc.need.NEF ? 3 : inc.type.severity || 1 // mit Notarzt = schwer
+        // Rettungshubschrauber vor Ort: Der Notarzt entscheidet, ob der Patient geflogen wird – bei schweren Fällen meist (60 %),
+        // ohne bodengebundenen Transportwagen immer, bei leichten Fällen fährt der RTW.
+        const rth = g.vehicles.find((v) => v.incidentId === inc.id && v.status === 4 && VEHICLE_TYPES[v.type].luft)
+        const bodengebunden = g.vehicles.some((v) => v.incidentId === inc.id && v.status === 4 && (v.type === 'RTW' || v.type === 'KTW'))
+        const fliegt = rth && patients > 0 && (!bodengebunden || (severity >= 3 && Math.random() < 0.6))
+        if (rth && patients > 0) addLog(g, fliegt ? `${rth.callsign}: Notarzt entscheidet – Patient wird geflogen (${SEVERITY_TEXT[severity]}).` : `${rth.callsign}: Notarzt entscheidet – Transport bodengebunden mit RTW, Hubschrauber wird frei.`, { v: rth, inc })
+        if (fliegt) { // Hubschrauber nimmt den (ersten) Patienten, bevor die Transportwagen verteilt werden
+          patients--
+          rth.condition = Math.max(0, (rth.condition ?? 100) - rnd(6, 14))
+          rth.incidentId = null; rth.route = null
+          requestHospital(g, rth, severity)
+        }
         for (const v of g.vehicles) {
           if (v.incidentId !== inc.id) continue
           v.condition = Math.max(0, (v.condition ?? 100) - rnd(6, 14))
@@ -1009,7 +1033,7 @@ export function tick(g, dt) {
             patients--
             v.incidentId = null
             v.route = null
-            requestHospital(g, v, inc.need.NEF ? 3 : inc.type.severity || 1) // mit Notarzt = schwer
+            requestHospital(g, v, severity)
           } else { releaseVehicle(v); addLog(g, `${v.callsign}: Status 1 – frei, Rückfahrt zur Wache.`, { v, inc }) }
         }
         const elv = g.vehicles.find((v) => v.id === inc.el)

@@ -6,7 +6,7 @@ export const VEHICLE_GROUPS = [
   ['fw', 'Feuerwehr'],
   ['rd', 'Rettungsdienst'],
 ]
-export const groupOf = (type) => (VEHICLE_TYPES[type].kind === 'RW' ? 'rd' : 'fw')
+export const groupOf = (type) => (['RW', 'LR'].includes(VEHICLE_TYPES[type].kind) ? 'rd' : 'fw')
 export const groupName = (key) => VEHICLE_GROUPS.find(([k]) => k === key)?.[1] || key
 
 export const stationOf = (g, v) => g.stations.find((s) => s.id === v.stationId)

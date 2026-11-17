@@ -89,7 +89,7 @@ export default function App() {
   }
   const onMapClick = (pos) => {
     if (!build) return
-    if (siteMode(build.kind)) { flash(`${STATION_TYPES[build.kind].name}n können nur an den markierten Standorten gebaut werden.`); return }
+    if (siteMode(build.kind)) { flash(`${STATION_TYPES[build.kind].plural} können nur an den markierten Standorten gebaut werden.`); return }
     setBuild({ ...build, pos, site: null })
   }
   const doBuild = () => {
