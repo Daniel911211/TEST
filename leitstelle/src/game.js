@@ -291,7 +291,19 @@ function startPanne(g, v, inc) {
   g.money -= abschlepp + w.cost
   v.status = 6; v.workshop = true; v.panne = true; v.werkstatt = w.id; v.wsPhase = 'abschlepper'
   v.wsDuration = w.duration; v.timer = Math.round(600 + w.dist * 30); v.route = null; v.incidentId = null
+  v.towFrom = [...w.pos]; v.towTotal = v.timer // Abschlepper startet an der Werkstatt (für die Kartenanzeige)
   addLog(g, `${v.callsign}: Panne beim Ausrücken, Fahrzeug bleibt liegen! Abschleppdienst ist angefordert (ca. ${fmtMin(v.timer)}), Ziel ist die Werkstatt ${w.name} (${w.ort}). Kosten ${fmtMoney(abschlepp + w.cost)}.`, { kind: 'status', v, inc })
+}
+
+// Position des Abschleppwagens zu einem Pannenfahrzeug (null, wenn keiner unterwegs ist): fährt in Luftlinie von der Werkstatt zur Pannenstelle, schleppt dann das Fahrzeug.
+export function towPos(v) {
+  if (v.status !== 6 || !v.panne) return null
+  if (v.wsPhase === 'abschlepper' && v.towFrom && v.towTotal) {
+    const f = Math.min(1, Math.max(0, 1 - v.timer / v.towTotal))
+    return [v.towFrom[0] + (v.pos[0] - v.towFrom[0]) * f, v.towFrom[1] + (v.pos[1] - v.towFrom[1]) * f]
+  }
+  if (v.wsPhase === 'fahrt') return [v.pos[0] + 0.0002, v.pos[1] + 0.0002] // am Haken, knapp vor dem Fahrzeug
+  return null
 }
 
 export function dispatch(g, incidentId, vehicleIds) {

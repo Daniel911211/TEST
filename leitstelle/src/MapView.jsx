@@ -1,7 +1,7 @@
 import { WERKSTAETTEN, workshopBusy } from './game.js'
 import { useEffect, useRef } from 'react'
 import L from 'leaflet'
-import { CENTER, HOSPITALS, VEHICLE_TYPES, incidentTitle } from './game.js'
+import { CENTER, HOSPITALS, VEHICLE_TYPES, incidentTitle, towPos } from './game.js'
 
 const icon = (html, cls, size = 28) =>
   L.divIcon({ html, className: cls, iconSize: [size, size], iconAnchor: [size / 2, size / 2] })
@@ -9,7 +9,7 @@ const icon = (html, cls, size = 28) =>
 export default function MapView({ game, sites, selected, focus, buildMode, buildPos, onMapClick, onSelectIncident, onSelectStation, onSelectVehicle, onSelectHospital, onSelectWorkshop, onSiteClick }) {
   const el = useRef(null)
   const map = useRef(null)
-  const layers = useRef({ st: new Map(), veh: new Map(), inc: new Map() })
+  const layers = useRef({ st: new Map(), veh: new Map(), inc: new Map(), tow: new Map() })
   const cb = useRef({})
   const gameRef = useRef(game)
   gameRef.current = game
@@ -43,6 +43,11 @@ export default function MapView({ game, sites, selected, focus, buildMode, build
         if (!v) continue
         const ll = mk.getLatLng()
         if (ll.lat !== v.pos[0] || ll.lng !== v.pos[1]) mk.setLatLng(v.pos)
+      }
+      for (const [id, mk] of layers.current.tow) {
+        const v = gameRef.current.vehicles.find((x) => x.id === id)
+        const p = v && towPos(v)
+        if (p) mk.setLatLng(p)
       }
       raf = requestAnimationFrame(loop)
     }
@@ -98,9 +103,15 @@ export default function MapView({ game, sites, selected, focus, buildMode, build
       }), (mk, v) => {
         const ll = mk.getLatLng()
         if (ll.lat !== v.pos[0] || ll.lng !== v.pos[1]) mk.setLatLng(v.pos)
-        const cls = `mk mk-veh t-${VEHICLE_TYPES[v.type].kind}${focus?.vehicleId === v.id ? ' sel' : ''}`
+        const cls = `mk mk-veh t-${VEHICLE_TYPES[v.type].kind}${v.status === 6 ? ' s6' : ''}${focus?.vehicleId === v.id ? ' sel' : ''}`
         setIcon(mk, `${v.status}|${cls}`, () => icon(`${v.status}`, cls, 24))
         setTip(mk, `${v.callsign} · Status ${v.status}`)
+      })
+    // Abschleppwagen zu Pannenfahrzeugen (fährt zur Pannenstelle und schleppt das Fahrzeug zur Werkstatt)
+    sync(layers.current.tow, game.vehicles.filter((v) => towPos(v)), (v) =>
+      L.marker(towPos(v), { icon: icon('🚛', 'mk mk-tow', 26), zIndexOffset: 350 }), (mk, v) => {
+        mk.setLatLng(towPos(v))
+        setTip(mk, `Abschleppdienst für ${v.callsign}${v.wsPhase === 'abschlepper' ? ' (auf Anfahrt)' : ' (schleppt zur Werkstatt)'}`)
       })
   })
 

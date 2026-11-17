@@ -215,6 +215,8 @@ textarea.vermerk { width:100%; background:#0f1319; color:var(--text); border:1px
 .mk-st { border-radius:6px; } .mk-FW { background:#c1121f; } .mk-RW { background:#e09f00; color:#000; } .mk-LR { background:#2f6fed; font-size:11px; }
 .mk-inc { border-radius:50%; background:#d62828; animation:pulse 1s infinite; } .mk-inc.working { background:#2f9e44; animation:none; } .mk-inc.sel { outline:3px solid #ffd43b; }
 .mk-veh { border-radius:50%; font-size:12px; } .t-FW, .t-ANY { background:#8e1520; } .t-RW { background:#b87f00; } .t-LR { background:#1d4ed8; }
+.mk-veh.s6 { background:#6b7280; } /* Status 6: nicht einsatzbereit, grau */
+.mk-tow { border-radius:6px; background:#f59f00; font-size:15px; }
 .mk-site { border-radius:50%; background:#6b7280; width:16px; height:16px; opacity:.85; } .mk-site.site-RW { border-radius:3px; } .mk-site.site-FW.active { background:#c1121f; } .mk-site.site-RW.active { background:#e09f00; } .mk-site.site-LR { border-radius:3px; transform:rotate(45deg); } .mk-site.site-LR.active { background:#2f6fed; } .mk-site.active { box-shadow:0 0 0 4px #ffffff88; cursor:pointer; }
 .mk-hosp { border-radius:4px; background:#fff; color:#d62828; }
 .cond { height:5px; background:#0006; border-radius:3px; margin:4px 0; overflow:hidden; } .cond i { display:block; height:100%; }
