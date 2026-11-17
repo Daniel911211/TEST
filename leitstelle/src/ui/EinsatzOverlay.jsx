@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { ROLES, VEHICLE_TYPES, SLOW, LOG_KINDS, matchSlots, isAvailable, etaSec, dispatch, recommend, recallVehicle, askElw2, requestLagemeldung, testEskalation, addVermerk, incidentTitle, fmtClock, fmtMin, fmtMoney } from '../game.js'
+import { ROLES, VEHICLE_TYPES, SLOW, LOG_KINDS, matchSlots, isAvailable, etaSec, dispatch, recommend, recallVehicle, askElw2, requestLagemeldung, testEskalation, keineFahrzeugeVerfuegbar, addVermerk, incidentTitle, fmtClock, fmtMin, fmtMoney } from '../game.js'
 import { VEHICLE_GROUPS, groupOf, stationOf } from './helpers.js'
 import Overlay from './Overlay.jsx'
 import { ALARM_SOUNDS, defaultAlarm, playAlarm, stopAlarm } from '../sound.js'
@@ -50,10 +50,12 @@ function Fenster({ g, inc, onClose, onLocate, flash, onPrev, onNext }) {
             {inc.type.water > 0 && <span>Wasser {sum('water')} / {inc.type.water} l · Atemschutztrupps {sum('as')} / {inc.type.as}</span>}
             {elVeh && <span>Einsatzleitung: <b>{elVeh.callsign}</b></span>}
             {inc.revealed && <span className="muted">Lagemeldung liegt vor (siehe Tagebuch).</span>}
+            {inc.reduziert > 0 && <span className="amber">Bedarf auf vorhandene Kräfte gesenkt (ohne {inc.reduziert} Fahrzeug{inc.reduziert !== 1 ? 'e' : ''}), Bearbeitung dauert länger.</span>}
           </div>
           {Object.keys(missing).length > 0 && <div className="ef-miss">Fehlende Fahrzeuge: {needText(missing)}</div>}
           <div className="ef-actions">
             {elVeh && !inc.revealed && <button onClick={() => { const r = requestLagemeldung(g, inc.id); if (!r.ok) flash(r.msg) }}>📻 Lagemeldung anfordern</button>}
+            {Object.keys(missing).length > 0 && assigned.length > 0 && <button title="Leitstelle meldet der Einsatzleitung, dass keine weiteren Fahrzeuge verfügbar sind: Bedarf sinkt auf die alarmierten Kräfte, der Einsatz dauert länger" onClick={() => { const r = keineFahrzeugeVerfuegbar(g, inc.id); flash(r.msg, r.ok ? 5000 : 2500) }}>📻 Keine weiteren Fahrzeuge verfügbar</button>}
             {inc.type.elw2Ask && !inc.elw2Asked && elwAtScene && <button onClick={() => { const r = askElw2(g, inc.id); if (!r.ok) flash(r.msg) }}>📻 ELW 1 anfunken: ELW 2 nötig?</button>}
             {import.meta.env.DEV && <button className="test" title="Nur im Entwicklungsmodus: erzwingt die Hochstufung des Stichworts" onClick={() => flash(testEskalation(g, inc.id).msg, 7000)}>🧪 Lage ausweiten (Test)</button>}
           </div>

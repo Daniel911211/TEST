@@ -4,12 +4,14 @@
 //   QUITTUNGEN  Reaktionen des Fahrzeugs auf die Antwort (je Situation mehrere Varianten, eine wird zufällig gewählt)
 //   NACHFRAGEN  Sprechwunsch der Einsatzleitung, wenn zugesagte Kräfte nach 5 Spielminuten noch fehlen
 // Im Funk gibt es kein „Bitte“ und kein „Danke“ (Funkdisziplin): Texte entsprechend knapp halten.
-// Platzhalter: {kraefte} = Fahrzeuge bzw. Rollen (z. B. „1× RTW, 1× NEF“), {eta} = Eintreffzeit, {art} = Art der Meldung.
+// Platzhalter: {kraefte} = Fahrzeuge bzw. Rollen (z. B. „1× RTW, 1× NEF“), {eta} = Eintreffzeit, {art} = Art der Meldung, {dauer} = Mehrdauer.
 
 export const ANTWORTEN = {
   anfahrt: 'Ja, {kraefte} auf Anfahrt, Eintreffen in ca. {eta}.',
   zusage: 'Verstanden, {kraefte} wird alarmiert.',
   keine: 'Keine weiteren Kräfte auf Anfahrt.',
+  // Es fehlen laut Stichwort noch Kräfte, die Leitstelle hat aber keine: Einsatz wird mit den Kräften vor Ort abgearbeitet (dauert länger)
+  keineVerfuegbar: 'Keine weiteren Einsatzfahrzeuge verfügbar. Arbeiten Sie mit den Kräften vor Ort.',
   abschluss: 'Verstanden, Einsatz beendet. Rücken Sie ein.',
   aufgenommen: '{art} aufgenommen, verstanden.',
 }
@@ -33,11 +35,11 @@ export const QUITTUNGEN = {
     'Verstanden, kommen mit den Kräften vor Ort zurecht.',
     'Verstanden, keine weiteren Kräfte erforderlich.',
   ],
-  // Keine weiteren Kräfte, obwohl laut Stichwort noch etwas fehlt
-  keineFehlt: [
-    'Verstanden. Hinweis: Laut Stichwort fehlt noch {kraefte}.',
-    'Verstanden. Weise darauf hin, dass {kraefte} laut Ausrückeordnung noch aussteht.',
-    'Verstanden. Hinweis: {kraefte} ist für dieses Stichwort noch nicht alarmiert.',
+  // Keine weiteren Kräfte verfügbar, obwohl laut Stichwort noch etwas fehlt: Einsatzleitung arbeitet mit dem, was da ist
+  reduziert: [
+    'Verstanden, arbeiten mit den Kräften vor Ort. Einsatzdauer verlängert sich um etwa {dauer}.',
+    'Verstanden, ohne {kraefte} wird es länger dauern, etwa {dauer} mehr. Wir bleiben dran.',
+    'Verstanden, Maßnahmen werden mit den vorhandenen Kräften nacheinander abgearbeitet, rechnen mit etwa {dauer} länger.',
   ],
   // Abschlussmeldung quittiert
   abschluss: [

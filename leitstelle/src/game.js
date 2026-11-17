@@ -645,6 +645,38 @@ export function addVermerk(g, incidentId, text, by = 'Leitstelle') {
 }
 
 // Sprechwunsch (Lage/Nachforderung) beantworten, optional mit Vermerk
+// --- Keine weiteren Einsatzfahrzeuge verfügbar: Einsatz wird mit den alarmierten Kräften abgearbeitet ---
+// Der Bedarf sinkt auf das, was alarmiert ist; die Restarbeit wächst um den fehlenden Anteil (halbe Kräfte = ×1,5).
+// Rückgabe: { ok, msg, missing, extra } mit extra = zusätzliche Bearbeitungszeit in Sekunden.
+export function arbeitenMitVorhandenen(g, incidentId) {
+  const inc = g.incidents.find((i) => i.id === incidentId)
+  if (!inc) return { ok: false, msg: 'Einsatz nicht gefunden.' }
+  const assigned = g.vehicles.filter((v) => v.incidentId === inc.id)
+  if (!assigned.length) return { ok: false, msg: 'Mindestens ein Fahrzeug muss alarmiert sein.' }
+  const missing = matchSlots(inc.need, assigned)
+  if (!Object.keys(missing).length) return { ok: false, msg: 'Es fehlt nichts.' }
+  const total = Object.values(inc.need).reduce((a, b) => a + b, 0)
+  const fehlt = Object.values(missing).reduce((a, b) => a + b, 0)
+  const share = Math.min(0.9, fehlt / total)
+  const extra = Math.round(inc.workLeft * share)
+  inc.workLeft += extra
+  for (const [r, n] of Object.entries(missing)) { inc.need[r] -= n; if (inc.need[r] <= 0) delete inc.need[r] }
+  inc.reduziert = (inc.reduziert || 0) + fehlt
+  addLog(g, `Bedarf auf vorhandene Kräfte gesenkt (ohne ${needText(missing)}), Bearbeitung dauert etwa ${fmtMin(extra)} länger.`, { kind: 'status', inc, quiet: true })
+  return { ok: true, missing, extra }
+}
+// Leitstelle funkt das von sich aus (Knopf im Einsatz-Overlay): Ansprechpartner ist die Einsatzleitung, sonst das erste alarmierte Fahrzeug
+export function keineFahrzeugeVerfuegbar(g, incidentId) {
+  const inc = g.incidents.find((i) => i.id === incidentId)
+  const v = inc && (g.vehicles.find((x) => x.id === inc.el) || g.vehicles.find((x) => x.incidentId === inc.id))
+  if (!v) return { ok: false, msg: 'Kein alarmiertes Fahrzeug.' }
+  const r = arbeitenMitVorhandenen(g, incidentId)
+  if (!r.ok) return r
+  addLog(g, `Leitstelle an ${v.callsign}: ${ANTWORTEN.keineVerfuegbar}`, { v, inc, kind: 'leitstelle' })
+  addLog(g, `${v.callsign}: ${fill(pick(QUITTUNGEN.reduziert), { kraefte: needText(r.missing), dauer: fmtMin(r.extra) })}`, { v, inc, kind: 'quittung' })
+  return { ok: true, msg: `${v.callsign} arbeitet mit den Kräften vor Ort (etwa ${fmtMin(r.extra)} länger).` }
+}
+
 // --- Antwort der Leitstelle auf einen Sprechwunsch (Texte in data/funk-antworten.js) ---
 // Vorschläge aus der Lage (Fahrzeuge auf Anfahrt, fehlende Rollen), Quittung des Fahrzeugs im Funk; bei einer Zusage
 // („… wird alarmiert“) hakt die Einsatzleitung nach 5 Spielminuten nach, wenn die Kräfte noch nicht alarmiert sind.
@@ -665,7 +697,8 @@ export function answerOptions(g, vehicleId) {
       out.push({ text: fill(ANTWORTEN.anfahrt, { kraefte: typeCounts(enRoute), eta: fmtMin(eta) }), zusage: false })
     }
     if (Object.keys(missing).length) out.push({ text: fill(ANTWORTEN.zusage, { kraefte: needText(missing) }), zusage: true })
-    if (!enRoute.length && sw.kind !== 'abschluss') out.push({ text: ANTWORTEN.keine, zusage: false })
+    // fehlende Kräfte, die die Leitstelle nicht hat: Einsatz mit den vorhandenen abarbeiten; sonst „keine weiteren auf Anfahrt“
+    if (sw.kind !== 'abschluss') { if (Object.keys(missing).length) out.push({ text: ANTWORTEN.keineVerfuegbar, zusage: 'reduzieren' }); else if (!enRoute.length) out.push({ text: ANTWORTEN.keine, zusage: false }) }
   }
   out.push({ text: fill(ANTWORTEN.aufgenommen, { art: SPRECH_KIND[sw.kind] || 'Meldung' }), zusage: false })
   return out
@@ -677,10 +710,12 @@ function quittung(g, inc, sw, text, zusage) {
   const missing = matchSlots(inc.need, g.vehicles.filter((x) => x.incidentId === inc.id))
   const fehlt = Object.keys(missing).length > 0
   const kraefte = needText(missing)
-  const promised = zusage ?? (fehlt && /alarmier|unterwegs|schick|kommt|auf dem weg/i.test(text))
+  const reduzieren = zusage === 'reduzieren' || (zusage == null && fehlt && /^nein\b|keine weiteren|nicht verfügbar|keine .*verfügbar/i.test(text))
+  if (reduzieren && fehlt) { const r = arbeitenMitVorhandenen(g, inc.id); if (r.ok) return fill(pick(QUITTUNGEN.reduziert), { kraefte, dauer: fmtMin(r.extra) }) }
+  const promised = zusage === true || (zusage == null && fehlt && /alarmier|unterwegs|schick|kommt|auf dem weg/i.test(text))
   if (promised && fehlt) { inc.zusage = { roles: { ...missing }, at: g.t }; return fill(pick(QUITTUNGEN.zusage), { kraefte }) }
   if (/^ja\b|anfahrt|eintreffen/i.test(text)) return pick(QUITTUNGEN.anfahrt)
-  if (/^nein\b|keine weiteren/i.test(text)) return fehlt ? fill(pick(QUITTUNGEN.keineFehlt), { kraefte }) : pick(QUITTUNGEN.keineOk)
+  if (/^nein\b|keine weiteren/i.test(text)) return pick(QUITTUNGEN.keineOk)
   return pick(QUITTUNGEN.standard)
 }
 // answer = Antwort der Leitstelle (leer = nur quittieren)
