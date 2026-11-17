@@ -54,7 +54,7 @@ function ortsname(name) {
 export function durchsageText(stationen = []) {
   const fw = [...new Set(stationen.filter((s) => s.kind === 'FW').map((s) => ortsname(s.name)))]
   const rd = [...new Set(stationen.filter((s) => s.kind !== 'FW' && s.kind !== 'LR').map((s) => s.name))]
-  const nenne = (l) => (l.length > 3 ? `${l.slice(0, 3).join(', ')} und weitere` : l.length > 1 ? `${l.slice(0, -1).join(', ')} und ${l[l.length - 1]}` : l[0])
+  const nenne = (l) => (l.length > 1 ? `${l.slice(0, -1).join(', ')} und ${l[l.length - 1]}` : l[0])
   const wer = fw.length ? `die Feuerwehr ${nenne(fw)}` : rd.length ? `den Rettungsdienst ${nenne(rd)}` : 'die Feuerwehr'
   return `Alarm für ${wer}.`
 }
