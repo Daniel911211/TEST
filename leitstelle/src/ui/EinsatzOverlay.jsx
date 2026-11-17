@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { ROLES, VEHICLE_TYPES, SLOW, LOG_KINDS, matchSlots, isAvailable, etaSec, dispatch, recommend, recallVehicle, askElw2, requestLagemeldung, testEskalation, keineFahrzeugeVerfuegbar, addVermerk, incidentTitle, fmtClock, fmtMin, fmtMoney } from '../game.js'
 import { VEHICLE_GROUPS, groupOf, stationOf } from './helpers.js'
 import Overlay from './Overlay.jsx'
-import { ALARM_SOUNDS, defaultAlarm, playAlarm, stopAlarm } from '../sound.js'
+import { ALARM_SOUNDS, defaultAlarm, playAlarm, stopAlarm, durchsageText } from '../sound.js'
 
 const needText = (need) => Object.entries(need).map(([k, n]) => `${n}× ${ROLES[k].short}`).join(', ')
 
@@ -32,7 +32,7 @@ function Fenster({ g, inc, onClose, onLocate, flash, onPrev, onNext }) {
     .filter((v) => groupOf(v.type) === filter)
     .sort((a, b) => etaSec(a, inc.pos, tf) - etaSec(b, inc.pos, tf))
   const toggle = (id, on) => setPicked(on ? [...picked, id] : picked.filter((x) => x !== id))
-  const send = () => { const r = dispatch(g, inc.id, picked); if (r?.ok !== false && picked.length) playAlarm(ton); setPicked([]) }
+  const send = () => { const r = dispatch(g, inc.id, picked); if (r?.ok !== false && picked.length) playAlarm(ton, false, durchsageText(inc)); setPicked([]) }
   const state = inc.status === 'working' ? `in Bearbeitung · noch ${fmtMin(inc.workLeft)}` : inc.dispatched ? 'Kräfte alarmiert' : 'offen'
 
   return (
@@ -91,8 +91,8 @@ function Fenster({ g, inc, onClose, onLocate, flash, onPrev, onNext }) {
                 {ALARM_SOUNDS.map((s) => <button key={s.id} className={ton === s.id ? 'on' : ''} title={s.hint} onClick={() => setTon(s.id)}>{s.name}</button>)}
               </span>
               <span className="nowrap">
-                <button className="small" disabled={ton === 'none'} title="Gewählten Ton anhören" onClick={() => playAlarm(ton, true)}>▶ Anhören</button>
-                <button className="small" title="Ton anhalten" onClick={stopAlarm}>■</button>
+                <button className="small" disabled={ton === 'none'} title="Gewählten Ton mit Durchsage anhören" onClick={() => playAlarm(ton, true, durchsageText(inc))}>▶ Anhören</button>
+                <button className="small" title="Ton und Durchsage anhalten" onClick={stopAlarm}>■</button>
               </span>
               <small className="muted">Stichwort-Auswahl folgt später.</small>
               <button className="primary alarm-knopf" disabled={!picked.length} onClick={send}>Alarmieren ({picked.length})</button>
@@ -132,10 +132,10 @@ function Fenster({ g, inc, onClose, onLocate, flash, onPrev, onNext }) {
   )
 }
 
-// Einsatztagebuch: alle Ereignisse des Einsatzes aus dem Protokoll (chronologisch) plus Vermerke der Leitstelle
+// Einsatztagebuch: alle Ereignisse des Einsatzes aus dem Protokoll (neueste oben) plus Vermerke der Leitstelle
 function Tagebuch({ g, inc, flash }) {
   const [text, setText] = useState('')
-  const list = g.log.filter((l) => l.inc === inc.id).reverse()
+  const list = g.log.filter((l) => l.inc === inc.id) // g.log ist neueste-zuerst: Aktuelles steht oben
   const add = () => { const r = addVermerk(g, inc.id, text); if (r.ok) setText(''); else flash(r.msg) }
   return (
     <div className="ef-block tagebuch">
