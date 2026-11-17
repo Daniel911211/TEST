@@ -166,7 +166,7 @@ button.alarm.dispatched { border-color:#6a5a1a; background:#3d3414; color:#ffe9a
 .sprech-pin:hover { background:#3a1c2a; }
 .sprech-pin small { margin-left:auto; text-align:right; }
 .st.blink { animation:blink5 .9s steps(1) infinite; }
-@keyframes blink5 { 50% { background:#fff; color:#e91e63; } }
+@keyframes blink5 { 50% { background:#fff; color:#1e88e5; } }
 .tag-sprech-lage { background:var(--amber); color:#000; } .tag-sprech-folge { background:#ff8c42; color:#000; } .tag-sprech-nachforderung { background:#ff4d4d; color:#000; } .tag-sprech-abschluss { background:var(--green); color:#000; } .tag-sprech-klinik { background:#e91e63; color:#fff; }
 header .alert.click { cursor:pointer; text-decoration:underline dotted; }
 .funkspruch { background:#0f1319; border-left:3px solid var(--amber); padding:8px 10px; border-radius:0 6px 6px 0; margin:4px 0 10px; font-style:italic; line-height:1.5; }
@@ -207,8 +207,9 @@ textarea.vermerk { width:100%; background:#0f1319; color:var(--text); border:1px
 
 /* Status- und Kartenmarker */
 .st { display:inline-block; min-width:20px; text-align:center; border-radius:4px; color:#000; font-weight:700; background:#9aa; font-size:12px; padding:0 3px; }
-.st.s2 { background:#4caf50; } .st.s1 { background:#8bc34a; } .st.s3 { background:#ffc107; } .st.s4 { background:#ff7043; } .st.s7, .st.s8 { background:#42a5f5; }
-.st.s5 { background:#e91e63; } .st.s6 { background:#607d8b; }
+.st.s2 { background:#4caf50; } .st.s1 { background:#8bc34a; } .st.s3 { background:#ffc107; } /* Statusfarben nach FMS-Statuspanel (Feuersoftware): 1 hellgrün, 2 grün, 3 gelb, 4 rot, 5 blau, 6/7/8 grau */
+.st.s4 { background:#e53935; } .st.s7, .st.s8, .st.s6 { background:#6b7280; }
+.st.s5 { background:#1e88e5; }
 .banner, .toast { position:absolute; left:50%; transform:translateX(-50%); z-index:1000; background:#000c; padding:8px 14px; border-radius:8px; }
 .banner { top:10px; } .toast { bottom:20px; background:var(--red); }
 .mk { display:flex; align-items:center; justify-content:center; font-weight:800; color:#fff; border:2px solid #fff; box-shadow:0 1px 4px #0008; }
