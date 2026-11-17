@@ -50,12 +50,15 @@ function ortsname(name) {
   return teile.length === 2 && !/^(Mitte|Nord|Ost|Süd|West|Zentrum)$/i.test(teile[1]) ? teile[1] : rest
 }
 // „Alarm für die Feuerwehr Neuhof.“ – genannt werden die alarmierten Wachen (Namen = Stationsnamen, ohne Vorsilbe „Feuerwehr“);
-// bei mehreren Wachen werden alle aufgezählt („Neuhof, Giesel und Dorfborn“). Reine Rettungsdienst-Alarmierung: „für den Rettungsdienst …“.
+// bei mehreren Wachen werden alle aufgezählt („Neuhof, Giesel und Dorfborn“). Ohne Feuerwehr: „für den Rettungsdienst Neuhof“ bzw. „für Christoph 28“.
 export function durchsageText(stationen = []) {
   const fw = [...new Set(stationen.filter((s) => s.kind === 'FW').map((s) => ortsname(s.name)))]
-  const rd = [...new Set(stationen.filter((s) => s.kind !== 'FW' && s.kind !== 'LR').map((s) => s.name))]
+  const rd = [...new Set(stationen.filter((s) => s.kind !== 'FW' && s.kind !== 'LR').map((s) => s.name.replace(/^Rettungswache\s+/i, '')))]
+  const lr = [...new Set(stationen.filter((s) => s.kind === 'LR').map((s) => (s.name.match(/Christoph\s*\d+/i) || [s.name])[0]))] // „Christoph 28“
   const nenne = (l) => (l.length > 1 ? `${l.slice(0, -1).join(', ')} und ${l[l.length - 1]}` : l[0])
-  const wer = fw.length ? `die Feuerwehr ${nenne(fw)}` : rd.length ? `den Rettungsdienst ${nenne(rd)}` : 'die Feuerwehr'
+  // Mit Feuerwehr dabei wird nur sie genannt; sonst Rettungsdienst und/oder Luftrettung
+  const teile = [rd.length && `den Rettungsdienst ${nenne(rd)}`, lr.length && nenne(lr)].filter(Boolean)
+  const wer = fw.length ? `die Feuerwehr ${nenne(fw)}` : teile.length ? teile.join(' und ') : 'die Feuerwehr'
   return `Alarm für ${wer}.`
 }
 // Deutsche Stimme: bevorzugt eine natürliche (Online-/Google-/Microsoft-Stimme), sonst die erste deutsche
