@@ -51,12 +51,9 @@ const WORTE = {
 }
 export const spokenCode = (code) => (code.match(/[A-Za-zÄÖÜäöü]+|\d+/g) || [])
   .map((t) => WORTE[t] || (t.length > 1 ? t[0] + t.slice(1).toLowerCase() : t)).join(' ')
-// „Einsatz für die Feuerwehr: Feuer 3, Bauentwicklung im Museum. Einsatzbereitschaft herstellen.“ (Rettungsdienst-Stichworte R/KTP: „für den Rettungsdienst“)
-export const durchsageText = (inc) => {
-  const code = typeCode(inc.type)
-  const wer = /^(F|H)/.test(code) ? 'die Feuerwehr' : 'den Rettungsdienst'
-  return `Einsatz für ${wer}: ${spokenCode(code)}${inc.szenario ? ', ' + inc.szenario.name : ''}. Einsatzbereitschaft herstellen.`
-}
+// Beginnt immer mit „Feuerwehr“ (auch bei Rettungsdienst-Stichworten): „Feuerwehr, Feuer 3, Bauentwicklung im Museum. Einsatzbereitschaft herstellen.“
+export const durchsageText = (inc) =>
+  `Feuerwehr, ${spokenCode(typeCode(inc.type))}${inc.szenario ? ', ' + inc.szenario.name : ''}. Einsatzbereitschaft herstellen.`
 // Deutsche Stimme: bevorzugt eine natürliche (Online-/Google-/Microsoft-Stimme), sonst die erste deutsche
 function stimme() {
   const vs = sprache.getVoices().filter((v) => /^de([-_]|$)/i.test(v.lang))
