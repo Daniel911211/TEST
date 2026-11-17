@@ -138,9 +138,9 @@ function Tagebuch({ g, inc, flash }) {
   const list = g.log.filter((l) => l.inc === inc.id).reverse()
   const add = () => { const r = addVermerk(g, inc.id, text); if (r.ok) setText(''); else flash(r.msg) }
   return (
-    <div className="ef-block">
+    <div className="ef-block tagebuch">
       <h4>Einsatztagebuch {list.length > 0 && <span className="count">{list.length}</span>}</h4>
-      {/* feste Höhe, innen scrollbar (statt Ein-/Ausklappen); neueste Einträge oben */}
+      {/* bis 420 px hoch, innen scrollbar; schrumpft als einziger Block, wenn das Overlay sonst scrollen müsste; neueste Einträge oben */}
       <div className="tagebuch-liste">
         {list.length === 0 && <small className="muted">Noch keine Einträge.</small>}
         {list.map((e, i) => (

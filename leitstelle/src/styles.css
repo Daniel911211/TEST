@@ -72,7 +72,11 @@ button.alarm.dispatched { border-color:#6a5a1a; background:#3d3414; color:#ffe9a
 .bar { height:5px; background:#0006; border-radius:3px; margin-top:4px; overflow:hidden; } .bar i { display:block; height:100%; background:var(--green); }
 
 /* Einsatzfenster */
-.einsatz-fenster { display:flex; flex-direction:column; }
+/* Einsatz-Overlay: volle Höhe, nur der Tagebuch-Block schrumpft (innen scrollbar), damit das Overlay selbst keine Scrollleiste bekommt */
+.einsatz-fenster { display:flex; flex-direction:column; height:100%; }
+.einsatz-fenster > .ef-head, .einsatz-fenster > .ef-block { flex:none; }
+.einsatz-fenster > .ef-block.tagebuch { flex:0 1 auto; min-height:0; display:flex; flex-direction:column; }
+.ef-block.tagebuch > h4, .ef-block.tagebuch > .vermerk-neu { flex:none; }
 .ef-head { padding:8px 10px; border-bottom:1px solid var(--line); }
 .ef-head h3 { font-size:15px; }
 .ef-facts { display:flex; flex-direction:column; gap:2px; margin-top:4px; }
@@ -161,7 +165,7 @@ textarea.vermerk { width:100%; background:#0f1319; color:var(--text); border:1px
 .vermerk-zeile { padding:4px 0; border-bottom:1px dashed var(--line); } .vermerk-zeile div { white-space:pre-wrap; }
 .funkspruch, .tbl td { white-space:pre-line; }
 .vermerk-neu { margin-top:6px; }
-.tagebuch-liste { max-height:420px; overflow-y:auto; padding-right:6px; }
+.tagebuch-liste { flex:0 1 auto; min-height:120px; max-height:420px; overflow-y:auto; padding-right:6px; }
 
 /* Funk */
 .funk-list { list-style:none; margin:0; padding:4px 10px; }
