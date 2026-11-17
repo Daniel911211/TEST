@@ -168,7 +168,7 @@ export default function App() {
         <EinsatzPanel g={g} selectedId={incidentId} onOpenIncident={openIncident} onOpenSprech={openSprech} />
       </div>
       <div className="bottom">
-        <WachenPanel g={g} building={!!build} onStartBuild={startBuild} sel={wsel} setSel={setWsel} onOpenStation={openStation} onOpenVehicle={openVehicle} onLocate={locateVehicle} />
+        <WachenPanel g={g} building={!!build} onStartBuild={startBuild} sel={wsel} setSel={setWsel} onOpenStation={openStation} onOpenVehicle={openVehicle} onLocate={locateVehicle} flash={flash} />
         <SprechwunschPanel g={g} onOpenHospital={openHospital} />
         <FunkPanel g={g} onOpenSprech={openSprech} onOpenVehicle={openVehicle} onOpenIncident={openIncident} onLocate={locateVehicle} />
       </div>

@@ -1,10 +1,10 @@
 import { useState } from 'react'
 import Suchfeld from './Suchfeld.jsx'
-import { STATION_TYPES, STATUS_TEXT } from '../game.js'
+import { STATION_TYPES, STATUS_TEXT, sendToWorkshop } from '../game.js'
 import { vehiclesOf, stationTypeName, shortName } from './helpers.js'
 
 // Unten links: Wachenliste mit Fahrzeugen und Bauknöpfe. Details öffnen das Wachen- bzw. Fahrzeug-Overlay über der Karte.
-export default function WachenPanel({ g, building, onStartBuild, sel, setSel, onOpenStation, onOpenVehicle, onLocate }) {
+export default function WachenPanel({ g, building, onStartBuild, sel, setSel, onOpenStation, onOpenVehicle, onLocate, flash }) {
   const [typ, setTyp] = useState('alle')
   const [q, setQ] = useState('')
   const list = g.stations
@@ -40,6 +40,10 @@ export default function WachenPanel({ g, building, onStartBuild, sel, setSel, on
                   <span className={`st s${v.status}`}>{v.status}</span>
                   <span className="fz-name">{shortName(v, s)}</span>
                   <span className="pin" title="Auf der Karte zeigen" onClick={(e) => { e.stopPropagation(); onLocate(v.id) }}>📍</span>
+                  {/* Schnellknopf: ab Zustand unter 30 % (Pannengefahr) direkt in die Werkstatt – eigene Werkstatt auf der Wache, sonst nächste Lkw-Werkstatt */}
+                  {(v.status === 1 || v.status === 2) && v.condition < 30 && (
+                    <span className="pin werk" title={`Zustand ${Math.round(v.condition)} % – in die Werkstatt schicken`} onClick={(e) => { e.stopPropagation(); const r = sendToWorkshop(g, v.id); flash?.(r.ok ? `${v.callsign} fährt in die Werkstatt.` : r.msg) }}>🔧</span>
+                  )}
                 </div>
               ))}
             </div>

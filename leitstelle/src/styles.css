@@ -108,7 +108,7 @@ button.alarm.dispatched { border-color:#6a5a1a; background:#3d3414; color:#ffe9a
 .wache-fz { display:flex; flex-wrap:wrap; gap:4px; padding:4px 10px 6px; }
 .fz { display:flex; align-items:center; gap:4px; background:#0f1319; border:1px solid var(--line); border-radius:4px; padding:1px 6px 1px 2px; cursor:pointer; font-size:12px; }
 .fz:hover { border-color:var(--muted); } .fz.sel { border-color:var(--amber); }
-.pin { cursor:pointer; opacity:.55; font-size:12px; margin-left:2px; } .pin:hover { opacity:1; }
+.pin { cursor:pointer; opacity:.55; font-size:12px; margin-left:2px; } .pin:hover { opacity:1; } .pin.werk { opacity:1; filter:drop-shadow(0 0 3px #ffb02e); }
 .mk-veh.sel { outline:3px solid #ffd43b; box-shadow:0 0 0 8px #ffd43b55; }
 .buy-grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(150px, 1fr)); gap:6px; margin-top:4px; }
 .buy { display:flex; flex-direction:column; align-items:flex-start; text-align:left; margin:0 !important; }
