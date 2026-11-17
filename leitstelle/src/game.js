@@ -1,4 +1,5 @@
 import KLINIKEN from './data/kliniken.json'
+import ZUSATZ_STANDORTE from './data/zusatz-standorte.json'
 import WERKSTAETTEN_DATEN from './data/werkstaetten.json'
 // Reine Spiellogik (ohne React/Leaflet)
 import { INCIDENT_TYPES, ROLES, matchSlots, addNeeds, growProb, ESCALATE, maxNeeds, diffNeeds } from './stichworte.js'
@@ -1116,6 +1117,13 @@ export const loadGame = () => {
     for (const h of HOSPITALS) if (g.hospitals[h.id]?.beds == null) g.hospitals[h.id] = newHospital()
     delete g.bedTimer
     for (const v of g.vehicles) { if (v.condition == null) v.condition = 100 }
+    // Standorte aus zusatz-standorte.json (Luftrettung u. a.) können nachträglich korrigiert worden sein: gebaute Stationen und ihre Fahrzeuge auf der Wache ziehen mit
+    for (const st of g.stations) {
+      const site = ZUSATZ_STANDORTE.find((x) => x.id === st.siteId)
+      if (!site || (st.pos[0] === site.pos[0] && st.pos[1] === site.pos[1])) continue
+      for (const v of g.vehicles) if (v.stationId === st.id && v.status === 2) v.pos = [...site.pos]
+      st.pos = [...site.pos]
+    }
     for (const l of g.log || []) if (!l.kind) l.kind = logKind(l.text)
     for (const i of g.incidents) {
       i.type = INCIDENT_TYPES.find((t) => t.id === i.type.id) || i.type
