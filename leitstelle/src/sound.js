@@ -50,7 +50,7 @@ function ortsname(name) {
   return teile.length === 2 && !/^(Mitte|Nord|Ost|Süd|West|Zentrum)$/i.test(teile[1]) ? teile[1] : rest
 }
 // „Alarm für die Feuerwehr Neuhof.“ – genannt werden die alarmierten Wachen (Namen = Stationsnamen, ohne Vorsilbe „Feuerwehr“);
-// bei mehreren Wachen „Neuhof, Neuhof Giesel und Neuhof Hauswurz“, ab vier „… und weitere“. Reine Rettungsdienst-Alarmierung: „für den Rettungsdienst …“.
+// bei mehreren Wachen werden alle aufgezählt („Neuhof, Giesel und Dorfborn“). Reine Rettungsdienst-Alarmierung: „für den Rettungsdienst …“.
 export function durchsageText(stationen = []) {
   const fw = [...new Set(stationen.filter((s) => s.kind === 'FW').map((s) => ortsname(s.name)))]
   const rd = [...new Set(stationen.filter((s) => s.kind !== 'FW' && s.kind !== 'LR').map((s) => s.name))]
