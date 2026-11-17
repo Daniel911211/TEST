@@ -1,0 +1,1235 @@
+[
+ {
+  "kind": "FW",
+  "id": "n2264611072",
+  "name": "1 Am Thalaubach Thalau",
+  "pos": [
+   50.43757,
+   9.77602
+  ]
+ },
+ {
+  "kind": "FW",
+  "id": "w994869606",
+  "name": "1 Haselstraße Großenbach",
+  "pos": [
+   50.68671,
+   9.80063
+  ]
+ },
+ {
+  "kind": "FW",
+  "id": "w775471891",
+  "name": "1 Kirchweg Rimmels",
+  "pos": [
+   50.62976,
+   9.82334
+  ]
+ },
+ {
+  "kind": "FW",
+  "id": "w144435013",
+  "name": "1 Schlichtweg Brand",
+  "pos": [
+   50.52883,
+   9.95653
+  ]
+ },
+ {
+  "kind": "FW",
+  "id": "n9734588352",
+  "name": "10 Höhenstraße Schweben",
+  "pos": [
+   50.42602,
+   9.60134
+  ]
+ },
+ {
+  "kind": "FW",
+  "id": "w171686807",
+  "name": "11a Heubacher Straße Uttrichshausen",
+  "pos": [
+   50.41082,
+   9.72979
+  ]
+ },
+ {
+  "kind": "FW",
+  "id": "w115961666",
+  "name": "11a Oberroder Straße Oberrode",
+  "pos": [
+   50.54008,
+   9.59122
+  ]
+ },
+ {
+  "kind": "FW",
+  "id": "n10224215221",
+  "name": "12 Jahnstraße Großentaft",
+  "pos": [
+   50.74574,
+   9.86476
+  ]
+ },
+ {
+  "kind": "FW",
+  "id": "n472987547",
+  "name": "16 Oberstork Stork",
+  "pos": [
+   50.41956,
+   9.48786
+  ]
+ },
+ {
+  "kind": "FW",
+  "id": "w371454627",
+  "name": "16 Rommers Sparbrod",
+  "pos": [
+   50.43088,
+   9.8919
+  ]
+ },
+ {
+  "kind": "FW",
+  "id": "w719961172",
+  "name": "16 Schwarzbacher Straße Kermes",
+  "pos": [
+   50.62111,
+   9.90165
+  ]
+ },
+ {
+  "kind": "FW",
+  "id": "w163983468",
+  "name": "16 Sebastianstraße Rudolphshan",
+  "pos": [
+   50.66349,
+   9.69948
+  ]
+ },
+ {
+  "kind": "FW",
+  "id": "n9759835672",
+  "name": "17 Hauptstraße Niederbieber",
+  "pos": [
+   50.58018,
+   9.80239
+  ]
+ },
+ {
+  "kind": "FW",
+  "id": "w406144440",
+  "name": "2 Dorfplatz Almendorf",
+  "pos": [
+   50.57649,
+   9.74655
+  ]
+ },
+ {
+  "kind": "FW",
+  "id": "n3688321048",
+  "name": "2 Hauseller Welkers",
+  "pos": [
+   50.47911,
+   9.72209
+  ]
+ },
+ {
+  "kind": "FW",
+  "id": "n6062337361",
+  "name": "2 Oberwiesenweg Brandlos",
+  "pos": [
+   50.48368,
+   9.48144
+  ]
+ },
+ {
+  "kind": "FW",
+  "id": "w178550566",
+  "name": "26a Sandberg Gersfeld (Rhön)",
+  "pos": [
+   50.45815,
+   9.9449
+  ]
+ },
+ {
+  "kind": "FW",
+  "id": "w585286507",
+  "name": "3 Bachstraße Mittelaschenbach",
+  "pos": [
+   50.646,
+   9.85968
+  ]
+ },
+ {
+  "kind": "FW",
+  "id": "w370461178",
+  "name": "3 Nallenweg Altenfeld",
+  "pos": [
+   50.45238,
+   9.84759
+  ]
+ },
+ {
+  "kind": "FW",
+  "id": "w101928387",
+  "name": "3a Georg-Otterbein-Straße Müs",
+  "pos": [
+   50.58989,
+   9.50558
+  ]
+ },
+ {
+  "kind": "FW",
+  "id": "w107241471",
+  "name": "4 Mittelstraße Blankenau",
+  "pos": [
+   50.54286,
+   9.47026
+  ]
+ },
+ {
+  "kind": "FW",
+  "id": "w370621598",
+  "name": "40 Maiersbach Rendelmühle",
+  "pos": [
+   50.45953,
+   9.90334
+  ]
+ },
+ {
+  "kind": "FW",
+  "id": "w133890375",
+  "name": "5 Enzianstraße Kämmerzell",
+  "pos": [
+   50.60074,
+   9.64301
+  ]
+ },
+ {
+  "kind": "FW",
+  "id": "w123962619",
+  "name": "5 Untergasse Buchenrod",
+  "pos": [
+   50.4473,
+   9.50882
+  ]
+ },
+ {
+  "kind": "FW",
+  "id": "w701333120",
+  "name": "5 Ölgasse Rückers",
+  "pos": [
+   50.64496,
+   9.74281
+  ]
+ },
+ {
+  "kind": "FW",
+  "id": "n9755584650",
+  "name": "6 Steinhecken Eichenwinden",
+  "pos": [
+   50.51663,
+   9.86793
+  ]
+ },
+ {
+  "kind": "FW",
+  "id": "w126253725",
+  "name": "7 Am Berg Schwarzbach",
+  "pos": [
+   50.60739,
+   9.90492
+  ]
+ },
+ {
+  "kind": "FW",
+  "id": "w108382397",
+  "name": "8 Bergstraße Hainzell",
+  "pos": [
+   50.53865,
+   9.49559
+  ]
+ },
+ {
+  "kind": "FW",
+  "id": "n10856400849",
+  "name": "8b Schlitzer Straße Langenschwarz",
+  "pos": [
+   50.71583,
+   9.62979
+  ]
+ },
+ {
+  "kind": "FW",
+  "id": "n9186826819",
+  "name": "9 Rhönstraße Großentaft",
+  "pos": [
+   50.74307,
+   9.85127
+  ]
+ },
+ {
+  "kind": "FW",
+  "id": "n726830435",
+  "name": "Abt-Hadamar-Straße Gläserzell Fulda",
+  "pos": [
+   50.58056,
+   9.64655
+  ]
+ },
+ {
+  "kind": "FW",
+  "id": "w279648882",
+  "name": "Am Gerätehaus Gersrod Schletzenhausen",
+  "pos": [
+   50.51923,
+   9.49027
+  ]
+ },
+ {
+  "kind": "FW",
+  "id": "w609378663",
+  "name": "Bergstraße Schlotzau Burghaun",
+  "pos": [
+   50.6902,
+   9.64464
+  ]
+ },
+ {
+  "kind": "FW",
+  "id": "w779257039",
+  "name": "FFw Grüsselbach",
+  "pos": [
+   50.74075,
+   9.92448
+  ]
+ },
+ {
+  "kind": "FW",
+  "id": "n9773111046",
+  "name": "FFw Günthers",
+  "pos": [
+   50.66195,
+   9.99424
+  ]
+ },
+ {
+  "kind": "FW",
+  "id": "n2465019459",
+  "name": "Feuerwache",
+  "pos": [
+   50.7309,
+   9.80162
+  ]
+ },
+ {
+  "kind": "FW",
+  "id": "w403050231",
+  "name": "Feuerwehr Allmus",
+  "pos": [
+   50.59435,
+   9.81587
+  ]
+ },
+ {
+  "kind": "FW",
+  "id": "w361327989",
+  "name": "Feuerwehr Altenhof",
+  "pos": [
+   50.43145,
+   9.76799
+  ]
+ },
+ {
+  "kind": "FW",
+  "id": "w100192379",
+  "name": "Feuerwehr Bad Salzschlirf",
+  "pos": [
+   50.6272,
+   9.5052
+  ]
+ },
+ {
+  "kind": "FW",
+  "id": "w153789375",
+  "name": "Feuerwehr Burghaun",
+  "pos": [
+   50.69905,
+   9.72876
+  ]
+ },
+ {
+  "kind": "FW",
+  "id": "n12905567443",
+  "name": "Feuerwehr Fulda-Haimbach/Rodges",
+  "pos": [
+   50.54775,
+   9.6256
+  ]
+ },
+ {
+  "kind": "FW",
+  "id": "w108770369",
+  "name": "Feuerwehr Großenlüder",
+  "pos": [
+   50.58674,
+   9.54105
+  ]
+ },
+ {
+  "kind": "FW",
+  "id": "n1296839389",
+  "name": "Feuerwehr Hofbieber",
+  "pos": [
+   50.58287,
+   9.8379
+  ]
+ },
+ {
+  "kind": "FW",
+  "id": "w91251429",
+  "name": "Feuerwehr Hünfeld",
+  "pos": [
+   50.67193,
+   9.7701
+  ]
+ },
+ {
+  "kind": "FW",
+  "id": "w55890250",
+  "name": "Feuerwehr Istergiesel",
+  "pos": [
+   50.51664,
+   9.60711
+  ]
+ },
+ {
+  "kind": "FW",
+  "id": "w235152963",
+  "name": "Feuerwehr Kerzell",
+  "pos": [
+   50.48638,
+   9.67598
+  ]
+ },
+ {
+  "kind": "FW",
+  "id": "n1798044303",
+  "name": "Feuerwehr Langenbieber",
+  "pos": [
+   50.5741,
+   9.83328
+  ]
+ },
+ {
+  "kind": "FW",
+  "id": "n10760786030",
+  "name": "Feuerwehr Lütter",
+  "pos": [
+   50.47762,
+   9.75376
+  ]
+ },
+ {
+  "kind": "FW",
+  "id": "w426713313",
+  "name": "Feuerwehr Neuhof",
+  "pos": [
+   50.45352,
+   9.61217
+  ]
+ },
+ {
+  "kind": "FW",
+  "id": "w116447050",
+  "name": "Feuerwehr Neuhof Giesel",
+  "pos": [
+   50.50365,
+   9.56787
+  ]
+ },
+ {
+  "kind": "FW",
+  "id": "w808227950",
+  "name": "Feuerwehr Neuhof Hauswurz",
+  "pos": [
+   50.46301,
+   9.47266
+  ]
+ },
+ {
+  "kind": "FW",
+  "id": "w367058616",
+  "name": "Feuerwehr Neuhof Rommerz",
+  "pos": [
+   50.44877,
+   9.5793
+  ]
+ },
+ {
+  "kind": "FW",
+  "id": "w1569059862",
+  "name": "Feuerwehr Neuhof-Dorfborn",
+  "pos": [
+   50.46651,
+   9.63074
+  ]
+ },
+ {
+  "kind": "FW",
+  "id": "w268013055",
+  "name": "Feuerwehr Neuhof-Hattenhof",
+  "pos": [
+   50.46672,
+   9.67241
+  ]
+ },
+ {
+  "kind": "FW",
+  "id": "w386112972",
+  "name": "Feuerwehr Poppenhausen",
+  "pos": [
+   50.49043,
+   9.87131
+  ]
+ },
+ {
+  "kind": "FW",
+  "id": "w157260378",
+  "name": "Feuerwehr Rodenbach",
+  "pos": [
+   50.43589,
+   9.93049
+  ]
+ },
+ {
+  "kind": "FW",
+  "id": "w195781192",
+  "name": "Feuerwehr Steinhaus",
+  "pos": [
+   50.59558,
+   9.74601
+  ]
+ },
+ {
+  "kind": "FW",
+  "id": "w1201726626",
+  "name": "Feuerwehr Stützpunkt Fulda Nord",
+  "pos": [
+   50.56717,
+   9.68941
+  ]
+ },
+ {
+  "kind": "FW",
+  "id": "n9743137651",
+  "name": "Feuerwehr Wolferts Finkenhain",
+  "pos": [
+   50.53728,
+   9.86184
+  ]
+ },
+ {
+  "kind": "FW",
+  "id": "w375030913",
+  "name": "Feuerwehrgerätehaus",
+  "pos": [
+   50.40482,
+   9.67852
+  ]
+ },
+ {
+  "kind": "FW",
+  "id": "w372976934",
+  "name": "Feuerwehrhaus",
+  "pos": [
+   50.42407,
+   9.64469
+  ]
+ },
+ {
+  "kind": "FW",
+  "id": "w115785148",
+  "name": "Feuerwehrhaus Bimbach",
+  "pos": [
+   50.57436,
+   9.57419
+  ]
+ },
+ {
+  "kind": "FW",
+  "id": "w138392787",
+  "name": "Feuerwehrhaus Harmerz",
+  "pos": [
+   50.5162,
+   9.65284
+  ]
+ },
+ {
+  "kind": "FW",
+  "id": "n3926786413",
+  "name": "Feuerwehrhaus Reulbach",
+  "pos": [
+   50.51884,
+   9.96783
+  ]
+ },
+ {
+  "kind": "FW",
+  "id": "n1105633614",
+  "name": "Ffw Setzelbach",
+  "pos": [
+   50.69265,
+   9.90745
+  ]
+ },
+ {
+  "kind": "FW",
+  "id": "n10856177476",
+  "name": "Forsthausstraße Rothenkirchen Burghaun",
+  "pos": [
+   50.72235,
+   9.70565
+  ]
+ },
+ {
+  "kind": "FW",
+  "id": "n4478515169",
+  "name": "Freiwillige Feuerwehr Abtsroda",
+  "pos": [
+   50.50759,
+   9.92198
+  ]
+ },
+ {
+  "kind": "FW",
+  "id": "n9742989332",
+  "name": "Freiwillige Feuerwehr Armenhof",
+  "pos": [
+   50.56214,
+   9.78799
+  ]
+ },
+ {
+  "kind": "FW",
+  "id": "w269564115",
+  "name": "Freiwillige Feuerwehr Bernhards",
+  "pos": [
+   50.60182,
+   9.72495
+  ]
+ },
+ {
+  "kind": "FW",
+  "id": "n9256353399",
+  "name": "Freiwillige Feuerwehr Büchenberg",
+  "pos": [
+   50.43296,
+   9.7098
+  ]
+ },
+ {
+  "kind": "FW",
+  "id": "n2027175420",
+  "name": "Freiwillige Feuerwehr Dalherda",
+  "pos": [
+   50.41687,
+   9.82749
+  ]
+ },
+ {
+  "kind": "FW",
+  "id": "n13797322302",
+  "name": "Freiwillige Feuerwehr Dietershausen",
+  "pos": [
+   50.50295,
+   9.79649
+  ]
+ },
+ {
+  "kind": "FW",
+  "id": "n1810911062",
+  "name": "Freiwillige Feuerwehr Dipperz",
+  "pos": [
+   50.5424,
+   9.80206
+  ]
+ },
+ {
+  "kind": "FW",
+  "id": "w166470264",
+  "name": "Freiwillige Feuerwehr Dirlos",
+  "pos": [
+   50.52395,
+   9.74903
+  ]
+ },
+ {
+  "kind": "FW",
+  "id": "w369577355",
+  "name": "Freiwillige Feuerwehr Ebersburg-Ried",
+  "pos": [
+   50.46003,
+   9.76983
+  ]
+ },
+ {
+  "kind": "FW",
+  "id": "n861332452",
+  "name": "Freiwillige Feuerwehr Eckweisbach-Liebhards-Unterbernhards",
+  "pos": [
+   50.5659,
+   9.95054
+  ]
+ },
+ {
+  "kind": "FW",
+  "id": "n442018138",
+  "name": "Freiwillige Feuerwehr Eichenzell",
+  "pos": [
+   50.49236,
+   9.69951
+  ]
+ },
+ {
+  "kind": "FW",
+  "id": "n2461572670",
+  "name": "Freiwillige Feuerwehr Engelhelms",
+  "pos": [
+   50.51872,
+   9.70757
+  ]
+ },
+ {
+  "kind": "FW",
+  "id": "w222754118",
+  "name": "Freiwillige Feuerwehr Flieden",
+  "pos": [
+   50.42865,
+   9.55936
+  ]
+ },
+ {
+  "kind": "FW",
+  "id": "n4137958794",
+  "name": "Freiwillige Feuerwehr Gackenhof",
+  "pos": [
+   50.47639,
+   9.87092
+  ]
+ },
+ {
+  "kind": "FW",
+  "id": "n950346606",
+  "name": "Freiwillige Feuerwehr Gersfeld",
+  "pos": [
+   50.45003,
+   9.91627
+  ]
+ },
+ {
+  "kind": "FW",
+  "id": "w250062003",
+  "name": "Freiwillige Feuerwehr Hettenhausen",
+  "pos": [
+   50.44878,
+   9.81165
+  ]
+ },
+ {
+  "kind": "FW",
+  "id": "w375757264",
+  "name": "Freiwillige Feuerwehr Heubach",
+  "pos": [
+   50.38172,
+   9.71844
+  ]
+ },
+ {
+  "kind": "FW",
+  "id": "w198278603",
+  "name": "Freiwillige Feuerwehr Hilders-Dietges",
+  "pos": [
+   50.53032,
+   9.93096
+  ]
+ },
+ {
+  "kind": "FW",
+  "id": "w770886056",
+  "name": "Freiwillige Feuerwehr Hilders-Mitte",
+  "pos": [
+   50.57471,
+   9.99804
+  ]
+ },
+ {
+  "kind": "FW",
+  "id": "n9779870646",
+  "name": "Freiwillige Feuerwehr Hilders-Wickers",
+  "pos": [
+   50.54256,
+   9.98747
+  ]
+ },
+ {
+  "kind": "FW",
+  "id": "w171489917",
+  "name": "Freiwillige Feuerwehr Hofaschenbach",
+  "pos": [
+   50.63168,
+   9.84598
+  ]
+ },
+ {
+  "kind": "FW",
+  "id": "w89715558",
+  "name": "Freiwillige Feuerwehr Jossa",
+  "pos": [
+   50.48903,
+   9.45067
+  ]
+ },
+ {
+  "kind": "FW",
+  "id": "n1231573318",
+  "name": "Freiwillige Feuerwehr Keulos",
+  "pos": [
+   50.5388,
+   9.73644
+  ]
+ },
+ {
+  "kind": "FW",
+  "id": "w108260111",
+  "name": "Freiwillige Feuerwehr Kleinlüder",
+  "pos": [
+   50.55211,
+   9.51297
+  ]
+ },
+ {
+  "kind": "FW",
+  "id": "w124177114",
+  "name": "Freiwillige Feuerwehr Künzell-Bachrain",
+  "pos": [
+   50.53623,
+   9.71873
+  ]
+ },
+ {
+  "kind": "FW",
+  "id": "n926804621",
+  "name": "Freiwillige Feuerwehr Leibolz",
+  "pos": [
+   50.7536,
+   9.82243
+  ]
+ },
+ {
+  "kind": "FW",
+  "id": "n1809407474",
+  "name": "Freiwillige Feuerwehr Lütterz",
+  "pos": [
+   50.59486,
+   9.59606
+  ]
+ },
+ {
+  "kind": "FW",
+  "id": "n928283925",
+  "name": "Freiwillige Feuerwehr Mackenzell",
+  "pos": [
+   50.6557,
+   9.78582
+  ]
+ },
+ {
+  "kind": "FW",
+  "id": "w103556454",
+  "name": "Freiwillige Feuerwehr Magdlos",
+  "pos": [
+   50.42688,
+   9.5162
+  ]
+ },
+ {
+  "kind": "FW",
+  "id": "w416462093",
+  "name": "Freiwillige Feuerwehr Marbach",
+  "pos": [
+   50.62167,
+   9.72086
+  ]
+ },
+ {
+  "kind": "FW",
+  "id": "n9081567780",
+  "name": "Freiwillige Feuerwehr Michelsrombach",
+  "pos": [
+   50.66088,
+   9.66473
+  ]
+ },
+ {
+  "kind": "FW",
+  "id": "n1889628107",
+  "name": "Freiwillige Feuerwehr Molzbach",
+  "pos": [
+   50.66741,
+   9.7987
+  ]
+ },
+ {
+  "kind": "FW",
+  "id": "n2421581616",
+  "name": "Freiwillige Feuerwehr Neuschwambach",
+  "pos": [
+   50.61179,
+   9.98552
+  ]
+ },
+ {
+  "kind": "FW",
+  "id": "n439217946",
+  "name": "Freiwillige Feuerwehr Niederkalbach",
+  "pos": [
+   50.43805,
+   9.64322
+  ]
+ },
+ {
+  "kind": "FW",
+  "id": "n329990629",
+  "name": "Freiwillige Feuerwehr Obernüst",
+  "pos": [
+   50.61672,
+   9.93727
+  ]
+ },
+ {
+  "kind": "FW",
+  "id": "w140304155",
+  "name": "Freiwillige Feuerwehr Petersberg-Mitte",
+  "pos": [
+   50.55604,
+   9.71823
+  ]
+ },
+ {
+  "kind": "FW",
+  "id": "n5524925440",
+  "name": "Freiwillige Feuerwehr Pilgerzell",
+  "pos": [
+   50.52662,
+   9.7314
+  ]
+ },
+ {
+  "kind": "FW",
+  "id": "w197152114",
+  "name": "Freiwillige Feuerwehr Rasdorf",
+  "pos": [
+   50.71545,
+   9.90293
+  ]
+ },
+ {
+  "kind": "FW",
+  "id": "w394697588",
+  "name": "Freiwillige Feuerwehr Roßbach",
+  "pos": [
+   50.70825,
+   9.77347
+  ]
+ },
+ {
+  "kind": "FW",
+  "id": "w343004516",
+  "name": "Freiwillige Feuerwehr Rückers",
+  "pos": [
+   50.40659,
+   9.57727
+  ]
+ },
+ {
+  "kind": "FW",
+  "id": "n1781956142",
+  "name": "Freiwillige Feuerwehr Sargenzell",
+  "pos": [
+   50.66289,
+   9.73955
+  ]
+ },
+ {
+  "kind": "FW",
+  "id": "w370766396",
+  "name": "Freiwillige Feuerwehr Schachen",
+  "pos": [
+   50.46445,
+   9.91861
+  ]
+ },
+ {
+  "kind": "FW",
+  "id": "n1720827594",
+  "name": "Freiwillige Feuerwehr Steinau",
+  "pos": [
+   50.59422,
+   9.73609
+  ]
+ },
+ {
+  "kind": "FW",
+  "id": "w206271787",
+  "name": "Freiwillige Feuerwehr Steinbach",
+  "pos": [
+   50.72979,
+   9.7346
+  ]
+ },
+ {
+  "kind": "FW",
+  "id": "n11932776378",
+  "name": "Freiwillige Feuerwehr Veitsteinbach",
+  "pos": [
+   50.38813,
+   9.64522
+  ]
+ },
+ {
+  "kind": "FW",
+  "id": "n1993712356",
+  "name": "Freiwillige Feuerwehr Wheyers",
+  "pos": [
+   50.4897,
+   9.8017
+  ]
+ },
+ {
+  "kind": "FW",
+  "id": "n13373701155",
+  "name": "Freiwillige Feuerwehr Wissels",
+  "pos": [
+   50.54492,
+   9.75781
+  ]
+ },
+ {
+  "kind": "FW",
+  "id": "w444996632",
+  "name": "Fulda-Ost",
+  "pos": [
+   50.52685,
+   9.67963
+  ]
+ },
+ {
+  "kind": "FW",
+  "id": "n10895733044",
+  "name": "Georgstraße Neuwirtshaus Kirchhasel",
+  "pos": [
+   50.70008,
+   9.80498
+  ]
+ },
+ {
+  "kind": "FW",
+  "id": "n10895612541",
+  "name": "Georgstraße Stendorf Kirchhasel",
+  "pos": [
+   50.70233,
+   9.79852
+  ]
+ },
+ {
+  "kind": "FW",
+  "id": "w1279855172",
+  "name": "Hauptfeuerwache Fulda",
+  "pos": [
+   50.54738,
+   9.66411
+  ]
+ },
+ {
+  "kind": "FW",
+  "id": "n559373931",
+  "name": "Herrleinweg Hosenfeld Landkreis Fulda",
+  "pos": [
+   50.50285,
+   9.47976
+  ]
+ },
+ {
+  "kind": "FW",
+  "id": "n9758175173",
+  "name": "Paul-Klüber-Straße Karhof Kleinsassen",
+  "pos": [
+   50.55063,
+   9.87479
+  ]
+ },
+ {
+  "kind": "FW",
+  "id": "n4426235468",
+  "name": "Pestalozzistraße Schmalnau Ebersburg",
+  "pos": [
+   50.45139,
+   9.78983
+  ]
+ },
+ {
+  "kind": "FW",
+  "id": "n4866129786",
+  "name": "Sebastianstraße Uffhausen Großenlüder",
+  "pos": [
+   50.57937,
+   9.5299
+  ]
+ },
+ {
+  "kind": "FW",
+  "id": "w102614639",
+  "name": "Spretzehuis",
+  "pos": [
+   50.60741,
+   9.61915
+  ]
+ },
+ {
+  "kind": "FW",
+  "id": "n10743488941",
+  "name": "Theo-Gutberlet-Weg Margretenhaun Böckels",
+  "pos": [
+   50.56703,
+   9.76387
+  ]
+ },
+ {
+  "kind": "FW",
+  "id": "w588519257",
+  "name": "Thüringer Straße Meerswinden Neuswarts",
+  "pos": [
+   50.65696,
+   9.97256
+  ]
+ },
+ {
+  "kind": "FW",
+  "id": "n10751082222",
+  "name": "Zum Schulzenberg Maberzell Fulda",
+  "pos": [
+   50.55984,
+   9.63381
+  ]
+ },
+ {
+  "kind": "FW",
+  "id": "n550197319",
+  "name": "Zum Wiesental Malkes Fulda",
+  "pos": [
+   50.55895,
+   9.58336
+  ]
+ },
+ {
+  "kind": "RW",
+  "id": "w179088551",
+  "name": "9 Peter-Seifert-Straße Gersfeld",
+  "pos": [
+   50.44802,
+   9.92032
+  ]
+ },
+ {
+  "kind": "RW",
+  "id": "w120919853",
+  "name": "MHD Rettungswache Petersberg",
+  "pos": [
+   50.55623,
+   9.72531
+  ]
+ },
+ {
+  "kind": "RW",
+  "id": "w804863338",
+  "name": "Malteser Rettungswache Dietges",
+  "pos": [
+   50.53073,
+   9.9303
+  ]
+ },
+ {
+  "kind": "RW",
+  "id": "w620212335",
+  "name": "Malteser Rettungswache Hofbieber",
+  "pos": [
+   50.59093,
+   9.83681
+  ]
+ },
+ {
+  "kind": "RW",
+  "id": "w655254844",
+  "name": "Notarztwache Hünefeld",
+  "pos": [
+   50.6629,
+   9.76775
+  ]
+ },
+ {
+  "kind": "RW",
+  "id": "n11880859285",
+  "name": "Rettungswache Fulda",
+  "pos": [
+   50.54492,
+   9.6647
+  ]
+ },
+ {
+  "kind": "RW",
+  "id": "w1172418942",
+  "name": "Rettungswache Hünfeld",
+  "pos": [
+   50.68539,
+   9.75746
+  ]
+ },
+ {
+  "kind": "RW",
+  "id": "n2506816584",
+  "name": "Rettungswache Klinikum Fulda",
+  "pos": [
+   50.54605,
+   9.70518
+  ]
+ },
+ {
+  "kind": "RW",
+  "id": "n11880856294",
+  "name": "Rettungswache Leibolz",
+  "pos": [
+   50.75357,
+   9.82236
+  ]
+ },
+ {
+  "kind": "RW",
+  "id": "w1160742605",
+  "name": "Rettungswache Lütter (DRK)",
+  "pos": [
+   50.47729,
+   9.75124
+  ]
+ },
+ {
+  "kind": "RW",
+  "id": "w1313457784",
+  "name": "Rettungswache Neuhof",
+  "pos": [
+   50.44485,
+   9.62575
+  ]
+ }
+]

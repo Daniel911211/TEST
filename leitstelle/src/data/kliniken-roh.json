@@ -1,0 +1,65 @@
+[
+ {
+  "kind": "KH",
+  "id": "w153958686",
+  "name": "Fachklinik Neue Rhön",
+  "pos": [
+   50.68701,
+   9.688
+  ]
+ },
+ {
+  "kind": "KH",
+  "id": "w892200848",
+  "name": "Helios St. Elisabeth Klinik Hünfeld",
+  "pos": [
+   50.66287,
+   9.76659
+  ]
+ },
+ {
+  "kind": "KH",
+  "id": "w892211290",
+  "name": "Herz-Jesu-Krankenhaus Fulda",
+  "pos": [
+   50.5634,
+   9.67327
+  ]
+ },
+ {
+  "kind": "KH",
+  "id": "n11176945488",
+  "name": "KJP Tokmak - Kinder- und Jugendpsychiatrie und -psychotherapie",
+  "pos": [
+   50.5396,
+   9.71405
+  ]
+ },
+ {
+  "kind": "KH",
+  "id": "n1783333121",
+  "name": "Krankenhausapotheke DRK Eichenzell",
+  "pos": [
+   50.49315,
+   9.69952
+  ]
+ },
+ {
+  "kind": "KH",
+  "id": "w892213679",
+  "name": "Rhön Klinik Gersfeld",
+  "pos": [
+   50.45655,
+   9.91858
+  ]
+ },
+ {
+  "kind": "KH",
+  "id": "n13722524673",
+  "name": "Zentrale Notaufnahme",
+  "pos": [
+   50.54669,
+   9.70493
+  ]
+ }
+]

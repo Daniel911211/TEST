@@ -1,0 +1,46 @@
+[
+  {
+    "kind": "RW",
+    "id": "x-flieden",
+    "name": "Rettungswache Flieden (DRK, Übergang Im Weiher)",
+    "pos": [
+      50.42665,
+      9.55503
+    ],
+    "approx": true,
+    "note": "Übergangswache nahe Sportplatz 'Im Weiher' (Straßenmitte per Nominatim); endgültiger Standort im Königreich geplant Sommer 2027."
+  },
+  {
+    "kind": "RW",
+    "id": "x-hosenfeld",
+    "name": "Rettungswache Hosenfeld (Malteser, Herrleinweg 1A)",
+    "pos": [
+      50.50261,
+      9.4815
+    ],
+    "approx": false,
+    "note": "Seit 1. Januar 2026 in Betrieb am Standort der Feuerwehr Hosenfeld, Herrleinweg 1A. Position = Straßenmitte per Nominatim."
+  },
+  {
+    "kind": "RW",
+    "id": "x-grossenlueder",
+    "name": "Rettungswache Großenlüder (Malteser, An der Lüder 14)",
+    "pos": [
+      50.55237,
+      9.5133
+    ],
+    "approx": false,
+    "note": "Adresse An der Lüder 14, 36137 Großenlüder (Hausnummer per Nominatim gefunden)."
+  },
+  {
+    "kind": "LR",
+    "id": "x-christoph28",
+    "name": "Luftrettungszentrum Christoph 28 (Klinikum Fulda)",
+    "pos": [
+      50.54601,
+      9.70462
+    ],
+    "approx": false,
+    "note": "Hubschrauberlandeplatz am Klinikum Fulda (OSM-Helipad am Gebäude, Christoph 28). Nur hier baubar, einmalig."
+  }
+]
