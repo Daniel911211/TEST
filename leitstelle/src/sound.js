@@ -49,14 +49,14 @@ function ortsname(name) {
   const teile = rest.split(/[\s-]+/)
   return teile.length === 2 && !/^(Mitte|Nord|Ost|Süd|West|Zentrum)$/i.test(teile[1]) ? teile[1] : rest
 }
-// „Alarm für die Feuerwehr Neuhof. Einsatzbereitschaft herstellen.“ – genannt werden die alarmierten Wachen (Namen = Stationsnamen, ohne Vorsilbe „Feuerwehr“);
+// „Alarm für die Feuerwehr Neuhof.“ – genannt werden die alarmierten Wachen (Namen = Stationsnamen, ohne Vorsilbe „Feuerwehr“);
 // bei mehreren Wachen „Neuhof, Neuhof Giesel und Neuhof Hauswurz“, ab vier „… und weitere“. Reine Rettungsdienst-Alarmierung: „für den Rettungsdienst …“.
 export function durchsageText(stationen = []) {
   const fw = [...new Set(stationen.filter((s) => s.kind === 'FW').map((s) => ortsname(s.name)))]
   const rd = [...new Set(stationen.filter((s) => s.kind !== 'FW' && s.kind !== 'LR').map((s) => s.name))]
   const nenne = (l) => (l.length > 3 ? `${l.slice(0, 3).join(', ')} und weitere` : l.length > 1 ? `${l.slice(0, -1).join(', ')} und ${l[l.length - 1]}` : l[0])
   const wer = fw.length ? `die Feuerwehr ${nenne(fw)}` : rd.length ? `den Rettungsdienst ${nenne(rd)}` : 'die Feuerwehr'
-  return `Alarm für ${wer}. Einsatzbereitschaft herstellen.`
+  return `Alarm für ${wer}.`
 }
 // Deutsche Stimme: bevorzugt eine natürliche (Online-/Google-/Microsoft-Stimme), sonst die erste deutsche
 function stimme() {
