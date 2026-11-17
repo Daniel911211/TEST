@@ -42,10 +42,17 @@ export const alarmPlaying = () => !!current && !current.paused
 // --- Durchsage (Sprachausgabe) ---
 const sprache = typeof window !== 'undefined' && 'speechSynthesis' in window ? window.speechSynthesis : null
 if (sprache) sprache.getVoices() // Stimmenliste früh anfordern (Chrome liefert sie erst asynchron)
+// Wehrname für die Durchsage: „Feuerwehr Neuhof Giesel“ / „Neuhof-Giesel“ → „Giesel“ (nur der Ortsteil), „Feuerwehr Neuhof“ → „Neuhof“.
+// Nur bei genau zwei Namensteilen; Zusätze wie Mitte/Nord bleiben beim Ort („Hilders Mitte“).
+function ortsname(name) {
+  const rest = name.replace(/^(Freiwillige )?Feuerwehr[\s-]*/i, '').trim()
+  const teile = rest.split(/[\s-]+/)
+  return teile.length === 2 && !/^(Mitte|Nord|Ost|Süd|West|Zentrum)$/i.test(teile[1]) ? teile[1] : rest
+}
 // „Alarm für die Feuerwehr Neuhof. Einsatzbereitschaft herstellen.“ – genannt werden die alarmierten Wachen (Namen = Stationsnamen, ohne Vorsilbe „Feuerwehr“);
 // bei mehreren Wachen „Neuhof, Neuhof Giesel und Neuhof Hauswurz“, ab vier „… und weitere“. Reine Rettungsdienst-Alarmierung: „für den Rettungsdienst …“.
 export function durchsageText(stationen = []) {
-  const fw = [...new Set(stationen.filter((s) => s.kind === 'FW').map((s) => s.name.replace(/^(Freiwillige )?Feuerwehr[\s-]*/i, '').trim()))]
+  const fw = [...new Set(stationen.filter((s) => s.kind === 'FW').map((s) => ortsname(s.name)))]
   const rd = [...new Set(stationen.filter((s) => s.kind !== 'FW' && s.kind !== 'LR').map((s) => s.name))]
   const nenne = (l) => (l.length > 3 ? `${l.slice(0, 3).join(', ')} und weitere` : l.length > 1 ? `${l.slice(0, -1).join(', ')} und ${l[l.length - 1]}` : l[0])
   const wer = fw.length ? `die Feuerwehr ${nenne(fw)}` : rd.length ? `den Rettungsdienst ${nenne(rd)}` : 'die Feuerwehr'
