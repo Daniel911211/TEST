@@ -103,8 +103,9 @@ export default function MapView({ game, sites, selected, focus, buildMode, build
       }), (mk, v) => {
         const ll = mk.getLatLng()
         if (ll.lat !== v.pos[0] || ll.lng !== v.pos[1]) mk.setLatLng(v.pos)
-        const cls = `mk mk-veh t-${VEHICLE_TYPES[v.type].kind}${v.status === 6 ? ' s6' : ''}${focus?.vehicleId === v.id ? ' sel' : ''}`
-        setIcon(mk, `${v.status}|${cls}`, () => icon(`${v.status}`, cls, 24))
+        const luft = !!VEHICLE_TYPES[v.type].luft // Hubschrauber: Raute statt Kreis
+        const cls = `mk mk-veh t-${VEHICLE_TYPES[v.type].kind}${luft ? ' luft' : ''}${v.status === 6 ? ' s6' : ''}${focus?.vehicleId === v.id ? ' sel' : ''}`
+        setIcon(mk, `${v.status}|${cls}`, () => icon(luft ? `<span class="heli"><b>${v.status}</b></span>` : `${v.status}`, cls, luft ? 28 : 24))
         setTip(mk, `${v.callsign} · Status ${v.status}`)
       })
     // Abschleppwagen zu Pannenfahrzeugen (fährt zur Pannenstelle und schleppt das Fahrzeug zur Werkstatt)
