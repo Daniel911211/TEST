@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import Suchfeld from './Suchfeld.jsx'
 import { LOG_KINDS, logAsText, fmtClock } from '../game.js'
 import Overlay from './Overlay.jsx'
 
@@ -59,7 +60,7 @@ export default function ProtokollOverlay({ g, onClose, onOpenIncident, onOpenVeh
           <option value="alle">Alle Einsätze</option>
           {incidents.map(([id, title]) => <option key={id} value={id}>{title}{g.incidents.some((i) => i.id === id) ? '' : ' (erledigt)'}</option>)}
         </select>
-        <input className="search" placeholder="Text suchen …" value={q} onChange={(e) => { setQ(e.target.value); setLimit(PAGE) }} />
+        <Suchfeld className="proto-such" placeholder="Text suchen …" value={q} onChange={(t) => { setQ(t); setLimit(PAGE) }} />
         {active && <button className="small" onClick={reset}>Filter zurücksetzen</button>}
       </div>
       <table className="tbl proto">

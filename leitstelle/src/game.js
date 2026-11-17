@@ -380,11 +380,12 @@ export function workshopOptions(g, v) {
 }
 
 // workshopId: id einer Lkw-Werkstatt; ohne Angabe eigene Wachen-Werkstatt (falls vorhanden), sonst nächste Lkw-Werkstatt
+// Status 2 (auf der Wache): eigene oder Lkw-Werkstatt; Status 1 (einsatzbereit über Funk, unterwegs): nur Lkw-Werkstatt, Anfahrt von der aktuellen Position
 export function sendToWorkshop(g, vehicleId, workshopId = null) {
   const v = g.vehicles.find((x) => x.id === vehicleId)
-  if (!v || v.status !== 2) return { ok: false, msg: 'Fahrzeug muss auf der Wache stehen (Status 2).' }
+  if (!v || (v.status !== 1 && v.status !== 2)) return { ok: false, msg: 'Fahrzeug muss frei sein (Status 1 oder 2).' }
   if (v.condition >= 100) return { ok: false, msg: 'Fahrzeug ist in perfektem Zustand.' }
-  const own = hasOwnWorkshop(g, v)
+  const own = v.status === 2 && hasOwnWorkshop(g, v)
   if (!workshopId && own) {
     const q = repairQuote(g, v)
     if (g.money < q.cost) return { ok: false, msg: 'Nicht genug Geld.' }

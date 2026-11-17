@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import Suchfeld from './Suchfeld.jsx'
 import { ROLES, matchSlots, incidentTitle, fmtMin } from '../game.js'
 
 const needText = (need) => Object.entries(need).map(([k, n]) => `${n}× ${ROLES[k].short}`).join(', ')
@@ -12,7 +13,7 @@ export default function EinsatzPanel({ g, selectedId, onOpenIncident, onOpenSpre
   return (
     <section className="panel einsatz">
       <div className="panel-head">Einsätze <span className="count">{g.incidents.length}</span>{g.spawnPaused && <small className="red">· keine neuen Einsätze</small>}</div>
-      <div className="einsatz-such"><input className="search" placeholder="🔍 Einsätze durchsuchen …" value={q} onChange={(e) => setQ(e.target.value)} /></div>
+      <div className="einsatz-such"><Suchfeld className="voll" placeholder="🔍 Einsätze durchsuchen …" value={q} onChange={setQ} /></div>
       <div className="einsatz-liste scroll">
         {!g.incidents.length && <p className="muted pad">{g.stations.length ? 'Keine offenen Einsätze. Warte auf den nächsten Alarm …' : 'Baue zuerst eine Wache (unten links).'}</p>}
         {g.incidents.length > 0 && !list.length && <p className="muted pad">Kein Einsatz passt zur Suche.</p>}

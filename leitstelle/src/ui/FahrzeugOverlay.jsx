@@ -17,8 +17,8 @@ export default function FahrzeugOverlay({ g, vehicleId, onClose, onOpenVehicle, 
   const siblings = st ? vehiclesOf(g, st.id) : [v]
   const idx = siblings.indexOf(v)
   const go = (k) => onOpenVehicle(siblings[(idx + k + siblings.length) % siblings.length].id)
-  const q = v.status === 2 && v.condition < 100 ? repairQuote(g, v) : null
-  const own = q && hasOwnWorkshop(g, v)
+  const q = (v.status === 1 || v.status === 2) && v.condition < 100 ? repairQuote(g, v) : null // Status 1 (unterwegs, einsatzbereit) darf ebenfalls in die Lkw-Werkstatt
+  const own = q && v.status === 2 && hasOwnWorkshop(g, v)
   const [wahl, setWahl] = useState(false) // Liste der Lkw-Werkstätten aufgeklappt
   const werk = v.status === 6 && v.werkstatt ? WERKSTATT_BY_ID[v.werkstatt] : null
   const wsText = werk ? (v.wsPhase === 'fahrt' ? 'auf Anfahrt' : v.wsPhase === 'warten' ? 'wartet auf einen freien Platz' : `in Reparatur, noch ${fmtMin(v.timer)}`) : ''

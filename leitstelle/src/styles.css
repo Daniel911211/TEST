@@ -14,6 +14,13 @@ button.on { background:var(--blue); border-color:var(--blue); }
 button.spawn-off { background:#5a1a1a; border-color:#8a2a2a; color:#ffd1d1; }
 button.primary { background:var(--red); border-color:var(--red); width:100%; }
 button.small { padding:2px 7px; font-size:12px; }
+/* Suchfeld mit ×: das Außenelement liegt dort, wo vorher das Eingabefeld lag */
+.such-wrap { position:relative; display:inline-flex; align-items:center; margin-left:auto; }
+.such-wrap input.search { margin-left:0; padding-right:24px; }
+.such-wrap.voll { display:flex; margin:0; width:100%; } .such-wrap.voll input.search { width:100%; }
+.proto-filter .such-wrap { flex:1; min-width:140px; margin:0; } .proto-filter .such-wrap input.search { width:100%; }
+.such-x { position:absolute; right:3px; top:50%; transform:translateY(-50%); width:20px; height:20px; padding:0; line-height:1; border:none; background:transparent; color:var(--muted, #8b96a5); font-size:16px; cursor:pointer; border-radius:50%; }
+.such-x:hover { color:#fff; background:#ffffff22; }
 input.search { background:#0f1319; color:var(--text); border:1px solid var(--line); border-radius:6px; padding:4px 8px; font:inherit; margin-left:auto; width:150px; }
 
 /* Layout: oben Karte + Einsätze, unten drei Bereiche */

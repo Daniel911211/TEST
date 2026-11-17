@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import Suchfeld from './Suchfeld.jsx'
 import { STATION_TYPES, STATUS_TEXT } from '../game.js'
 import { vehiclesOf, stationTypeName, shortName } from './helpers.js'
 
@@ -20,7 +21,7 @@ export default function WachenPanel({ g, building, onStartBuild, sel, setSel, on
       <div className="chips">
         <button className={typ === 'alle' ? 'on' : ''} onClick={() => setTyp('alle')}>Alle</button>
         {Object.entries(STATION_TYPES).map(([k, d]) => <button key={k} className={typ === k ? 'on' : ''} onClick={() => setTyp(k)}>{d.name}</button>)}
-        <input className="search" placeholder="Wache suchen" value={q} onChange={(e) => setQ(e.target.value)} />
+        <Suchfeld placeholder="Wache suchen" value={q} onChange={setQ} />
       </div>
       <div className="scroll">
         {!g.stations.length && <p className="muted pad">Noch keine Wache. Klicke oben auf „Neues Gebäude bauen“, wähle den Typ und dann einen Standort auf der Karte.</p>}
