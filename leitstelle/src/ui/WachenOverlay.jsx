@@ -45,7 +45,7 @@ function FahrzeugeTab({ g, station, vehicles, onOpenVehicle, flash, setTab }) {
       <tbody>
         {vehicles.map((v) => {
           const inc = incidentOf(g, v)
-          const q = v.status === 2 && v.condition < 100 ? repairQuote(g, v) : null
+          const q = (v.status === 1 || v.status === 2) && v.condition < 100 ? repairQuote(g, v) : null
           return (
             <tr key={v.id} className="click" onClick={() => onOpenVehicle(v.id)}>
               <td><span className={`st s${v.status}`} title={STATUS_TEXT[v.status]}>{v.status}</span></td>
@@ -54,7 +54,7 @@ function FahrzeugeTab({ g, station, vehicles, onOpenVehicle, flash, setTab }) {
               <td className="muted">{inc ? incidentTitle(inc) : v.status === 6 ? `Werkstatt – noch ${fmtMin(v.timer)}` : '–'}</td>
               <td style={{ minWidth: 70 }}><CondBar c={v.condition} /></td>
               <td className="nowrap" onClick={(e) => e.stopPropagation()}>
-                {q && (hasOwnWorkshop(g, v)
+                {q && (v.status === 2 && hasOwnWorkshop(g, v)
                   ? <button className="small" title={`Eigene Werkstatt: ${fmtMin(q.duration)}, ${fmtMoney(q.cost)}`} onClick={() => { const r = sendToWorkshop(g, v.id); if (!r.ok) flash(r.msg) }}>Werkstatt</button>
                   : <button className="small" title="Lkw-Werkstatt im Fahrzeugfenster wählen" onClick={() => onOpenVehicle(v.id)}>Werkstatt …</button>)}
                 {v.status === 2 && <button className="small" onClick={() => sell(g, v, flash)}>Verkaufen</button>}
